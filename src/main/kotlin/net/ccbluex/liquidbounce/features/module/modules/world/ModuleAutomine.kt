@@ -8,7 +8,7 @@ import net.ccbluex.liquidbounce.utils.client.notification
 import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 import net.minecraft.world.level.block.Blocks
 
-object ModuleAutomine : ClientModule("Automine", ModuleCategories.WORLD) {
+object ModuleAutomine : ClientModule("Automine", ModuleCategories.XUAN_RIKKA) {
 
     private val blocks by blocks(
         "Blocks",

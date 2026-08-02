@@ -48,6 +48,9 @@ object ModuleCategories {
     @JvmField
     val FUN = register(ModuleCategory("Fun"))
 
+    @JvmField
+    val XUAN_RIKKA = register(ModuleCategory("XuanRikka"))
+
     @JvmStatic
     val entries: Collection<ModuleCategory> get() = registry.sequencedValues()
 

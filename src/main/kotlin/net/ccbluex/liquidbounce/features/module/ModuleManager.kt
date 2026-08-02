@@ -266,6 +266,13 @@ import net.ccbluex.liquidbounce.features.module.modules.world.nuker.ModuleNuker
 import net.ccbluex.liquidbounce.features.module.modules.world.packetmine.ModulePacketMine
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold
 import net.ccbluex.liquidbounce.features.module.modules.world.traps.ModuleAutoTrap
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaBuild
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaExplore
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaFollow
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaGoTo
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaPause
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaResume
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaStop
 import net.ccbluex.liquidbounce.script.ScriptApiRequired
 import net.ccbluex.liquidbounce.utils.client.clientStartDurationMs
 import net.ccbluex.liquidbounce.utils.client.inGame
@@ -708,6 +715,15 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleHoleFiller,
             ModuleStrongholdFinder,
             ModuleNoInterpolation,
+
+            // XuanRikka
+            ModuleRikkaBuild,
+            ModuleRikkaExplore,
+            ModuleRikkaFollow,
+            ModuleRikkaGoTo,
+            ModuleRikkaPause,
+            ModuleRikkaResume,
+            ModuleRikkaStop,
         )
 
         builtin.forEach { module ->

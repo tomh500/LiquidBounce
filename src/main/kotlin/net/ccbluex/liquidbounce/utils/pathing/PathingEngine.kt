@@ -149,5 +149,9 @@ object PathingEngine {
         primary.mineProcess.cancel()
     }
 
+    fun cancel() {
+        execute("cancel", emptyList())
+    }
+
     fun isMining(): Boolean = primary.mineProcess.isActive
 }
