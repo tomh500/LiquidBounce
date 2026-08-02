@@ -175,6 +175,9 @@ class CefBrowserBackend : BrowserBackend, EventListener {
 
                 override fun onLoadEnd(cefBrowser: org.cef.browser.CefBrowser, frame: CefFrame?, httpStatusCode: Int) {
                     updateStateForBrowser(cefBrowser, BrowserState.Success(httpStatusCode))
+                    if (frame?.isMain == true) {
+                        getBrowserByApi(cefBrowser)?.refreshAfterLoad()
+                    }
                     super.onLoadEnd(cefBrowser, frame, httpStatusCode)
                 }
 

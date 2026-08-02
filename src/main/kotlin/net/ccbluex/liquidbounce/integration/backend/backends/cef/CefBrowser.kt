@@ -179,6 +179,17 @@ class CefBrowser(
         browserApi.reloadIgnoreCache()
     }
 
+    /**
+     * Requests a fresh paint after the initial page load. CEF can otherwise keep
+     * the first frame at its provisional backing-buffer size until input arrives.
+     */
+    internal fun refreshAfterLoad() {
+        val quality = GlobalBrowserSettings.quality
+        val (scaledWidth, scaledHeight) = viewport.getScaledDimensions(quality)
+        browserApi.resize(scaledWidth, scaledHeight)
+        browserApi.clear()
+    }
+
     override fun reload() {
         browserApi.reload()
     }
