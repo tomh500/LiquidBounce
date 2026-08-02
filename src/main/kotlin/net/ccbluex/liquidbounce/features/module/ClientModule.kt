@@ -67,8 +67,8 @@ open class ClientModule(
     hide: Boolean = false // default hide
 ) : ToggleableValueGroup(null, name, state, aliases = aliases), EventListener, MinecraftShortcuts {
 
-    @Exclude
-    val categories: List<ModuleCategory> = listOf(category) + secondaryCategories.filter { it != category }
+    val categories: List<ModuleCategory>
+        get() = listOf(category) + secondaryCategories.filter { it != category }
 
     protected val logger = clientLogger("Module/$name")
 
@@ -137,8 +137,8 @@ open class ClientModule(
     final override fun onEnabledValueRegistration(value: Value<Boolean>) =
         super.onEnabledValueRegistration(value).also { value ->
             // Might not include the enabled state of the module depending on the category
-            if (ModuleCategories.MISC in categories || ModuleCategories.FUN in categories ||
-                ModuleCategories.RENDER in categories) {
+            if (category == ModuleCategories.MISC || category == ModuleCategories.FUN ||
+                category == ModuleCategories.RENDER) {
                 if (this is ModuleAntiBot) {
                     return@also
                 }

@@ -12,6 +12,8 @@ object ModuleRikkaDynamicLights : ClientModule(
     state = true,
     aliases = listOf("DynamicLights", "RikkaLights"),
 ) {
+    override val baseKey = "liquidbounce.module.rikkaDynamicLights"
+
     override fun onRegistration() {
         setEngineEnabled(enabled)
     }

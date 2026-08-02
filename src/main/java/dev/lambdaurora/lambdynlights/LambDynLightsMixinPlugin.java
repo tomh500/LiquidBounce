@@ -30,8 +30,9 @@ public class LambDynLightsMixinPlugin implements IMixinConfigPlugin {
 	private final Object2BooleanMap<String> conditionalMixins = new Object2BooleanOpenHashMap<>();
 
 	public LambDynLightsMixinPlugin() {
-		this.conditionalMixins.put("dev.lambdaurora.lambdynlights.mixin.GuiMixin", LambDynLightsConstants.isDevMode());
-		this.conditionalMixins.put("dev.lambdaurora.lambdynlights.mixin.DebugScreenOverlayMixin", LambDynLightsConstants.isDevMode());
+		// The integrated engine must not expose the upstream development watermark.
+		this.conditionalMixins.put("dev.lambdaurora.lambdynlights.mixin.GuiMixin", false);
+		this.conditionalMixins.put("dev.lambdaurora.lambdynlights.mixin.DebugScreenOverlayMixin", false);
 	}
 
 	@Override
