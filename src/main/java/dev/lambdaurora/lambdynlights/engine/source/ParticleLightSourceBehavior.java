@@ -1,0 +1,57 @@
+/*
+ * Copyright © 2025 LambdAurora <email@lambdaurora.dev>
+ *
+ * This file is part of LambDynamicLights.
+ *
+ * Licensed under the Lambda License. For more information,
+ * see the LICENSE file.
+ */
+
+package dev.lambdaurora.lambdynlights.engine.source;
+
+import dev.lambdaurora.lambdynlights.LambDynLights;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.particle.Particle;
+
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+
+/**
+ * Represents the ticking behavior of particle light sources.
+ *
+ * @author LambdAurora
+ * @version 4.11.0
+ * @since 4.4.2
+ */
+public final class ParticleLightSourceBehavior {
+	public static final AtomicInteger ID_COUNTER = new AtomicInteger(0);
+	private static final Consumer<Particle> DO_TICK_PARTICLE;
+
+	public static void tickParticle(Particle particle) {
+		DO_TICK_PARTICLE.accept(particle);
+	}
+
+	private static void doTickParticle(Particle particle) {
+		var lightSource = (EntityDynamicLightSourceBehavior) particle;
+
+		if (!particle.isAlive()) {
+			lightSource.setDynamicLightEnabled(false);
+		} else {
+			if (LambDynLights.get().canLightParticle(particle)) {
+				lightSource.dynamicLightTick();
+			} else {
+				lightSource.setLuminance(0);
+			}
+			LambDynLights.updateTracking(lightSource);
+		}
+	}
+
+	static {
+		if (FabricLoader.getInstance().isModLoaded("asyncparticles") || FabricLoader.getInstance().isModLoaded("particle_core")) {
+			DO_TICK_PARTICLE = particle -> Minecraft.getInstance().execute(() -> doTickParticle(particle));
+		} else {
+			DO_TICK_PARTICLE = ParticleLightSourceBehavior::doTickParticle;
+		}
+	}
+}

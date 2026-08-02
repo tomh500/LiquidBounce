@@ -107,6 +107,11 @@ dependencies {
     api(libs.fabric.api)
     api(libs.fabric.kotlin)
 
+    // Integrated SpruceUI and dynamic-light engine support
+    api(libs.yumi.mc.foundation)
+    implementation(libs.nightconfig.core)
+    implementation(libs.nightconfig.toml)
+
     // Mod menu
     api(libs.modmenu)
 

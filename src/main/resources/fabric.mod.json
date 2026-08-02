@@ -18,7 +18,10 @@
   "icon": "resources/liquidbounce/icon_64x64.png",
   "environment": "client",
   "entrypoints": {
-    "main": []
+    "main": [],
+    "client": [
+      "net.ccbluex.liquidbounce.integration.RikkaDynamicLightsInitializer"
+    ]
   },
   "custom": {
     "modmenu": {
@@ -29,6 +32,8 @@
   },
   "mixins": [
     "liquidbounce.mixins.json",
+    "lambdynlights.mixins.json",
+    "lambdynlights.lightsource.mixins.json",
     "liquidbounce.pathing.mixins.json"
   ],
   "depends": {

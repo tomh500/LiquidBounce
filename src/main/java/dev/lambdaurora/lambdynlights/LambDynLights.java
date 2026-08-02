@@ -1,0 +1,722 @@
+/*
+ * Copyright © 2020 LambdAurora <email@lambdaurora.dev>
+ *
+ * This file is part of LambDynamicLights.
+ *
+ * Licensed under the Lambda License. For more information,
+ * see the LICENSE file.
+ */
+
+package dev.lambdaurora.lambdynlights;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import dev.lambdaurora.lambdynlights.api.DynamicLightsContext;
+import dev.lambdaurora.lambdynlights.api.DynamicLightsInitializer;
+import dev.lambdaurora.lambdynlights.api.behavior.DynamicLightBehavior;
+import dev.lambdaurora.lambdynlights.api.behavior.DynamicLightBehaviorManager;
+import dev.lambdaurora.lambdynlights.api.entity.EntityLightSourceManager;
+import dev.lambdaurora.lambdynlights.api.item.ItemLightSourceManager;
+import dev.lambdaurora.lambdynlights.compat.CompatLayer;
+import dev.lambdaurora.lambdynlights.engine.DynamicLightBehaviorSources;
+import dev.lambdaurora.lambdynlights.engine.DynamicLightingEngine;
+import dev.lambdaurora.lambdynlights.engine.TickMode;
+import dev.lambdaurora.lambdynlights.engine.scheduler.ChunkRebuildScheduler;
+import dev.lambdaurora.lambdynlights.engine.source.DeferredDynamicLightSource;
+import dev.lambdaurora.lambdynlights.engine.source.DynamicLightSource;
+import dev.lambdaurora.lambdynlights.engine.source.EntityDynamicLightSource;
+import dev.lambdaurora.lambdynlights.engine.source.EntityDynamicLightSourceBehavior;
+import dev.lambdaurora.lambdynlights.gui.DevModeGui;
+import dev.lambdaurora.lambdynlights.platform.Platform;
+import dev.lambdaurora.lambdynlights.resource.LightSourceLoader;
+import dev.lambdaurora.lambdynlights.resource.entity.EntityLightSources;
+import dev.lambdaurora.lambdynlights.resource.item.ItemLightSources;
+import dev.lambdaurora.lambdynlights.util.*;
+import dev.lambdaurora.spruceui.SpruceTexts;
+import dev.yumi.mc.core.api.CrashReportEvents;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.debug.DebugScreenEntries;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.particle.FireflyParticle;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.SonicBoomParticle;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.util.LightCoordsUtil;
+import net.minecraft.util.profiling.Profiler;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.level.BlockAndLightGetter;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Unmodifiable;
+import org.joml.Vector3f;
+import org.jspecify.annotations.Nullable;
+import org.lwjgl.glfw.GLFW;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Predicate;
+
+/**
+ * Represents the LambDynamicLights mod.
+ *
+ * @author LambdAurora
+ * @version 4.10.0
+ * @since 1.0.0
+ */
+@ApiStatus.Internal
+public class LambDynLights implements DynamicLightsContext {
+	private static final Logger LOGGER = LoggerFactory.getLogger("LambDynamicLights");
+	public static final LambDynLights INSTANCE = new LambDynLights();
+
+	public static final KeyMapping TOGGLE_FPS_DYNAMIC_LIGHTING = new KeyMapping(
+			LambDynLightsConstants.NAMESPACE + ".key.toggle_fps_dynamic_lighting",
+			InputConstants.Type.KEYSYM,
+			GLFW.GLFW_KEY_UNKNOWN,
+			KeyMapping.Category.MISC
+	);
+
+	public final DynamicLightsConfig config = new DynamicLightsConfig(this);
+	private final LightSourceLoader.ApplicationPredicate.Pending lightSourceApplicationPredicate
+			= new LightSourceLoader.ApplicationPredicate.Pending();
+	private final ItemLightSources itemLightSources = new ItemLightSources(lightSourceApplicationPredicate);
+	private final EntityLightSources entityLightSources
+			= new EntityLightSources(this.itemLightSources, lightSourceApplicationPredicate);
+	private final DynamicLightBehaviorSources dynamicLightBehaviorSources = new DynamicLightBehaviorSources(this);
+	public final DynamicLightingEngine engine = new DynamicLightingEngine(this.config);
+	private final Set<DynamicLightSource> dynamicLightSources = new HashSet<>();
+	private final Set<DynamicLightSource> toAdd = new HashSet<>();
+	private final List<DynamicLightSource> toClear = new ArrayList<>();
+	private final ReentrantReadWriteLock lightSourcesLock = new ReentrantReadWriteLock();
+
+	private final DynamicLightDebugRenderer.SectionRebuild sectionRebuildDebugRenderer
+			= new DynamicLightDebugRenderer.SectionRebuild(this);
+	public final @Unmodifiable List<DynamicLightDebugRenderer> renderers = List.of(
+			new DynamicLightBehaviorDebugRenderer(this, this.dynamicLightSources),
+			new DynamicLightLevelDebugRenderer(this),
+			sectionRebuildDebugRenderer,
+			new DynamicLightSectionDebugRenderer(this)
+	);
+
+	private @Nullable ChunkRebuildScheduler chunkRebuildScheduler;
+
+	private int tick = 0;
+	private TickMode minimumTickMode = TickMode.REAL_TIME;
+	private boolean disableTicking = false;
+	boolean shouldForceRefresh = false;
+	private int dynamicLightSourcesCount = 0;
+
+	private LambDynLights() {}
+
+	public void initialize() {
+		log(LOGGER, "Initializing LambDynamicLights...");
+
+		this.config.load();
+		DevModeGui.init();
+
+		CrashReportEvents.CREATE.register((report) -> {
+			var category = report.addCategory("Dynamic Lighting", 0);
+			category.setDetail(
+					"Description",
+					"This section contains information related to dynamic lighting, this may not be related to your crash."
+			);
+			category.setDetail("Mode", this.config.getDynamicLightsMode().getName());
+			category.setDetail("Dynamic Light Sources", this.dynamicLightSourcesCount);
+			category.setDetail(
+					"Spatial Hash Occupancy",
+					"%d / %d".formatted(this.engine.getLastEntryCount(), this.engine.getSize())
+			);
+		});
+
+		var platform = new dev.lambdaurora.lambdynlights.platform.fabric.FabricPlatform();
+
+		this.lightSourceApplicationPredicate.set(platform.getLightSourceLoaderApplicationPredicate());
+		platform.registerReloader(this.itemLightSources);
+		platform.registerReloader(this.entityLightSources);
+
+		platform.getTagLoadedEvent().register(this::onTagsLoaded);
+
+		this.registerDebugEntries();
+
+		this.initializeApi();
+	}
+
+	/**
+	 * Initializes the API.
+	 */
+	private void initializeApi() {
+		this.invokeInitializers(DynamicLightsInitializer.ENTRYPOINT_KEY);
+		// Legacy
+		this.invokeInitializers("dynamiclights");
+	}
+
+	/**
+	 * Invokes {@linkplain DynamicLightsInitializer dynamic lights initializers} using Fabric's entrypoint system.
+	 *
+	 * @param entrypointKey the key of the entrypoints to invoke
+	 */
+	private void invokeInitializers(String entrypointKey) {
+		// External dynamic-light providers are not part of the integrated client.
+	}
+
+	private void invokeInitializer(DynamicLightsInitializer initializer) {
+		initializer.onInitializeDynamicLights(this);
+	}
+
+	@Override
+	public ItemLightSourceManager itemLightSourceManager() {
+		return this.itemLightSources;
+	}
+
+	@Override
+	public EntityLightSourceManager entityLightSourceManager() {
+		return this.entityLightSources;
+	}
+
+	@Override
+	public DynamicLightBehaviorManager dynamicLightBehaviorManager() {
+		return this.dynamicLightBehaviorSources;
+	}
+
+	/**
+	 * {@return {@code true} if dynamic lighting should tick, or {@code false} otherwise}
+	 *
+	 * @param entity the entity to tick
+	 */
+	public boolean shouldTick(EntityDynamicLightSource entity) {
+		if (this.disableTicking) return false;
+
+		var effectiveMode = this.minimumTickMode.min(
+				this.getBaseTickMode(
+						entity.getDynamicLightX(),
+						entity.getDynamicLightY(),
+						entity.getDynamicLightZ()
+				)
+		);
+
+		// Early return for performance reasons
+		if (effectiveMode == TickMode.REAL_TIME) return true;
+
+		return this.tick % effectiveMode.delay() == entity.getDynamicLightId() % effectiveMode.delay();
+	}
+
+	/**
+	 * {@return {@code true} if dynamic lighting should tick, or {@code false} otherwise}
+	 *
+	 * @param source the deferred light source to tick
+	 */
+	public boolean shouldTick(DeferredDynamicLightSource source) {
+		if (this.disableTicking) return false;
+
+		var effectiveMode = this.minimumTickMode.min(
+				BoundingBoxUtils.forAllPoints(source.behavior().getBoundingBox(), this::getBaseTickMode)
+						.stream().reduce(TickMode.BACKGROUND, TickMode::max)
+		);
+
+		// Early return for performance reasons
+		if (effectiveMode == TickMode.REAL_TIME) return true;
+
+		return this.tick % effectiveMode.delay() == source.getDynamicLightId() % effectiveMode.delay();
+	}
+
+	private TickMode getBaseTickMode(double x, double y, double z) {
+		var mode = TickMode.REAL_TIME;
+
+		// If the entity is far behind the camera, we greatly slow it down.
+		var camera = Minecraft.getInstance().gameRenderer.mainCamera();
+		var planeNormal = camera.forwardVector();
+		var planeOrigin = camera.position();
+
+		var planeOriginToEntity = new Vector3f(
+				(float) (x - planeOrigin.x),
+				(float) (y - planeOrigin.y),
+				(float) (z - planeOrigin.z)
+		);
+		var signedDistance = planeNormal.dot(planeOriginToEntity);
+
+		if (this.config.getBackgroundAdaptiveTicking().get() && signedDistance < -DynamicLightingEngine.MAX_RADIUS - 1) {
+			mode = TickMode.BACKGROUND;
+		}
+		// If the entity is too far away, we slow it down.
+		else {
+			float dX = (float) (camera.position().x - x);
+			float dY = (float) (camera.position().y - y);
+			float dZ = (float) (camera.position().z - z);
+			float squaredDist = dX * dX + dY * dY + dZ * dZ;
+			if (squaredDist > this.config.getSlowerTickingDistance()) {
+				mode = TickMode.SLOWER;
+			} else if (squaredDist > this.config.getSlowTickingDistance()) {
+				mode = TickMode.SLOW;
+			}
+		}
+
+		return mode;
+	}
+
+	private void registerDebugEntries() {
+		final var debugPrefix = ChatFormatting.LIGHT_PURPLE + "[LDL] " + ChatFormatting.RESET;
+		final var debugGroup = id("debug");
+
+		DebugScreenEntries.register(id("dynamic_light_sources"),
+				(displayer, level, clientChunk, serverChunk) -> {
+					int sourceUpdatedLastTick = 0;
+
+					if (this.chunkRebuildScheduler != null) {
+						sourceUpdatedLastTick = this.chunkRebuildScheduler.getSourceUpdatedLastTick();
+					}
+
+					var builder = new StringBuilder(debugPrefix + "Dynamic Light Sources: ");
+					builder.append(this.getLightSourcesCount())
+							.append(" (Occupying ")
+							.append(this.engine.getLastEntryCount())
+							.append('/')
+							.append(this.engine.getSize())
+							.append(" ; Updated: ")
+							.append(sourceUpdatedLastTick);
+
+					if (!this.config.getDynamicLightsMode().isEnabled()) {
+						builder.append(" ; ");
+						builder.append(ChatFormatting.RED);
+						builder.append("Disabled");
+						builder.append(ChatFormatting.RESET);
+					}
+
+					builder.append(')');
+					displayer.addToGroup(debugGroup, builder.toString());
+				}
+		);
+		DebugScreenEntries.register(
+				id("spatial_lookup"),
+				(displayer, level, clientChunk, serverChunk) -> {
+					displayer.addToGroup(debugGroup, debugPrefix + "Compute Spatial Lookup Timing: %.3fms (avg. 40t)"
+							.formatted(this.engine.getComputeSpatialLookupTime() / 1_000_000.f));
+				}
+		);
+		DebugScreenEntries.register(
+				id("chunk_rebuild_scheduler"),
+				(displayer, level, clientChunk, serverChunk) -> {
+					if (this.chunkRebuildScheduler != null) {
+						this.chunkRebuildScheduler.appendF3Debug(line ->
+								displayer.addToGroup(debugGroup, debugPrefix + line)
+						);
+					}
+				}
+		);
+		DebugScreenEntries.register(
+				id("dynamic_light_at_feet"),
+				(displayer, level, clientChunk, serverChunk) -> {
+					var player = Minecraft.getInstance().player;
+
+					if (player != null) {
+						displayer.addToGroup(debugGroup, debugPrefix + "Dynamic Light At Feet: %.3f"
+								.formatted(this.engine.getDynamicLightLevel(player.blockPosition())));
+					}
+				}
+		);
+	}
+
+	public void onTagsLoaded(HolderLookup.Provider registries) {
+		this.itemLightSources.apply(registries);
+		this.entityLightSources.apply(registries);
+	}
+
+	public void onStartLevelTick() {
+		var mode = this.config.getDynamicLightsMode();
+
+		this.disableTicking = !mode.isEnabled();
+		this.minimumTickMode = mode.tickMode();
+
+		this.tick += 1;
+	}
+
+	public void onEndLevelTick() {
+		assert this.chunkRebuildScheduler != null;
+		this.chunkRebuildScheduler.startTick();
+
+		this.lightSourcesLock.writeLock().lock();
+		if (this.config.getDynamicLightsMode().isEnabled()) {
+			Profiler.get().push("dynamic_lighting_compute_spatial_lookup");
+			this.engine.computeSpatialLookup(this.dynamicLightSources);
+			Profiler.get().pop();
+		}
+		this.toClear.forEach(this.chunkRebuildScheduler::remove);
+		this.toClear.clear();
+		this.lightSourcesLock.writeLock().unlock();
+
+		if (!this.disableTicking || this.shouldForceRefresh) {
+			var it = this.dynamicLightSources.iterator();
+			while (it.hasNext()) {
+				var lightSource = it.next();
+
+				// In case of light sources controlled by a DynamicLightBehavior, they might require polling to be removed.
+				if (lightSource instanceof DeferredDynamicLightSource deferred) {
+					DynamicLightBehavior behavior = deferred.behavior();
+
+					if (behavior.isRemoved()) {
+						this.toClear.add(lightSource);
+						it.remove();
+						continue;
+					}
+				}
+
+				if (lightSource instanceof EntityDynamicLightSource entity && !this.shouldTick(entity)) continue;
+				if (lightSource instanceof DeferredDynamicLightSource deferred && !this.shouldTick(deferred)) continue;
+
+				var chunks = lightSource.getDynamicLightChunksToRebuild(this.shouldForceRefresh || this.toAdd.contains(lightSource));
+				this.chunkRebuildScheduler.update(lightSource, chunks);
+			}
+
+			this.toAdd.clear();
+		}
+		this.dynamicLightSourcesCount = this.dynamicLightSources.size();
+
+		this.chunkRebuildScheduler.endTick();
+		this.sectionRebuildDebugRenderer.tick();
+
+		this.shouldForceRefresh = false;
+	}
+
+	public void onEndClientTick(Minecraft client) {
+		if (TOGGLE_FPS_DYNAMIC_LIGHTING.consumeClick()) {
+			boolean newValue = !this.config.getSelfLightSource().get();
+			var toggleText = SpruceTexts.getToggleText(newValue);
+			this.config.getSelfLightSource().set(newValue);
+			this.config.save();
+
+			client.gui.chatListener().handleOverlay(
+					Component.translatable(
+							LambDynLightsConstants.NAMESPACE + ".key.toggle_fps_dynamic_lighting.info",
+							toggleText.copy().withStyle(newValue ? ChatFormatting.GREEN : ChatFormatting.RED)
+					)
+			);
+		}
+	}
+
+	/**
+	 * Returns the lightmap with combined light levels.
+	 *
+	 * @param level the level in which the light is computed
+	 * @param pos the position
+	 * @param lightmap the vanilla lightmap coordinates
+	 * @return the modified lightmap coordinates
+	 */
+	public int getLightmapWithDynamicLight(BlockAndLightGetter level, BlockPos pos, int lightmap) {
+		if (!(level instanceof ClientLevel)) this.lightSourcesLock.readLock().lock();
+		double light = this.getDynamicLightLevel(pos);
+		if (!(level instanceof ClientLevel)) this.lightSourcesLock.readLock().unlock();
+		return this.getLightmapWithDynamicLight(light, lightmap);
+	}
+
+	/**
+	 * Returns the lightmap with combined light levels.
+	 *
+	 * @param dynamicLightLevel the dynamic light level
+	 * @param lightmap the vanilla lightmap coordinates
+	 * @return the modified lightmap coordinates
+	 */
+	public int getLightmapWithDynamicLight(double dynamicLightLevel, int lightmap) {
+		if (dynamicLightLevel > 0) {
+			// lightmap is (skyLevel << 20 | blockLevel << 4)
+
+			// Get vanilla block light level.
+			int blockLevel = LightCoordsUtil.block(lightmap);
+			if (dynamicLightLevel > blockLevel) {
+				// Equivalent to a << 4 bitshift with a little quirk: this one ensure more precision (more decimals are saved).
+				int luminance = (int) (dynamicLightLevel * 16.0);
+				lightmap &= 0xfff00000;
+				lightmap |= luminance & 0x000fffff;
+			}
+		}
+
+		return lightmap;
+	}
+
+	/**
+	 * Returns the dynamic light level at the specified position.
+	 *
+	 * @param pos the position
+	 * @return the dynamic light level at the specified position
+	 */
+	public double getDynamicLightLevel(BlockPos pos) {
+		return this.engine.getDynamicLightLevel(pos);
+	}
+
+	/**
+	 * Adds the light source to the tracked light sources.
+	 *
+	 * @param lightSource the light source to add
+	 */
+	public void addLightSource(DynamicLightSource lightSource) {
+		if (this.containsLightSource(lightSource))
+			return;
+		this.dynamicLightSources.add(lightSource);
+		this.toAdd.add(lightSource);
+	}
+
+	/**
+	 * Returns whether the light source is tracked or not.
+	 *
+	 * @param lightSource the light source to check
+	 * @return {@code true} if the light source is tracked, else {@code false}
+	 */
+	public boolean containsLightSource(DynamicLightSource lightSource) {
+		return this.dynamicLightSources.contains(lightSource);
+	}
+
+	/**
+	 * Returns the number of dynamic light sources registered.
+	 *
+	 * @return the number of dynamic light sources emitting light
+	 */
+	public int getLightSourcesCount() {
+		return this.dynamicLightSources.size();
+	}
+
+	/**
+	 * Removes the light source from the tracked light sources.
+	 *
+	 * @param lightSource the light source to remove
+	 */
+	public void removeLightSource(EntityDynamicLightSourceBehavior lightSource) {
+		var chunkProviders = this.dynamicLightSources.iterator();
+		DynamicLightSource it;
+		while (chunkProviders.hasNext()) {
+			it = chunkProviders.next();
+			if (it.equals(lightSource)) {
+				chunkProviders.remove();
+				this.toClear.add(lightSource);
+				break;
+			}
+		}
+	}
+
+	/**
+	 * Clears light sources.
+	 */
+	public void onChangeWorld(@Nullable ClientLevel level) {
+		var chunkProviders = this.dynamicLightSources.iterator();
+		DynamicLightSource it;
+		while (chunkProviders.hasNext()) {
+			it = chunkProviders.next();
+			chunkProviders.remove();
+			if (it instanceof EntityDynamicLightSource entityIt && entityIt.getLuminance() > 0)
+				entityIt.resetDynamicLight();
+			this.toClear.add(it);
+		}
+
+		this.engine.resetSize();
+
+		if (level == null) this.chunkRebuildScheduler = null;
+		else {
+			var oldChunkRebuildScheduler = this.chunkRebuildScheduler;
+			this.chunkRebuildScheduler = this.config.getChunkRebuildSchedulerMode().create(this.sectionRebuildDebugRenderer);
+			if (oldChunkRebuildScheduler != null) {
+				oldChunkRebuildScheduler.close();
+			}
+			this.sectionRebuildDebugRenderer.clearRequestedChunks();
+		}
+	}
+
+	/**
+	 * Removes light sources if the filter matches.
+	 *
+	 * @param filter the removal filter
+	 */
+	public boolean removeLightSources(Predicate<DynamicLightSource> filter) {
+		boolean result = false;
+
+		var dynamicLightSources = this.dynamicLightSources.iterator();
+		DynamicLightSource it;
+		while (dynamicLightSources.hasNext()) {
+			it = dynamicLightSources.next();
+			if (filter.test(it)) {
+				dynamicLightSources.remove();
+				this.toClear.add(it);
+				result = true;
+
+				if (it instanceof EntityDynamicLightSourceBehavior lightSource) {
+					if (lightSource.getLuminance() > 0) {
+						lightSource.resetDynamicLight();
+					}
+				}
+			}
+		}
+
+		return result;
+	}
+
+	public boolean canLightParticle(Particle particle) {
+		if (particle instanceof FireflyParticle)
+			return this.config.getFireflyLighting().get();
+		else if (particle instanceof SonicBoomParticle)
+			return this.config.getSonicBoomLighting().get();
+		else
+			return false;
+	}
+
+	/**
+	 * Logs an informational message.
+	 *
+	 * @param logger the logger to use
+	 * @param msg the message to log
+	 */
+	public static void log(Logger logger, String msg) {
+		if (!LambDynLightsConstants.isDevMode()) {
+			msg = "[LambDynLights] " + msg;
+		}
+
+		logger.info(msg);
+	}
+
+	/**
+	 * Logs an informational message.
+	 *
+	 * @param logger the logger to use
+	 * @param msg the message to log
+	 */
+	public static void info(Logger logger, String msg, Object... args) {
+		if (!LambDynLightsConstants.isDevMode()) {
+			msg = "[LambDynLights] " + msg;
+		}
+
+		logger.info(msg, args);
+	}
+
+	/**
+	 * Logs a warning message.
+	 *
+	 * @param logger the logger to use
+	 * @param msg the message to log
+	 */
+	public static void warn(Logger logger, String msg) {
+		if (!LambDynLightsConstants.isDevMode()) {
+			msg = "[LambDynLights] " + msg;
+		}
+
+		logger.warn(msg);
+	}
+
+	/**
+	 * Logs a warning message.
+	 *
+	 * @param logger the logger to use
+	 * @param msg the message to log
+	 */
+	public static void warn(Logger logger, String msg, Object... args) {
+		if (!LambDynLightsConstants.isDevMode()) {
+			msg = "[LambDynLights] " + msg;
+		}
+
+		logger.warn(msg, args);
+	}
+
+	/**
+	 * Logs an error message.
+	 *
+	 * @param logger the logger to use
+	 * @param msg the message to log
+	 */
+	public static void error(Logger logger, String msg, Object... args) {
+		if (!LambDynLightsConstants.isDevMode()) {
+			msg = "[LambDynLights] " + msg;
+		}
+
+		logger.error(msg, args);
+	}
+
+	/**
+	 * Updates the dynamic lights tracking.
+	 *
+	 * @param lightSource the light source
+	 */
+	public static void updateTracking(EntityDynamicLightSourceBehavior lightSource) {
+		boolean enabled = lightSource.isDynamicLightEnabled();
+		int luminance = lightSource.getLuminance();
+
+		if (!enabled && luminance > 0) {
+			lightSource.setDynamicLightEnabled(true);
+		} else if (enabled && luminance < 1) {
+			lightSource.setDynamicLightEnabled(false);
+		}
+	}
+
+	private static boolean isEyeSubmergedInFluid(LivingEntity entity) {
+		if (!LambDynLights.get().config.getWaterSensitiveCheck().get()) {
+			return false;
+		}
+
+		var eyePos = BlockPos.containing(entity.getX(), entity.getEyeY(), entity.getZ());
+		return !entity.level().getFluidState(eyePos).isEmpty();
+	}
+
+	public static int getLivingEntityLuminanceFromItems(LivingEntity entity) {
+		boolean submergedInFluid = isEyeSubmergedInFluid(entity);
+		int luminance = 0;
+
+		for (var equipmentSlot : EquipmentSlot.VALUES) {
+			var equipped = entity.getItemBySlot(equipmentSlot);
+
+			if (!equipped.isEmpty()) {
+				luminance = Math.max(luminance, INSTANCE.itemLightSources.getLuminance(equipped, submergedInFluid));
+			}
+		}
+
+		if (luminance < 15) {
+			for (var compat : CompatLayer.LAYERS) {
+				luminance = Math.max(luminance, compat.getLivingEntityLuminanceFromItems(INSTANCE.itemLightSources, entity, submergedInFluid));
+
+				if (luminance == 15) {
+					break;
+				}
+			}
+		}
+
+		return luminance;
+	}
+
+	/**
+	 * Returns the luminance from an entity.
+	 *
+	 * @param entity the entity
+	 * @param <T> the type of the entity
+	 * @return the luminance
+	 */
+	public static <T extends Entity> int getLuminanceFrom(T entity) {
+		if (!INSTANCE.config.getEntitiesLightSource().get())
+			return 0;
+		if (entity == Minecraft.getInstance().player && !INSTANCE.config.getSelfLightSource().get())
+			return 0;
+
+		if (!DynamicLightingEngine.canLightUp(entity))
+			return 0;
+
+		return INSTANCE.entityLightSources.getLuminance(entity);
+	}
+
+	/**
+	 * Returns the LambDynamicLights mod instance.
+	 *
+	 * @return the mod instance
+	 */
+	public static LambDynLights get() {
+		return INSTANCE;
+	}
+
+	/**
+	 * {@return a LambDynamicLights identifier}
+	 *
+	 * @param path the path
+	 */
+	public static Identifier id(String path) {
+		return Identifier.fromNamespaceAndPath(LambDynLightsConstants.NAMESPACE, path);
+	}
+}

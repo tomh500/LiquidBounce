@@ -50,6 +50,7 @@ import org.apache.commons.io.input.CharSequenceReader
 private fun ClientModule.toJsonObject() = JsonObject().apply {
     addProperty("name", name)
     addProperty("category", category.tag)
+    add("categories", interopGson.toJsonTree(categories.map { it.tag }))
     add("keyBind", interopGson.toJsonTree(bind))
     addProperty("enabled", enabled)
     addProperty("description", description.get())
@@ -114,7 +115,7 @@ private fun Route.postPanic() = post("/panic") { withContext(Dispatchers.Minecra
     AutoConfig.withLoading {
         runCatching {
             for (module in ModuleManager) {
-                if (module.category == ModuleCategories.RENDER) {
+                if (ModuleCategories.RENDER in module.categories) {
                     continue
                 }
 

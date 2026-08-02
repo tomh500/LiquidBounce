@@ -7,8 +7,9 @@ import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 
 abstract class RikkaProcessModule(
     name: String,
+    primaryCategory: net.ccbluex.liquidbounce.features.module.ModuleCategory,
     aliases: List<String> = emptyList(),
-) : ClientModule(name, ModuleCategories.XUAN_RIKKA, aliases = aliases) {
+) : ClientModule(name, primaryCategory, secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA), aliases = aliases) {
 
     protected abstract fun startProcess()
 
@@ -21,7 +22,7 @@ abstract class RikkaProcessModule(
     }
 }
 
-object ModuleRikkaGoto : RikkaProcessModule("RikkaGoto", aliases = listOf("Goto")) {
+object ModuleRikkaGoto : RikkaProcessModule("RikkaGoto", ModuleCategories.MOVEMENT, aliases = listOf("Goto")) {
     private val x by int("X", 0, -30_000_000..30_000_000)
     private val y by int("Y", 0, -2048..2048)
     private val z by int("Z", 0, -30_000_000..30_000_000)
@@ -31,7 +32,7 @@ object ModuleRikkaGoto : RikkaProcessModule("RikkaGoto", aliases = listOf("Goto"
     }
 }
 
-object ModuleRikkaExplore : RikkaProcessModule("RikkaExplore", aliases = listOf("Explore")) {
+object ModuleRikkaExplore : RikkaProcessModule("RikkaExplore", ModuleCategories.WORLD, aliases = listOf("Explore")) {
     private val useCoordinates by boolean("UseCoordinates", false)
     private val x by int("X", 0, -30_000_000..30_000_000)
     private val z by int("Z", 0, -30_000_000..30_000_000)
@@ -42,7 +43,7 @@ object ModuleRikkaExplore : RikkaProcessModule("RikkaExplore", aliases = listOf(
     }
 }
 
-object ModuleRikkaFollow : RikkaProcessModule("RikkaFollow", aliases = listOf("Follow")) {
+object ModuleRikkaFollow : RikkaProcessModule("RikkaFollow", ModuleCategories.MOVEMENT, aliases = listOf("Follow")) {
     private val target by text("Target", "players")
 
     override fun startProcess() {
@@ -50,7 +51,7 @@ object ModuleRikkaFollow : RikkaProcessModule("RikkaFollow", aliases = listOf("F
     }
 }
 
-object ModuleRikkaBuild : RikkaProcessModule("RikkaBuild", aliases = listOf("Build")) {
+object ModuleRikkaBuild : RikkaProcessModule("RikkaBuild", ModuleCategories.WORLD, aliases = listOf("Build")) {
     private val schematic by text("Schematic", "example.schem")
 
     override fun startProcess() {
@@ -58,7 +59,7 @@ object ModuleRikkaBuild : RikkaProcessModule("RikkaBuild", aliases = listOf("Bui
     }
 }
 
-object ModuleRikkaResume : RikkaProcessModule("RikkaResume", aliases = listOf("Path")) {
+object ModuleRikkaResume : RikkaProcessModule("RikkaResume", ModuleCategories.MOVEMENT, aliases = listOf("Path")) {
     override fun startProcess() {
         PathingEngine.execute("path", emptyList())
     }
@@ -66,7 +67,8 @@ object ModuleRikkaResume : RikkaProcessModule("RikkaResume", aliases = listOf("P
 
 object ModuleRikkaPause : ClientModule(
     "RikkaPause",
-    ModuleCategories.XUAN_RIKKA,
+    ModuleCategories.MOVEMENT,
+    secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA),
     bindAction = InputBind.BindAction.HOLD,
     aliases = listOf("Pause"),
 ) {
@@ -81,7 +83,8 @@ object ModuleRikkaPause : ClientModule(
 
 object ModuleRikkaStop : ClientModule(
     "RikkaStop",
-    ModuleCategories.XUAN_RIKKA,
+    ModuleCategories.MOVEMENT,
+    secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA),
     bindAction = InputBind.BindAction.HOLD,
     aliases = listOf("Stop", "Cancel"),
 ) {

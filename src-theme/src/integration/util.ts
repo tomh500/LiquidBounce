@@ -4,11 +4,12 @@ export const delay = (millis: number) => new Promise(resolve => setTimeout(resol
 
 export function groupByCategory(modules: Module[]): GroupedModules {
     return modules.reduce((acc: GroupedModules, current: Module) => {
-        const { category } = current;
-        if (!acc[category]) {
-            acc[category] = [];
+        for (const category of current.categories ?? [current.category]) {
+            if (!acc[category]) {
+                acc[category] = [];
+            }
+            acc[category].push(current);
         }
-        acc[category].push(current);
         return acc;
     }, {});
 }

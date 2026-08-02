@@ -1,0 +1,101 @@
+/*
+ * Copyright © 2020 LambdAurora <email@lambdaurora.dev>
+ *
+ * This file is part of SpruceUI.
+ *
+ * Licensed under the MIT license. For more information,
+ * see the LICENSE file.
+ */
+
+package dev.lambdaurora.spruceui.option;
+
+import dev.lambdaurora.spruceui.Position;
+import dev.lambdaurora.spruceui.tooltip.TooltipData;
+import dev.lambdaurora.spruceui.widget.SpruceToggleSwitch;
+import dev.lambdaurora.spruceui.widget.SpruceWidget;
+
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+import net.minecraft.network.chat.Component;
+
+/**
+ * Represents a boolean option.
+ * <p>
+ * Works the as {@link SpruceBooleanOption} but uses a toggle switch instead.
+ *
+ * @author LambdAurora
+ * @version 8.0.0
+ * @since 2.0.0
+ */
+public class SpruceToggleBooleanOption extends SpruceBooleanOption {
+	private final boolean showMessage;
+
+	public SpruceToggleBooleanOption(
+			String key, Supplier<Boolean> getter, Consumer<Boolean> setter,
+			TooltipData tooltip, boolean showMessage
+	) {
+		super(key, getter, setter, tooltip, false);
+		this.showMessage = showMessage;
+	}
+
+	public SpruceToggleBooleanOption(
+			String key, Supplier<Boolean> getter, Consumer<Boolean> setter,
+			TooltipData tooltip
+	) {
+		this(key, getter, setter, tooltip, true);
+	}
+
+	@Override
+	public SpruceWidget createWidget(Position position, int width) {
+		var button = new SpruceToggleSwitch(
+				position, width, 20, this.getDisplayText(),
+				(btn, newValue) -> {
+					this.set();
+					btn.setMessage(this.getDisplayText());
+					this.getTooltip().ifPresent(btn::setTooltip);
+				},
+				this.get(), this.showMessage
+		);
+		this.getTooltip().ifPresent(button::setTooltip);
+		return button;
+	}
+
+	@Override
+	public Component getDisplayText() {
+		return this.getPrefix();
+	}
+
+	@Override
+	public Component getDisplayText(Component value) {
+		return this.getPrefix();
+	}
+
+	public static class Builder extends SpruceBooleanOption.BaseBuilder<Builder, SpruceToggleBooleanOption> {
+		private boolean showMessage = true;
+
+		public Builder(String key, Supplier<Boolean> getter, Consumer<Boolean> setter) {
+			super(key, getter, setter);
+		}
+
+		public Builder showMessage() {
+			return this.showMessage(true);
+		}
+
+		public Builder showMessage(boolean showMessage) {
+			this.showMessage = showMessage;
+			return this;
+		}
+
+		@Override
+		protected Builder self() {
+			return this;
+		}
+
+		public SpruceToggleBooleanOption build() {
+			return new SpruceToggleBooleanOption(
+					this.key, this.getter, this.setter,
+					this.tooltip, this.showMessage
+			);
+		}
+	}
+}

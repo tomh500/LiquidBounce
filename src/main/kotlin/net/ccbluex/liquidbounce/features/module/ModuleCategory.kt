@@ -22,6 +22,8 @@ import net.ccbluex.liquidbounce.config.types.list.Tagged
 
 class ModuleCategory(override val tag: String) : Tagged {
 
+    override fun toString(): String = tag
+
     @Deprecated(
         message = "For script compatibility only. Use choiceName instead",
         replaceWith = ReplaceWith("choiceName"),

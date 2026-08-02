@@ -12,6 +12,13 @@ mutable field net/minecraft/client/Minecraft services Lnet/minecraft/server/Serv
 accessible method net/minecraft/world/entity/LivingEntity updatingUsingItem ()V
 accessible field net/minecraft/world/entity/HumanoidArm id I
 
+# Integrated SpruceUI and dynamic-light engine access
+accessible class net/minecraft/client/OptionInstance$ValueSet
+accessible method net/minecraft/world/entity/Display getPackedBrightnessOverride ()I
+accessible method net/minecraft/world/entity/Display$BlockDisplay getBlockState ()Lnet/minecraft/world/level/block/state/BlockState;
+accessible method net/minecraft/world/entity/Display$ItemDisplay getItemStack ()Lnet/minecraft/world/item/ItemStack;
+accessible method net/minecraft/client/gui/components/debug/DebugScreenEntries register (Lnet/minecraft/resources/Identifier;Lnet/minecraft/client/gui/components/debug/DebugScreenEntry;)Lnet/minecraft/resources/Identifier;
+
 accessible class net/minecraft/world/item/CreativeModeTab$Output
 
 mutable field net/minecraft/world/phys/Vec3 x D

@@ -1,0 +1,37 @@
+/*
+ * Copyright © 2020 LambdAurora <email@lambdaurora.dev>
+ *
+ * This file is part of SpruceUI.
+ *
+ * Licensed under the MIT license. For more information,
+ * see the LICENSE file.
+ */
+
+package dev.lambdaurora.spruceui.background;
+
+import dev.lambdaurora.spruceui.render.SpruceGuiGraphics;
+import dev.lambdaurora.spruceui.util.RenderUtil;
+import dev.lambdaurora.spruceui.widget.SpruceWidget;
+
+public record DirtTexturedBackground(int red, int green, int blue, int alpha) implements Background {
+	public static final Background NORMAL = new DirtTexturedBackground(64, 64, 64, 255);
+	public static final Background DARKENED = new DirtTexturedBackground(32, 32, 32, 255);
+
+	@Override
+	public void extractRenderState(SpruceGuiGraphics graphics, SpruceWidget widget, int vOffset, int mouseX, int mouseY, float delta) {
+		RenderUtil.extractBackgroundTexture(graphics,
+				widget.getX(), widget.getY(), widget.getWidth(), widget.getHeight(),
+				vOffset / 32.f, this.red, this.green, this.blue, this.alpha
+		);
+	}
+
+	@Override
+	public String toString() {
+		return "DirtTexturedBackground{" +
+				"red=" + this.red +
+				", green=" + this.green +
+				", blue=" + this.blue +
+				", alpha=" + this.alpha +
+				'}';
+	}
+}

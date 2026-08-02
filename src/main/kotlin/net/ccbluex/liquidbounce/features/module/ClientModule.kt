@@ -55,7 +55,8 @@ import net.minecraft.network.chat.Style
 @Suppress("LongParameterList", "detekt:TooManyFunctions")
 open class ClientModule(
     name: String, // name parameter in configurable
-    @Exclude val category: ModuleCategory, // module category
+    @Exclude val category: ModuleCategory, // primary module category
+    @Exclude val secondaryCategories: List<ModuleCategory> = emptyList(), // additional display categories
     bind: Int = InputConstants.UNKNOWN.value, // default bind
     bindAction: InputBind.BindAction = InputBind.BindAction.TOGGLE, // default action
     state: Boolean = false, // default state
@@ -65,6 +66,9 @@ open class ClientModule(
     aliases: List<String> = emptyList(), // additional names under which the module is known
     hide: Boolean = false // default hide
 ) : ToggleableValueGroup(null, name, state, aliases = aliases), EventListener, MinecraftShortcuts {
+
+    @Exclude
+    val categories: List<ModuleCategory> = listOf(category) + secondaryCategories.filter { it != category }
 
     protected val logger = clientLogger("Module/$name")
 
@@ -133,8 +137,8 @@ open class ClientModule(
     final override fun onEnabledValueRegistration(value: Value<Boolean>) =
         super.onEnabledValueRegistration(value).also { value ->
             // Might not include the enabled state of the module depending on the category
-            if (category == ModuleCategories.MISC || category == ModuleCategories.FUN ||
-                category == ModuleCategories.RENDER) {
+            if (ModuleCategories.MISC in categories || ModuleCategories.FUN in categories ||
+                ModuleCategories.RENDER in categories) {
                 if (this is ModuleAntiBot) {
                     return@also
                 }

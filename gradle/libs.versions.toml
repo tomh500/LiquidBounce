@@ -11,6 +11,10 @@ fabric-loom = "1.17-SNAPSHOT"
 fabric-loader = "0.19.3"
 fabric-loaderMin = "0.18.4"
 fabric-api = "0.153.0+26.2"
+yumi-mc-foundation = "1.1.1+26.2"
+spruceui = "11.0.0+26.2"
+pridelib = "1.7.0+26.2"
+nightconfig = "3.8.1"
 
 # mcef
 mcef = "3.3.2-26.2-SNAPSHOT"
@@ -66,6 +70,11 @@ nodeGradle = "7.1.0"
 minecraft = { group = "com.mojang", name = "minecraft", version.ref = "minecraft" }
 fabric-loader = { group = "net.fabricmc", name = "fabric-loader", version.ref = "fabric-loader" }
 fabric-api = { group = "net.fabricmc.fabric-api", name = "fabric-api", version.ref = "fabric-api" }
+yumi-mc-foundation = { group = "dev.yumi.mc.core", name = "yumi-mc-foundation", version.ref = "yumi-mc-foundation" }
+spruceui = { group = "dev.lambdaurora", name = "spruceui", version.ref = "spruceui" }
+pridelib = { group = "io.github.queerbric", name = "pridelib", version.ref = "pridelib" }
+nightconfig-core = { group = "com.electronwill.night-config", name = "core", version.ref = "nightconfig" }
+nightconfig-toml = { group = "com.electronwill.night-config", name = "toml", version.ref = "nightconfig" }
 fabric-kotlin = { group = "net.fabricmc", name = "fabric-language-kotlin", version.ref = "fabric-kotlin" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 fabric-loader-junit = { group = "net.fabricmc", name = "fabric-loader-junit", version.ref = "fabric-loader" }
