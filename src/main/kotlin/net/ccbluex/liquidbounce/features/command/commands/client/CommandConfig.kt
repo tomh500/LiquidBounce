@@ -25,7 +25,6 @@ import net.ccbluex.liquidbounce.api.core.HttpClient
 import net.ccbluex.liquidbounce.api.core.HttpMethod
 import net.ccbluex.liquidbounce.api.core.ioScope
 import net.ccbluex.liquidbounce.api.core.parse
-import net.ccbluex.liquidbounce.api.services.client.ClientApi
 import net.ccbluex.liquidbounce.config.autoconfig.AutoConfig
 import net.ccbluex.liquidbounce.config.autoconfig.AutoConfig.configs
 import net.ccbluex.liquidbounce.config.autoconfig.AutoConfigMetadata
@@ -87,8 +86,8 @@ object CommandConfig : Command.Factory {
             PlainText.NEW_LINE,
             AsyncLoadingText(
                 ioScope.async {
-                    ClientApi.requestSettingsScript(settingName).use { r ->
-                        publicGson.fromJson(r, AutoConfigMetadata::class.java)
+                    AutoConfig.requestSettingsScript(settingName).let { source ->
+                        publicGson.fromJson(source, AutoConfigMetadata::class.java)
                     }.asText()
                 }
             )
@@ -105,7 +104,7 @@ object CommandConfig : Command.Factory {
         .begin("reload")
         .suspendHandler {
             if (AutoConfig.reloadConfigs()) {
-                chat(regular("Reloaded ${configs?.size} settings info from API"))
+                chat(regular("Reloaded ${configs?.size} settings from official API and CloudServer"))
             } else {
                 chat(markAsError("Failed to load settings list from API"))
             }
@@ -187,8 +186,8 @@ object CommandConfig : Command.Factory {
                         // Load the config from the specified URL
                         HttpClient.request(name, HttpMethod.GET).parse<String>()
                     } else {
-                        // Get online config from API
-                        ClientApi.requestSettingsScript(name).use { it.readText() }
+                        // Get online config from the official API or CloudServer
+                        AutoConfig.requestSettingsScript(name)
                     }
                 }
             }.onSuccess { source ->

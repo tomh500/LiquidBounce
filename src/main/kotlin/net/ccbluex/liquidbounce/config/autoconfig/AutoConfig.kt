@@ -22,6 +22,7 @@ import com.google.gson.JsonObject
 import net.ccbluex.liquidbounce.LiquidBounce
 import net.ccbluex.liquidbounce.api.models.client.AutoSettings
 import net.ccbluex.liquidbounce.api.services.client.ClientApi
+import net.ccbluex.liquidbounce.api.services.client.CloudServerApi
 import net.ccbluex.liquidbounce.api.types.enums.AutoSettingsStatusType
 import net.ccbluex.liquidbounce.api.types.enums.AutoSettingsType
 import net.ccbluex.liquidbounce.authlib.utils.obj
@@ -54,6 +55,7 @@ import net.ccbluex.liquidbounce.utils.client.variable
 import net.minecraft.ChatFormatting
 import net.minecraft.network.chat.Style
 import java.io.Reader
+import java.io.StringReader
 import java.io.Writer
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -83,7 +85,27 @@ object AutoConfig {
      * @return successfully reloaded or not
      */
     suspend fun reloadConfigs(): Boolean = try {
-        configs = ClientApi.requestSettingsList()
+        val officialConfigs = runCatching {
+            ClientApi.requestSettingsList().asList()
+        }.onFailure {
+            logger.warn("Failed to load official auto configs", it)
+        }.getOrDefault(emptyList())
+
+        val cloudServerConfigs = runCatching {
+            CloudServerApi.requestSettingsList().asList()
+        }.onFailure {
+            logger.warn("Failed to load CloudServer auto configs", it)
+        }.getOrDefault(emptyList())
+
+        val mergedConfigs = (officialConfigs + cloudServerConfigs)
+            .distinctBy(AutoSettings::settingId)
+            .toTypedArray()
+
+        if (mergedConfigs.isEmpty()) {
+            error("No auto configs could be loaded")
+        }
+
+        configs = mergedConfigs
         true
     } catch (e: Exception) {
         logger.error("Failed to load auto configs", e)
@@ -100,8 +122,18 @@ object AutoConfig {
     }
 
     suspend fun loadAutoConfig(autoConfig: AutoSettings) = withLoading {
-        ClientApi.requestSettingsScript(autoConfig.settingId).use(::loadAutoConfig)
+        loadAutoConfig(StringReader(requestSettingsScript(autoConfig.settingId)))
     }
+
+    /**
+     * Loads a setting from the official API first and then from CloudServer.
+     * This keeps .config load compatible with both sources.
+     */
+    suspend fun requestSettingsScript(settingId: String): String = runCatching {
+        ClientApi.requestSettingsScript(settingId).use { it.readText() }
+    }.recoverCatching {
+        CloudServerApi.requestSettingsScript(settingId)
+    }.getOrThrow()
 
     /**
      * Deserialize module configurable from a reader
