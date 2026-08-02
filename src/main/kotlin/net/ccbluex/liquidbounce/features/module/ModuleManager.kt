@@ -242,7 +242,7 @@ import net.ccbluex.liquidbounce.features.module.modules.render.nametags.ModuleNa
 import net.ccbluex.liquidbounce.features.module.modules.render.trajectories.ModuleTrajectories
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAirPlace
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAutoDisable
-import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAutomine
+import net.ccbluex.liquidbounce.features.module.modules.world.ModuleRikkaMine
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAutoTool
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleBedDefender
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleBlockIn
@@ -269,7 +269,7 @@ import net.ccbluex.liquidbounce.features.module.modules.world.traps.ModuleAutoTr
 import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaBuild
 import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaExplore
 import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaFollow
-import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaGoTo
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaGoto
 import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaPause
 import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaResume
 import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaStop
@@ -691,7 +691,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleAirPlace,
             ModuleAutoBuild,
             ModuleAutoDisable,
-            ModuleAutomine,
+            ModuleRikkaMine,
             ModuleAutoFarm,
             ModuleAutoTool,
             ModuleCrystalAura,
@@ -720,7 +720,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleRikkaBuild,
             ModuleRikkaExplore,
             ModuleRikkaFollow,
-            ModuleRikkaGoTo,
+            ModuleRikkaGoto,
             ModuleRikkaPause,
             ModuleRikkaResume,
             ModuleRikkaStop,

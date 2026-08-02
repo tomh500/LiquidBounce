@@ -21,7 +21,7 @@ abstract class RikkaProcessModule(
     }
 }
 
-object ModuleRikkaGoTo : RikkaProcessModule("RikkaGoTo", aliases = listOf("GoTo", "Goto")) {
+object ModuleRikkaGoto : RikkaProcessModule("RikkaGoto", aliases = listOf("Goto")) {
     private val x by int("X", 0, -30_000_000..30_000_000)
     private val y by int("Y", 0, -2048..2048)
     private val z by int("Z", 0, -30_000_000..30_000_000)
@@ -86,6 +86,6 @@ object ModuleRikkaStop : ClientModule(
     aliases = listOf("Stop", "Cancel"),
 ) {
     override fun onEnabled() {
-        PathingEngine.cancel()
+        PathingEngine.cancelAndDisableMovementModules()
     }
 }

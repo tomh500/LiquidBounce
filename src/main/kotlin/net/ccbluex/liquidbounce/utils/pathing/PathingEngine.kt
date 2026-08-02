@@ -2,6 +2,8 @@ package net.ccbluex.liquidbounce.utils.pathing
 
 import baritone.api.BaritoneAPI
 import net.ccbluex.liquidbounce.event.events.NotificationEvent
+import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.ModuleManager
 import net.ccbluex.liquidbounce.utils.client.chat
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.minecraft.network.chat.Component
@@ -151,6 +153,13 @@ object PathingEngine {
 
     fun cancel() {
         execute("cancel", emptyList())
+    }
+
+    fun cancelAndDisableMovementModules() {
+        cancel()
+        ModuleManager.getModules()
+            .filter { it.category == ModuleCategories.MOVEMENT && it.enabled }
+            .forEach { it.enabled = false }
     }
 
     fun isMining(): Boolean = primary.mineProcess.isActive
