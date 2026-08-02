@@ -1,0 +1,14 @@
+[
+  {
+    "setting_id": "XuanRikka",
+    "name": "XuanRikka",
+    "server_address": null,
+    "branch": "CloudServer",
+    "setting_type": "Rage",
+    "description": "XuanRikka CloudServer test configuration",
+    "date": "2026-08-02T00:00:00",
+    "contributors": "tomh500",
+    "status_type": "Unknown",
+    "status_date": "2026-08-02T00:00:00"
+  }
+]

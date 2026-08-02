@@ -1,0 +1,20 @@
+{
+  "name": "autoconfig",
+  "modules": {
+    "name": "modules",
+    "value": []
+  },
+  "spoofers": {
+    "name": "spoofers",
+    "value": []
+  },
+  "author": "tomh500",
+  "date": "02/08/2026",
+  "time": "00:00:00",
+  "clientVersion": "CloudServer",
+  "clientCommit": "",
+  "protocolName": "",
+  "protocolVersion": 0,
+  "type": "Rage",
+  "status": "Unknown"
+}
