@@ -49,6 +49,7 @@ import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.account.AccountManager
 import net.ccbluex.liquidbounce.features.blink.BlinkManager
 import net.ccbluex.liquidbounce.features.command.CommandManager
+import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 import net.ccbluex.liquidbounce.features.cosmetic.ClientAccountManager
 import net.ccbluex.liquidbounce.features.cosmetic.CosmeticService
 import net.ccbluex.liquidbounce.features.creativetab.tabs.HeadsCreativeModeTab
@@ -295,6 +296,7 @@ object LiquidBounce : EventListener {
      */
     private fun initializeFeatures() {
         // Register commands and modules
+        PathingEngine.installOutputBridge()
         CommandManager.registerInbuilt()
         ModuleManager.registerInbuilt()
 

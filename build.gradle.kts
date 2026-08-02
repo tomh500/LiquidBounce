@@ -81,6 +81,10 @@ allprojects {
             url = uri("https://maven.lenni0451.net/everything")
         }
         maven {
+            name = "Babbaj"
+            url = uri("https://babbaj.github.io/maven/")
+        }
+        maven {
             url = uri("https://maven.shedaniel.me/")
         }
     }
@@ -93,6 +97,10 @@ loom {
 dependencies {
     // Minecraft
     minecraft(libs.minecraft)
+
+    // Integrated pathing and automation engine
+    implementation("dev.babbaj:nether-pathfinder:1.6")
+    compileOnly("com.google.code.findbugs:jsr305:3.0.2")
 
     // Fabric
     api(libs.fabric.loader)
@@ -167,6 +175,16 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.fabric.loader.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+sourceSets {
+    named("main") {
+        java.srcDirs(
+            "baritone/src/api/java",
+            "baritone/src/main/java",
+            "baritone/src/launch/java",
+        )
+    }
 }
 
 addResolvedDependencies(jij, "compileOnly", "include", "api")

@@ -25,6 +25,7 @@ import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.utils.entity.moving
 import net.ccbluex.liquidbounce.utils.entity.withStrafe
 import net.ccbluex.liquidbounce.utils.math.copy
+import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 import net.minecraft.world.entity.MoverType
 
 /**
@@ -39,7 +40,19 @@ object ModuleStrafe : ClientModule("Strafe", ModuleCategories.MOVEMENT) {
 
     private var strictMovement by boolean("StrictMovement", false)
 
+    override fun onEnabled() {
+        PathingEngine.onStrafeStateChanged(true)
+    }
+
+    override fun onDisabled() {
+        PathingEngine.onStrafeStateChanged(false)
+    }
+
     val moveHandler = handler<PlayerMoveEvent> { event ->
+        if (PathingEngine.shouldSuspendStrafe(enabled)) {
+            return@handler
+        }
+
         // Might just strafe when player controls itself
         if (event.type == MoverType.SELF) {
             val strength = if (player.onGround()) strengthOnGround else strengthInAir

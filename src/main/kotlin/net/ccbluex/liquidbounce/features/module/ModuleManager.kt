@@ -242,6 +242,7 @@ import net.ccbluex.liquidbounce.features.module.modules.render.nametags.ModuleNa
 import net.ccbluex.liquidbounce.features.module.modules.render.trajectories.ModuleTrajectories
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAirPlace
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAutoDisable
+import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAutomine
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAutoTool
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleBedDefender
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleBlockIn
@@ -683,6 +684,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleAirPlace,
             ModuleAutoBuild,
             ModuleAutoDisable,
+            ModuleAutomine,
             ModuleAutoFarm,
             ModuleAutoTool,
             ModuleCrystalAura,

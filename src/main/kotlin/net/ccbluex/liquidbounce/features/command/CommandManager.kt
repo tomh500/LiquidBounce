@@ -47,6 +47,7 @@ import net.ccbluex.liquidbounce.features.command.commands.deeplearn.CommandModel
 import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandCenter
 import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandCoordinates
 import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandPing
+import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandPathing
 import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandRemoteView
 import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandSay
 import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandServerInfo
@@ -169,6 +170,8 @@ object CommandManager : Collection<Command> by commandSet {
         commands.forEach {
             addCommand(it.createCommand())
         }
+
+        CommandPathing.createCommands(this).forEach(::addCommand)
     }
 
     fun addCommand(command: Command) {
@@ -312,13 +315,15 @@ object CommandManager : Collection<Command> by commandSet {
         }
 
         // The values of the parameters. One for each parameter
-        val parsedParameters = arrayOfNulls<Any>(remainingArgsCount)
+        // Keep one slot for optional parameters and empty varargs so handlers
+        // receive a stable argument array even when no user arguments exist.
+        val parsedParameters = arrayOfNulls<Any>(maxOf(remainingArgsCount, command.parameters.size))
 
         // If the last parameter is a vararg, there might be no argument for it.
         // In this case, its value might be null, which is against the specification.
         // To fix this, if the last parameter is a vararg, initialize it with an empty array
         if (command.parameters.lastOrNull()?.vararg == true && command.parameters.size == remainingArgsCount) {
-            parsedParameters[remainingArgsCount - 1] = ObjectArrays.EMPTY_ARRAY
+            parsedParameters[command.parameters.lastIndex] = ObjectArrays.EMPTY_ARRAY
         }
 
         for (i in (idx + 1) until args.size) {

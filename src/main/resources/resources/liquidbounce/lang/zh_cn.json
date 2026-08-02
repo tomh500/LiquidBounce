@@ -677,6 +677,7 @@
   "liquidbounce.module.step.description": "允许你更快跨上方块。",
   "liquidbounce.module.storageESP.description": "突出显示所有可能包含物品的方块，使你能够透过墙壁看到它们。",
   "liquidbounce.module.strafe.description": "允许你在半空中进行灵活动作。",
+  "liquidbounce.module.automine.description": "自动前往并挖掘选定的方块。",
   "liquidbounce.module.superKnockback.description": "增加对其他实体的击退。",
   "liquidbounce.module.swingFix.description": "对于1.8服务器修复挥动数据包顺序，以防服务器反作弊过旧。",
   "liquidbounce.module.swordBlock.description": "在使用ViaVersion的服务器上开启1.8剑格挡。",

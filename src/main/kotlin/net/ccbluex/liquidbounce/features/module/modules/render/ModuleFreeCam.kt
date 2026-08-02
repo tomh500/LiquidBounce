@@ -55,6 +55,7 @@ import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.math.plus
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
 import net.ccbluex.liquidbounce.utils.navigation.NavigationBaseValueGroup
+import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 import net.ccbluex.liquidbounce.utils.raytracing.traceFromPoint
 import net.minecraft.client.CameraType
 import net.minecraft.core.Direction
@@ -103,7 +104,8 @@ object ModuleFreeCam : ClientModule("FreeCam", ModuleCategories.RENDER, disableO
         }),
         MOVE("Move", cancelTrigger<PlayerMoveEvent> { event ->
             // Don't check movement.y because it's gravity / falling motion
-            abs(event.movement.x) > 0 || abs(event.movement.z) > 0
+            (abs(event.movement.x) > 0 || abs(event.movement.z) > 0) &&
+                !PathingEngine.isAutomatedMovement()
         }),
         LIQUID("Liquid", cancelTrigger<PlayerTickEvent> {
             player.isInLiquid
@@ -234,6 +236,12 @@ object ModuleFreeCam : ClientModule("FreeCam", ModuleCategories.RENDER, disableO
 
     @Suppress("unused")
     private val inputHandler = handler<MovementInputEvent>(priority = FIRST_PRIORITY) { event ->
+        // Keep the real player's input alive while the pathing engine is moving or mining.
+        // FreeCam's own camera movement is read directly from the key state below.
+        if (PathingEngine.isAutomatedMovement()) {
+            return@handler
+        }
+
         event.directionalInput = DirectionalInput.NONE
         event.jump = false
         event.sneak = false
