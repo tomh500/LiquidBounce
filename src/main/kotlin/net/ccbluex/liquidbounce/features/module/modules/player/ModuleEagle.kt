@@ -30,6 +30,7 @@ import net.ccbluex.liquidbounce.utils.entity.isCloseToEdge
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.SAFETY_FEATURE
 import net.ccbluex.liquidbounce.utils.kotlin.matchesAll
 import net.ccbluex.liquidbounce.utils.kotlin.random
+import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
 import java.util.function.Predicate
 
 /**
@@ -50,9 +51,22 @@ object ModuleEagle : ClientModule(
     private var currentEdgeDistance: Float = edgeDistance.random()
     private var wasSneaking = false
     private var sneakCaptured = false
+    private val requireSneak by boolean("RequireSneak", false)
+    private val requireBack by boolean("RequireBack", false)
+
+    /**
+     * Match Vape's legit scaffold behavior: any forward input means the player
+     * is walking toward the block, including a forward-sideways diagonal.
+     */
+    private fun isBackwardsOrSideways(input: DirectionalInput): Boolean {
+        return input.isMoving && !input.forwards
+    }
 
     private fun shouldActivateEagle(event: MovementInputEvent, conditionsMet: Boolean): Boolean {
-        if (player.abilities.flying || !conditionsMet) {
+        if (player.abilities.flying || !conditionsMet ||
+            (requireSneak && !mc.options.keyShift.isDown) ||
+            (requireBack && !isBackwardsOrSideways(event.directionalInput))
+        ) {
             return false
         }
 
@@ -60,7 +74,7 @@ object ModuleEagle : ClientModule(
     }
 
     private fun updateSneakCapture(originalSneak: Boolean, active: Boolean) {
-        if (!Conditional.controlsSneak) {
+        if (requireSneak || !Conditional.controlsSneak) {
             sneakCaptured = false
             return
         }
