@@ -19,6 +19,8 @@
 package net.ccbluex.liquidbounce.features.module.modules.combat.killaura
 
 import com.google.gson.JsonObject
+import net.ccbluex.liquidbounce.config.types.group.Mode
+import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.events.SprintEvent
@@ -84,11 +86,8 @@ import net.minecraft.world.item.ItemStack
 @Suppress("MagicNumber")
 object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
-    private val mode by enumChoice("Mode", KillAuraMode.LIQUID_BOUNCE)
-    private val vapeRequireMouseDown by boolean("VapeRequireMouseDown", true)
-    private val vapeMaxAngle by float("VapeMaxAngle", 90f, 1f..180f, "degrees")
-    private val vapeHorizontalSpeed by float("VapeHorizontalSpeed", 7f, 1f..10f, "degrees")
-    private val vapeVerticalSpeed by float("VapeVerticalSpeed", 5f, 1f..10f, "degrees")
+    private val modes = choices("Mode", 0) { arrayOf(LiquidBounceMode, VapeMode) }
+    private val mode: KillAuraMode get() = modes.activeMode
 
     // Attack speed
     val clicker = tree(KillAuraClicker)
@@ -103,7 +102,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
     private val requirementsMet
         get() = requires.all { it.asBoolean } &&
-            (mode != KillAuraMode.VAPE || !vapeRequireMouseDown || mc.options.keyAttack.isPressedOnAny)
+            (mode !is VapeMode || !VapeMode.requireMouseDown || mc.options.keyAttack.isPressedOnAny)
 
     // Bypass techniques
     internal val raycast by enumChoice("Raycast", TRACE_ALL)
@@ -356,7 +355,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         wallsRange: Float
     ): Boolean {
         val (rotation, _) = findRotation(entity, range, wallsRange) ?: return false
-        if (mode == KillAuraMode.VAPE && player.rotation.directionAngleTo(rotation) > vapeMaxAngle) {
+        if (mode is VapeMode && player.rotation.directionAngleTo(rotation) > VapeMode.maxAngle) {
             return false
         }
         val aimedRotation = applyModeRotation(rotation)
@@ -468,13 +467,22 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         TRACE_ALL("All")
     }
 
-    private enum class KillAuraMode(override val tag: String) : Tagged {
-        LIQUID_BOUNCE("LiquidBounce"),
-        VAPE("Vape"),
+    private sealed class KillAuraMode(name: String) : Mode(name) {
+        final override val parent: ModeValueGroup<KillAuraMode>
+            get() = modes
     }
 
-    private fun applyModeRotation(rotation: Rotation): Rotation = if (mode == KillAuraMode.VAPE) {
-        player.rotation.towardsLinear(rotation, vapeHorizontalSpeed, vapeVerticalSpeed)
+    private object LiquidBounceMode : KillAuraMode("LiquidBounce")
+
+    private object VapeMode : KillAuraMode("Vape") {
+        val requireMouseDown by boolean("RequireMouseDown", true)
+        val maxAngle by float("MaxAngle", 90f, 1f..180f, "degrees")
+        val horizontalSpeed by float("HorizontalSpeed", 7f, 1f..10f, "degrees")
+        val verticalSpeed by float("VerticalSpeed", 5f, 1f..10f, "degrees")
+    }
+
+    private fun applyModeRotation(rotation: Rotation): Rotation = if (mode is VapeMode) {
+        player.rotation.towardsLinear(rotation, VapeMode.horizontalSpeed, VapeMode.verticalSpeed)
     } else {
         rotation
     }

@@ -19,6 +19,8 @@
 package net.ccbluex.liquidbounce.features.module.modules.combat
 
 import net.ccbluex.liquidbounce.config.types.list.Tagged
+import net.ccbluex.liquidbounce.config.types.group.Mode
+import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.event.events.MouseRotationEvent
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.events.WorldRenderEvent
@@ -57,11 +59,8 @@ import net.minecraft.world.entity.Entity
  */
 object ModuleAimbot : ClientModule("Aimbot", ModuleCategories.COMBAT, aliases = listOf("AimAssist", "AutoAim")) {
 
-    private val mode by enumChoice("Mode", AimbotMode.LIQUID_BOUNCE)
-    private val vapeRequireMouseDown by boolean("VapeRequireMouseDown", true)
-    private val vapeMaxAngle by float("VapeMaxAngle", 45f, 1f..180f, "degrees")
-    private val vapeHorizontalSpeed by float("VapeHorizontalSpeed", 7f, 1f..10f, "degrees")
-    private val vapeVerticalSpeed by float("VapeVerticalSpeed", 5f, 1f..10f, "degrees")
+    private val modes = choices("Mode", 0) { arrayOf(LiquidBounceMode, VapeMode) }
+    private val mode: AimbotMode get() = modes.activeMode
 
     private val range = float("Range", 4.2f, 1f..8f)
 
@@ -76,7 +75,7 @@ object ModuleAimbot : ClientModule("Aimbot", ModuleCategories.COMBAT, aliases = 
 
     private val requirementsMet
         get() = mc.gui.screen() == null && requires.all { it.asBoolean } &&
-            (mode != AimbotMode.VAPE || !vapeRequireMouseDown || mc.options.keyAttack.isDown)
+            (mode !is VapeMode || !VapeMode.requireMouseDown || mc.options.keyAttack.isDown)
 
     private var angleSmooth = modes(this, "AngleSmooth") {
         arrayOf(
@@ -104,7 +103,7 @@ object ModuleAimbot : ClientModule("Aimbot", ModuleCategories.COMBAT, aliases = 
         }
 
         targetRotation = findNextTargetRotation()?.takeIf { (_, rotation) ->
-            mode != AimbotMode.VAPE || player.rotation.directionAngleTo(rotation.rotation) <= vapeMaxAngle
+            mode !is VapeMode || player.rotation.directionAngleTo(rotation.rotation) <= VapeMode.maxAngle
         }?.let { (target, rotation) ->
             angleSmooth.activeMode.process(
                 RotationTarget(
@@ -167,11 +166,11 @@ object ModuleAimbot : ClientModule("Aimbot", ModuleCategories.COMBAT, aliases = 
         val playerRotation = playerRotation ?: return
         val targetRotation = targetRotation ?: return
         val timerSpeed = Timer.timerSpeed
-        val interpolatedRotation = if (mode == AimbotMode.VAPE) {
+        val interpolatedRotation = if (mode is VapeMode) {
             playerRotation.towardsLinear(
                 targetRotation,
-                vapeHorizontalSpeed * partialTicks,
-                vapeVerticalSpeed * partialTicks,
+                VapeMode.horizontalSpeed * partialTicks,
+                VapeMode.verticalSpeed * partialTicks,
             )
         } else {
             playerRotation.interpolateTo(targetRotation, timerSpeed * partialTicks)
@@ -222,8 +221,17 @@ object ModuleAimbot : ClientModule("Aimbot", ModuleCategories.COMBAT, aliases = 
         VERTICAL("Vertical")
     }
 
-    private enum class AimbotMode(override val tag: String) : Tagged {
-        LIQUID_BOUNCE("LiquidBounce"),
-        VAPE("Vape"),
+    private sealed class AimbotMode(name: String) : Mode(name) {
+        final override val parent: ModeValueGroup<AimbotMode>
+            get() = modes
+    }
+
+    private object LiquidBounceMode : AimbotMode("LiquidBounce")
+
+    private object VapeMode : AimbotMode("Vape") {
+        val requireMouseDown by boolean("RequireMouseDown", true)
+        val maxAngle by float("MaxAngle", 45f, 1f..180f, "degrees")
+        val horizontalSpeed by float("HorizontalSpeed", 7f, 1f..10f, "degrees")
+        val verticalSpeed by float("VerticalSpeed", 5f, 1f..10f, "degrees")
     }
 }
