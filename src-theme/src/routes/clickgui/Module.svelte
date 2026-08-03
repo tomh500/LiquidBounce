@@ -18,6 +18,7 @@
     export let enabled: boolean;
     export let description: string;
     export let aliases: string[];
+    export let origin: "LIQUID_BOUNCE" | "XUAN_RIKKA" | "LIQUID_BOUNCE_MODIFIED";
 
     let moduleNameElement: HTMLElement;
     let configurable: ConfigurableSetting;
@@ -119,6 +120,9 @@
             on:mouseleave={() => descriptionStore.set(null)}
             bind:this={moduleNameElement}
             class:enabled
+            class:customOrigin={origin !== "LIQUID_BOUNCE"}
+            class:xuanRikka={origin === "XUAN_RIKKA"}
+            class:modified={origin === "LIQUID_BOUNCE_MODIFIED"}
             class:highlight={name === $highlightModuleName}
     >
         {$spaceSeperatedNames ? convertToSpacedString(name) : name}
@@ -177,6 +181,16 @@
 
       &.enabled {
         color: var(--clickgui-module-enabled-color);
+      }
+
+      &.customOrigin:not(.enabled) {
+        &.xuanRikka {
+          color: #78b7b0;
+        }
+
+        &.modified {
+          color: #b6a878;
+        }
       }
     }
 

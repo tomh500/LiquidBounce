@@ -24,6 +24,7 @@ import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.config.utils.percentageChance
 import net.ccbluex.liquidbounce.event.events.AttackEntityEvent
+import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.event.events.SprintEvent
 import net.ccbluex.liquidbounce.event.handler
@@ -32,6 +33,7 @@ import net.ccbluex.liquidbounce.event.tickUntil
 import net.ccbluex.liquidbounce.event.waitTicks
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.ModuleOrigin
 import net.ccbluex.liquidbounce.features.module.modules.combat.criticals.ModuleCriticals
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugParameter
 import net.ccbluex.liquidbounce.utils.network.sendStartSprinting
@@ -43,6 +45,7 @@ import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.CRITICAL_MO
 import net.ccbluex.liquidbounce.utils.kotlin.matchesAll
 import net.ccbluex.liquidbounce.utils.math.minus
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
+import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import java.util.function.Predicate
@@ -53,9 +56,12 @@ import java.util.function.Predicate
  * Increases knockback dealt to other entities.
  */
 @Suppress("MagicNumber")
-object ModuleSuperKnockback : ClientModule("SuperKnockback", ModuleCategories.COMBAT, aliases = listOf("WTap")) {
+object ModuleSuperKnockback : ClientModule(
+    "SuperKnockback", ModuleCategories.COMBAT, aliases = listOf("WTap"),
+    origin = ModuleOrigin.LIQUID_BOUNCE_MODIFIED,
+) {
 
-    val modes = choices("Mode", Packet, arrayOf(Packet, SprintTap, WTap)).apply(::tagBy)
+    val modes = choices("Mode", Packet, arrayOf(Packet, SprintTap, WTap, VapeWTap)).apply(::tagBy)
     val hurtTime by int("HurtTime", 10, 0..10)
     val chance = percentageChance("Chance", 100f)
     private val conditions by multiEnumChoice("Conditions", Conditions.NOT_IN_WATER)
@@ -212,6 +218,59 @@ object ModuleSuperKnockback : ClientModule("SuperKnockback", ModuleCategories.CO
             super.disable()
         }
 
+    }
+
+    /** WTap timing model used by Vape, while keeping input state event-local. */
+    object VapeWTap : Mode("VapeWTap") {
+        override val parent: ModeValueGroup<Mode>
+            get() = modes
+
+        private val releaseDelay by int("ReleaseDelay", 0, 0..500, "ms")
+        private val rePressDelay by int("RePressDelay", 50, 0..500, "ms")
+        private val selectHits by boolean("SelectHits", true)
+
+        private var releaseAt = 0L
+        private var rePressAt = 0L
+        private var cancelMovement = false
+
+        @Suppress("unused", "ComplexCondition")
+        private val attackHandler = handler<AttackEntityEvent> { event ->
+            if (releaseAt != 0L || rePressAt != 0L || !shouldOperate(event.entity) ||
+                !shouldStopSprinting(event) || !mc.options.keyUp.isPressedOnAny ||
+                (selectHits && event.entity is LivingEntity && event.entity.hurtTime > 0)
+            ) {
+                return@handler
+            }
+
+            releaseAt = System.currentTimeMillis() + releaseDelay
+        }
+
+        @Suppress("unused")
+        private val tickHandler = handler<GameTickEvent> {
+            val now = System.currentTimeMillis()
+            if (releaseAt != 0L && now >= releaseAt) {
+                releaseAt = 0L
+                rePressAt = now + rePressDelay
+                cancelMovement = true
+            } else if (rePressAt != 0L && now >= rePressAt) {
+                rePressAt = 0L
+                cancelMovement = false
+            }
+        }
+
+        @Suppress("unused")
+        private val movementHandler = handler<MovementInputEvent> { event ->
+            if (cancelMovement) {
+                event.directionalInput = DirectionalInput.NONE
+            }
+        }
+
+        override fun disable() {
+            releaseAt = 0L
+            rePressAt = 0L
+            cancelMovement = false
+            super.disable()
+        }
     }
 
     private fun shouldStopSprinting(event: AttackEntityEvent): Boolean {

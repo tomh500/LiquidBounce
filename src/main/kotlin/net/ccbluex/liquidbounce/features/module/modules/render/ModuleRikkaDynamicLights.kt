@@ -3,15 +3,14 @@ package net.ccbluex.liquidbounce.features.module.modules.render
 import net.ccbluex.liquidbounce.integration.RikkaDynamicLightsControl
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.ModuleOrigin
 
 /** Integrated dynamic lighting, exposed as a normal LiquidBounce module. */
 object ModuleRikkaDynamicLights : ClientModule(
-    "Rikka DynamicLights",
+    "DynamicLights",
     ModuleCategories.RENDER,
-    secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA),
-    displayPrimaryCategory = false,
     state = true,
-    aliases = listOf("DynamicLights", "RikkaLights"),
+    origin = ModuleOrigin.XUAN_RIKKA,
 ) {
     override val baseKey = "liquidbounce.module.rikkaDynamicLights"
 

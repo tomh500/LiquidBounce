@@ -652,7 +652,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleClickGui,
             ModuleDamageParticles,
             ModuleParticles,
-            // ModuleRikkaDynamicLights,
+            ModuleRikkaDynamicLights,
             ModuleESP,
             ModuleLogoffSpot,
             ModuleFreeCam,
@@ -734,7 +734,6 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             // Dedicated XuanRikka registration. Each Rikka module is registered
             // exactly once here so it remains available without appearing in
             // the original LiquidBounce category sections above.
-            ModuleRikkaDynamicLights,
             ModuleRikkaMine,
             ModuleRikkaBuild,
             ModuleRikkaExplore,

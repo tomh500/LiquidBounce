@@ -27,6 +27,7 @@ export interface Module {
     hidden: boolean;
     aliases: string[];
     tag: string | null;
+    origin: "LIQUID_BOUNCE" | "XUAN_RIKKA" | "LIQUID_BOUNCE_MODIFIED";
 }
 
 export interface GroupedModules {

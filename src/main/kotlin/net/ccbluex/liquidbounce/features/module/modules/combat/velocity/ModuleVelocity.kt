@@ -27,6 +27,7 @@ import net.ccbluex.liquidbounce.event.sequenceHandler
 import net.ccbluex.liquidbounce.event.tickUntil
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.ModuleOrigin
 import net.ccbluex.liquidbounce.features.module.modules.combat.velocity.mode.VelocityAAC442
 import net.ccbluex.liquidbounce.features.module.modules.combat.velocity.mode.VelocityBlocksMC
 import net.ccbluex.liquidbounce.features.module.modules.combat.velocity.mode.VelocityDexland
@@ -53,7 +54,10 @@ import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket
  * Modifies the amount of velocity you take.
  */
 
-object ModuleVelocity : ClientModule("Velocity", ModuleCategories.COMBAT, aliases = listOf("AntiKnockBack")) {
+object ModuleVelocity : ClientModule(
+    "Velocity", ModuleCategories.COMBAT, aliases = listOf("AntiKnockBack"),
+    origin = ModuleOrigin.LIQUID_BOUNCE_MODIFIED,
+) {
 
     val modes = choices(
         "Mode", VelocityModify, arrayOf(

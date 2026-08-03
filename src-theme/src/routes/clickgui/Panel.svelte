@@ -220,8 +220,8 @@
             on:scroll={handleModulesScroll}
             bind:this={modulesElement}
     >
-        {#each modules as {name, enabled, description, aliases} (name)}
-            <Module {name} {enabled} {description} {aliases}/>
+        {#each modules as {name, enabled, description, aliases, origin} (name)}
+            <Module {name} {enabled} {description} {aliases} {origin}/>
         {/each}
     </div>
 </div>

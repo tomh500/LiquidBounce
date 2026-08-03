@@ -65,7 +65,8 @@ open class ClientModule(
     @Exclude val disableActivation: Boolean = notActivatable, // disable activation
     @Exclude val disableOnQuit: Boolean = false, // disables module when player leaves the world,
     aliases: List<String> = emptyList(), // additional names under which the module is known
-    hide: Boolean = false // default hide
+    hide: Boolean = false, // default hide
+    @Exclude val origin: ModuleOrigin = ModuleOrigin.LIQUID_BOUNCE,
 ) : ToggleableValueGroup(null, name, state, aliases = aliases), EventListener, MinecraftShortcuts {
 
     val categories: List<ModuleCategory>

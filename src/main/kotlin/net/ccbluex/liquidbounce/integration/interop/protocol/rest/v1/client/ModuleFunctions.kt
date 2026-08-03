@@ -57,6 +57,7 @@ private fun ClientModule.toJsonObject() = JsonObject().apply {
     addProperty("tag", this@toJsonObject.tag)
     addProperty("hidden", hidden)
     add("aliases", interopGson.toJsonTree(aliases))
+    addProperty("origin", origin.name)
 }
 
 // GET /api/v1/client/modules

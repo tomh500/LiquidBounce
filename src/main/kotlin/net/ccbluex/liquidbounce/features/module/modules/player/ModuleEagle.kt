@@ -24,6 +24,7 @@ import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.ModuleOrigin
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugParameter
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ScaffoldBlockItemSelection.isValidBlock
 import net.ccbluex.liquidbounce.utils.entity.isCloseToEdge
@@ -41,7 +42,8 @@ import java.util.function.Predicate
  */
 object ModuleEagle : ClientModule(
     "Eagle", ModuleCategories.PLAYER,
-    aliases = listOf("FastBridge", "BridgeAssistant", "LegitScaffold")
+    aliases = listOf("FastBridge", "BridgeAssistant", "LegitScaffold"),
+    origin = ModuleOrigin.LIQUID_BOUNCE_MODIFIED,
 ) {
 
     private val edgeDistance by floatRange("EdgeDistance", 0.4f..0.6f, 0.01f..1.3f)

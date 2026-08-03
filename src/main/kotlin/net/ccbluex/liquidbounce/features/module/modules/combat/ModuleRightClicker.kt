@@ -15,6 +15,7 @@ import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.ModuleOrigin
 import net.ccbluex.liquidbounce.utils.clicking.Clicker
 import net.ccbluex.liquidbounce.utils.collection.itemSortedSetOf
 import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
@@ -28,7 +29,8 @@ import kotlin.random.Random
 object ModuleRightClicker : ClientModule(
     "RightClicker",
     ModuleCategories.COMBAT,
-    aliases = listOf("RightClick")
+    aliases = listOf("RightClick"),
+    origin = ModuleOrigin.XUAN_RIKKA,
 ) {
 
     private val holdToClick by boolean("HoldToClick", true)
