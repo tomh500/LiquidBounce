@@ -37,6 +37,9 @@ class ModeValueGroupSerializer private constructor(
 
         obj.addProperty("name", src.name)
         obj.addProperty("active", src.activeMode.tag)
+        if (withValueType) {
+            obj.addProperty("flattened", src.activeMode.flattenOptions)
+        }
         obj.add("value", context.serialize(src.inner))
 
         val choices = JsonObject()

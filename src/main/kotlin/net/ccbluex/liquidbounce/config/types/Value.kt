@@ -103,6 +103,12 @@ open class Value<T : Any>(
     var doNotInclude: BooleanSupplier = { false }
         private set
 
+    /** Controls whether this value is exposed by the interactive configuration API. */
+    @Exclude
+    @ProtocolExclude
+    var isOptionVisible: BooleanSupplier = { true }
+        private set
+
     /**
      * If true, value will not be included in generated RestAPI config
      */
@@ -276,6 +282,10 @@ open class Value<T : Any>(
 
     fun doNotIncludeWhen(condition: BooleanSupplier) = apply {
         doNotInclude = condition
+    }
+
+    fun visibleWhen(condition: BooleanSupplier) = apply {
+        isOptionVisible = condition
     }
 
     fun notAnOption() = apply {

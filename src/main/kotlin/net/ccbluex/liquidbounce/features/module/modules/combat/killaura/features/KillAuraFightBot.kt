@@ -62,6 +62,9 @@ data class CombatTarget(
  */
 object KillAuraFightBot : NavigationBaseValueGroup<CombatContext>(ModuleKillAura, "FightBot", false) {
 
+    override val running: Boolean
+        get() = super.running && ModuleKillAura.isLiquidBounceMode
+
     private val opponentRange by float("OpponentRange", 3f, 0.1f..10f)
     private val dangerousYawDiff by float("DangerousYaw", 55f, 0f..90f, suffix = "°")
     private val runawayOnCooldown by boolean("RunawayOnCooldown", true)

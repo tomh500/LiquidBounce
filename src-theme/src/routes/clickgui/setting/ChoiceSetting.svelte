@@ -10,11 +10,13 @@
     export let setting: ModuleSetting;
     export let path: string;
 
-    const cSetting = setting as ChoiceSetting;
+    let cSetting: ChoiceSetting = setting as ChoiceSetting;
+    $: cSetting = setting as ChoiceSetting;
     const thisPath = `${path}.${cSetting.name}`;
 
     const dispatch = createEventDispatcher();
-    const options = Object.keys(cSetting.choices);
+    let options = Object.keys(cSetting.choices);
+    $: options = Object.keys(cSetting.choices);
     let expanded = localStorage.getItem(thisPath) === "true";
 
     let nestedSettings = cSetting.choices[cSetting.active]
@@ -30,12 +32,15 @@
     }
 
     function toggleExpanded() {
+        if (cSetting.flattened) {
+            return;
+        }
         expanded = !expanded;
     }
 </script>
 
 <div class="setting">
-    {#if nestedSettings.length > 0}
+    {#if nestedSettings.length > 0 && !cSetting.flattened}
         <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div class="head expand" class:expanded on:contextmenu|preventDefault={toggleExpanded}>
             <Dropdown
@@ -57,8 +62,8 @@
         </div>
     {/if}
 
-    {#if expanded && nestedSettings.length > 0}
-        <div class="nested-settings">
+    {#if (expanded || cSetting.flattened) && nestedSettings.length > 0}
+        <div class:nested-settings={!cSetting.flattened} class:flat-settings={cSetting.flattened}>
             {#each nestedSettings as setting (setting.name)}
                 <GenericSetting path={thisPath} bind:setting={setting} on:change={handleChange} />
             {/each}
@@ -87,5 +92,9 @@
     .nested-settings {
         border-left: solid 2px var(--clickgui-setting-group-border-color);
         padding-left: 7px;
+    }
+
+    .flat-settings {
+        margin-top: 3px;
     }
 </style>

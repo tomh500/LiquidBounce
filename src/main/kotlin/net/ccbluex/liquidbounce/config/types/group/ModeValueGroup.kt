@@ -107,6 +107,9 @@ abstract class Mode(
     aliases: List<String> = emptyList()
 ) : ValueGroup(name, aliases = aliases), EventListener, Tagged, MinecraftShortcuts {
 
+    var flattenOptions = false
+        private set
+
     final override val tag: String
         get() = this.name
 
@@ -118,6 +121,10 @@ abstract class Mode(
     open fun enable() { }
 
     open fun disable() { }
+
+    fun flattenOptions() = apply {
+        flattenOptions = true
+    }
 
     /**
      * Check if the choice is selected on the parent.

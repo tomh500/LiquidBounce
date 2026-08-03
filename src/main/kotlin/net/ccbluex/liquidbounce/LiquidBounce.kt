@@ -236,6 +236,10 @@ object LiquidBounce : EventListener {
         // Load all configurations
         ConfigSystem.loadAll()
 
+        if (System.getProperty("liquidbounce.dev.autoLoginMicrosoft").toBoolean()) {
+            AccountManager.loginPreferredDevelopmentAccount()
+        }
+
         isInitialized = true
         logger.info("$CLIENT_NAME has been successfully initialized.")
         null

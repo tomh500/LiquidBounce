@@ -145,6 +145,7 @@ export interface IntRangeSetting extends Setting<Range> {
 
 export interface ChoiceSetting extends Setting<ModuleSetting[]> {
     active: string;
+    flattened?: boolean;
     choices: { [name: string]: ModuleSetting }
 }
 

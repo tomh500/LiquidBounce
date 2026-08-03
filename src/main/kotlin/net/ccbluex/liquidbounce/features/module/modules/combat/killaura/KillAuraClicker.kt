@@ -52,6 +52,9 @@ object KillAuraClicker : Clicker<ModuleKillAura>(
     KillAuraClickerItemCooldown()
 ) {
 
+    override val running: Boolean
+        get() = super.running && ModuleKillAura.isLiquidBounceMode
+
     override val isClickTick: Boolean
         get() = super.isClickTick && (!VelocityReduce.running || VelocityReduce.remainingAttackCount == 0)
 

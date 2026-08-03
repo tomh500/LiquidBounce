@@ -92,6 +92,10 @@ allprojects {
 
 loom {
     accessWidenerPath = file("src/main/resources/liquidbounce.accesswidener")
+
+    runs.named("client") {
+        vmArg("-Dliquidbounce.dev.autoLoginMicrosoft=true")
+    }
 }
 
 dependencies {

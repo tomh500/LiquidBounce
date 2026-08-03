@@ -45,9 +45,9 @@ import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.CRITICAL_MO
 import net.ccbluex.liquidbounce.utils.kotlin.matchesAll
 import net.ccbluex.liquidbounce.utils.math.minus
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
-import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.player.Player
 import java.util.function.Predicate
 
 /**
@@ -63,8 +63,11 @@ object ModuleSuperKnockback : ClientModule(
 
     val modes = choices("Mode", Packet, arrayOf(Packet, SprintTap, WTap, VapeWTap)).apply(::tagBy)
     val hurtTime by int("HurtTime", 10, 0..10)
+        .visibleWhen { modes.activeMode !== VapeWTap }
     val chance = percentageChance("Chance", 100f)
+        .visibleWhen { modes.activeMode !== VapeWTap }
     private val conditions by multiEnumChoice("Conditions", Conditions.NOT_IN_WATER)
+        .visibleWhen { modes.activeMode !== VapeWTap }
 
     @Suppress("unused")
     private enum class Conditions(
@@ -87,7 +90,7 @@ object ModuleSuperKnockback : ClientModule(
     }
 
     init {
-        tree(OnlyOnMove)
+        tree(OnlyOnMove).visibleWhen { modes.activeMode !== VapeWTap }
     }
 
     object Packet : Mode("Packet") {
@@ -225,8 +228,13 @@ object ModuleSuperKnockback : ClientModule(
         override val parent: ModeValueGroup<Mode>
             get() = modes
 
+        init {
+            flattenOptions()
+        }
+
+        private val vapeChance = percentageChance("Chance", 90f)
         private val releaseDelay by int("ReleaseDelay", 0, 0..500, "ms")
-        private val rePressDelay by int("RePressDelay", 50, 0..500, "ms")
+        private val rePressDelay by int("RePressDelay", 0, 0..500, "ms")
         private val selectHits by boolean("SelectHits", true)
 
         private var releaseAt = 0L
@@ -235,18 +243,26 @@ object ModuleSuperKnockback : ClientModule(
 
         @Suppress("unused", "ComplexCondition")
         private val attackHandler = handler<AttackEntityEvent> { event ->
-            if (releaseAt != 0L || rePressAt != 0L || !shouldOperate(event.entity) ||
-                !shouldStopSprinting(event) || !mc.options.keyUp.isPressedOnAny ||
-                (selectHits && event.entity is LivingEntity && event.entity.hurtTime > 0)
-            ) {
+            val target = event.entity as? Player ?: return@handler
+            if (releaseAt != 0L || rePressAt != 0L ||
+                selectHits && target.hurtTime > VULNERABLE_HURT_TIME || !vapeChance.asBoolean) {
                 return@handler
             }
 
             releaseAt = System.currentTimeMillis() + releaseDelay
+            handleRelease()
         }
 
         @Suppress("unused")
         private val tickHandler = handler<GameTickEvent> {
+            if (mc.gui.screen() != null) {
+                return@handler
+            }
+
+            handleRelease()
+        }
+
+        private fun handleRelease() {
             val now = System.currentTimeMillis()
             if (releaseAt != 0L && now >= releaseAt) {
                 releaseAt = 0L
@@ -261,7 +277,7 @@ object ModuleSuperKnockback : ClientModule(
         @Suppress("unused")
         private val movementHandler = handler<MovementInputEvent> { event ->
             if (cancelMovement) {
-                event.directionalInput = DirectionalInput.NONE
+                event.directionalInput = event.directionalInput.copy(forwards = false)
             }
         }
 
@@ -271,6 +287,8 @@ object ModuleSuperKnockback : ClientModule(
             cancelMovement = false
             super.disable()
         }
+
+        private const val VULNERABLE_HURT_TIME = 7
     }
 
     private fun shouldStopSprinting(event: AttackEntityEvent): Boolean {

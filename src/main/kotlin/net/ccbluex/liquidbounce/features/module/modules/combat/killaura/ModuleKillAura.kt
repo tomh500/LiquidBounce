@@ -19,8 +19,6 @@
 package net.ccbluex.liquidbounce.features.module.modules.combat.killaura
 
 import com.google.gson.JsonObject
-import net.ccbluex.liquidbounce.config.types.group.Mode
-import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.events.SprintEvent
@@ -68,15 +66,22 @@ import net.ccbluex.liquidbounce.utils.entity.squaredBoxedDistanceTo
 import net.ccbluex.liquidbounce.utils.inventory.InventoryManager.isInventoryOpen
 import net.ccbluex.liquidbounce.utils.inventory.isInContainerScreen
 import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
+import net.ccbluex.liquidbounce.utils.collection.itemSortedSetOf
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.math.sq
+import net.ccbluex.liquidbounce.utils.aiming.utils.RotationUtil
+import net.ccbluex.liquidbounce.utils.combat.TargetPriority
+import net.ccbluex.liquidbounce.utils.item.attackDamage
 import net.ccbluex.liquidbounce.utils.raytracing.findEntityInCrosshair
 import net.ccbluex.liquidbounce.utils.raytracing.isLookingAtEntity
 import net.ccbluex.liquidbounce.utils.render.TargetRenderer
 import net.minecraft.client.gui.screens.inventory.ContainerScreen
+import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
+import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
+import kotlin.random.Random
 
 /**
  * KillAura module
@@ -86,32 +91,75 @@ import net.minecraft.world.item.ItemStack
 @Suppress("MagicNumber")
 object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
-    private val modes = choices("Mode", 0) { arrayOf(LiquidBounceMode, VapeMode) }
-    private val mode: KillAuraMode get() = modes.activeMode
+    private val modeValue = enumChoice("Mode", KillAuraMode.LIQUID_BOUNCE)
+    private val mode by modeValue
+
+    internal val isLiquidBounceMode: Boolean
+        get() = mode == KillAuraMode.LIQUID_BOUNCE
+
+    private val vapeAttackRate by intRange("AttacksPerSecond", 6..13, 1..20, "attacks")
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeSwingRangeValue = float("SwingRange", 4f, 0f..6f, "blocks")
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeSwingRange by vapeSwingRangeValue
+    private val vapeAttackRangeValue = float("AttackRange", 3.5f, 0f..6f, "blocks")
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeAttackRange by vapeAttackRangeValue
+    private val vapeMaxAngle by float("MaxAngle", 90f, 1f..360f, "degrees")
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeMaxTargets by int("MaxTargets", 1, 1..6)
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeTargetMode by enumChoice("TargetMode", VapeTargetMode.DISTANCE)
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapePerfectSwing by boolean("PerfectSwing", false)
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeDisableOnDeath by boolean("DisableOnDeath", false)
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeRequireMouseDown by boolean("RequireMouseDown", false)
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeGuiCheck by boolean("GuiCheck", true)
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeShowTarget by boolean("ShowTarget", false)
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeLimitToItems by boolean("LimitToItems", false)
+        .visibleWhen { mode == KillAuraMode.VAPE }
+    private val vapeAllowedItems by items("AllowedItems", itemSortedSetOf())
+        .visibleWhen { mode == KillAuraMode.VAPE && vapeLimitToItems }
 
     // Attack speed
-    val clicker = tree(KillAuraClicker)
-    val range = tree(KillAuraRange)
-    val targetTracker = tree(KillAuraTargetTracker)
+    val clicker = tree(KillAuraClicker).also { it.visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE } }
+    val range = tree(KillAuraRange).also { it.visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE } }
+    val targetTracker = tree(KillAuraTargetTracker).also {
+        it.visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
+    }
 
     // Rotation
-    private val rotations = tree(KillAuraRotationsValueGroup)
-    private val pointTracker = tree(PointTracker(this))
+    private val rotations = tree(KillAuraRotationsValueGroup).also {
+        it.visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
+    }
+    private val pointTracker = tree(PointTracker(this)).also {
+        it.visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
+    }
 
     private val requires by multiEnumChoice<KillAuraRequirements>("Requires")
+        .visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
 
     private val requirementsMet
-        get() = requires.all { it.asBoolean } &&
-            (mode !is VapeMode || !VapeMode.requireMouseDown || mc.options.keyAttack.isPressedOnAny)
+        get() = requires.all { it.asBoolean }
 
     // Bypass techniques
     internal val raycast by enumChoice("Raycast", TRACE_ALL)
+        .visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
     private val criticalsSelectionMode by enumChoice("Criticals", CriticalsSelectionMode.SMART)
+        .visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
     private val keepSprint by boolean("KeepSprint", true)
+        .visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
 
     // Inventory Handling
     internal val ignoreOpenInventory by boolean("IgnoreOpenInventory", true)
+        .visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
     internal val simulateInventoryClosing by boolean("SimulateInventoryClosing", true)
+        .visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
 
     /**
      * The use of suspend [waitTicks] is a bit too
@@ -119,25 +167,48 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
      * such as KillAura. So back to the basics.
      */
     internal var waitTicks = 0
+    private var vapeNextAttackAt = 0L
+    private var vapePauseTicks = 0
 
     init {
-        tree(KillAuraAutoBlock)
+        modeValue.onChanged { newMode ->
+            targetTracker.reset()
+            vapeNextAttackAt = 0L
+            vapePauseTicks = 0
+            if (newMode == KillAuraMode.VAPE) {
+                waitTicks = 0
+            }
+        }
+        vapeSwingRangeValue.onChange { newRange ->
+            newRange.coerceAtLeast(vapeAttackRange + RANGE_INCREMENT)
+        }
+        vapeAttackRangeValue.onChange { newRange ->
+            newRange.coerceAtMost(vapeSwingRange - RANGE_INCREMENT)
+        }
+        tree(KillAuraAutoBlock).visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
         tree(TargetRenderer(this) {
-            targetTracker.target?.takeUnless { ModuleElytraTarget.isSameTargetRendering(it) }
+            targetTracker.target?.takeIf { mode == KillAuraMode.LIQUID_BOUNCE || vapeShowTarget }
+                ?.takeUnless { ModuleElytraTarget.isSameTargetRendering(it) }
         })
-        tree(KillAuraFailSwing)
-        tree(KillAuraFightBot)
-        tree(KillAuraRangeIndicator)
+        tree(KillAuraFailSwing).visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
+        tree(KillAuraFightBot).visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
+        tree(KillAuraRangeIndicator).visibleWhen { mode == KillAuraMode.LIQUID_BOUNCE }
     }
 
     override fun onDisabled() {
         targetTracker.reset()
+        vapeNextAttackAt = 0L
+        vapePauseTicks = 0
         failedHits.clear()
         KillAuraNotifyWhenFail.failedHitsIncrement = 0
     }
 
     @Suppress("unused")
     private val renderHandler = handler<WorldRenderEvent> { event ->
+        if (mode != KillAuraMode.LIQUID_BOUNCE) {
+            return@handler
+        }
+
         event.renderEnvironment {
             renderFailedHits()
             KillAuraRangeIndicator.render(this, event.partialTicks)
@@ -146,6 +217,10 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
     @Suppress("unused")
     private val rotationUpdateHandler = handler<RotationUpdateEvent> {
+        if (mode != KillAuraMode.LIQUID_BOUNCE) {
+            return@handler
+        }
+
         if (waitTicks > 0) {
             waitTicks--
         }
@@ -169,6 +244,11 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
     @Suppress("unused")
     private val gameHandler = tickHandler {
+        if (mode == KillAuraMode.VAPE) {
+            runVapeTick()
+            return@tickHandler
+        }
+
         if (player.isDeadOrDying || player.isSpectator) {
             return@tickHandler
         }
@@ -223,7 +303,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             targetTracker.target = crosshairTarget
         }
 
-        attackTarget(crosshairTarget, applyModeRotation(rotation))
+        attackTarget(crosshairTarget, rotation)
     }
 
     val shouldBlockSprinting
@@ -232,6 +312,10 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
     @Suppress("unused")
     private val sprintHandler = handler<SprintEvent> { event ->
+        if (mode != KillAuraMode.LIQUID_BOUNCE) {
+            return@handler
+        }
+
         if (shouldBlockSprinting && (event.source == SprintEvent.Source.MOVEMENT_TICK ||
                 event.source == SprintEvent.Source.INPUT)) {
             event.sprint = false
@@ -348,6 +432,79 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         }
     }
 
+    @Suppress("CognitiveComplexMethod", "ComplexCondition", "ReturnCount")
+    private fun runVapeTick() {
+        if (KillAuraAutoBlock.blockVisual) {
+            KillAuraAutoBlock.stopBlocking()
+        }
+
+        if (vapePauseTicks > 0) {
+            vapePauseTicks--
+            return
+        }
+
+        if (vapeGuiCheck && mc.gui.screen() != null) {
+            vapePauseTicks = 1
+            targetTracker.reset()
+            return
+        }
+
+        if (vapeDisableOnDeath && (player.isDeadOrDying || player.health <= 0f)) {
+            enabled = false
+            return
+        }
+
+        if (player.isDeadOrDying || player.isSpectator ||
+            vapeRequireMouseDown && !mc.options.keyAttack.isPressedOnAny ||
+            vapeLimitToItems && player.mainHandItem.item !in vapeAllowedItems
+        ) {
+            targetTracker.reset()
+            return
+        }
+
+        val targets = world.entitiesForRendering()
+            .asSequence()
+            .filterIsInstance<LivingEntity>()
+            .filter { it !== player && !it.isRemoved && it.isAlive && it.shouldBeAttacked() }
+            .filter { player.distanceTo(it) <= vapeSwingRange }
+            .filter { RotationUtil.crosshairAngleToEntity(it) <= vapeMaxAngle / 2f }
+            .sortedWith(vapeTargetComparator())
+            .take(vapeMaxTargets)
+            .toList()
+
+        targetTracker.target = targets.firstOrNull()
+        if (targets.isEmpty() || System.currentTimeMillis() < vapeNextAttackAt ||
+            vapePerfectSwing && player.getAttackStrengthScale(0.5f) < 1f
+        ) {
+            return
+        }
+
+        var swung = false
+        targets.forEach { target ->
+            if (player.distanceTo(target) <= vapeAttackRange) {
+                attackEntity(target, SwingMode.DO_NOT_HIDE)
+            } else if (!swung) {
+                SwingMode.DO_NOT_HIDE.swing(InteractionHand.MAIN_HAND)
+            }
+            swung = true
+        }
+
+        val cps = Random.nextInt(vapeAttackRate.first, vapeAttackRate.last + 1)
+        vapeNextAttackAt = System.currentTimeMillis() + 1000L / cps
+    }
+
+    private fun vapeTargetComparator(): Comparator<LivingEntity> = when (vapeTargetMode) {
+        VapeTargetMode.DISTANCE -> TargetPriority.DISTANCE
+        VapeTargetMode.YAW -> TargetPriority.DIRECTION
+        VapeTargetMode.HEALTH -> TargetPriority.HEALTH
+        VapeTargetMode.THREAT -> compareBy { target ->
+            if (target is Player) target.mainHandItem.attackDamage else player.distanceTo(target).toDouble()
+        }
+        VapeTargetMode.ARMOR -> compareBy { target ->
+            if (target is Player) target.armorValue else player.distanceTo(target).toInt()
+        }
+    }
+
     @Suppress("ReturnCount")
     private fun processTarget(
         entity: LivingEntity,
@@ -355,11 +512,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         wallsRange: Float
     ): Boolean {
         val (rotation, _) = findRotation(entity, range, wallsRange) ?: return false
-        if (mode is VapeMode && player.rotation.directionAngleTo(rotation) > VapeMode.maxAngle) {
-            return false
-        }
-        val aimedRotation = applyModeRotation(rotation)
-        val ticks = rotations.calculateTicks(aimedRotation)
+        val ticks = rotations.calculateTicks(rotation)
         debugParameter("Rotation Ticks") { ticks }
 
         when (rotations.rotationTiming) {
@@ -384,7 +537,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
         RotationManager.setRotationTarget(
             rotations.toRotationTarget(
-                aimedRotation,
+                rotation,
                 entity,
                 considerInventory = !ignoreOpenInventory
             ),
@@ -467,24 +620,19 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         TRACE_ALL("All")
     }
 
-    private sealed class KillAuraMode(name: String) : Mode(name) {
-        final override val parent: ModeValueGroup<KillAuraMode>
-            get() = modes
+    private enum class KillAuraMode(override val tag: String) : Tagged {
+        LIQUID_BOUNCE("LiquidBounce"),
+        VAPE("Vape"),
     }
 
-    private object LiquidBounceMode : KillAuraMode("LiquidBounce")
-
-    private object VapeMode : KillAuraMode("Vape") {
-        val requireMouseDown by boolean("RequireMouseDown", true)
-        val maxAngle by float("MaxAngle", 90f, 1f..180f, "degrees")
-        val horizontalSpeed by float("HorizontalSpeed", 7f, 1f..10f, "degrees")
-        val verticalSpeed by float("VerticalSpeed", 5f, 1f..10f, "degrees")
+    private enum class VapeTargetMode(override val tag: String) : Tagged {
+        DISTANCE("Distance"),
+        YAW("Yaw"),
+        ARMOR("Armor"),
+        THREAT("Threat"),
+        HEALTH("Health"),
     }
 
-    private fun applyModeRotation(rotation: Rotation): Rotation = if (mode is VapeMode) {
-        player.rotation.towardsLinear(rotation, VapeMode.horizontalSpeed, VapeMode.verticalSpeed)
-    } else {
-        rotation
-    }
+    private const val RANGE_INCREMENT = 0.1f
 
 }

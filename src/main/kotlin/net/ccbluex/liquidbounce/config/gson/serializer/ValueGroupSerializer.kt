@@ -97,10 +97,13 @@ class ValueGroupSerializer(
             add(
                 "value",
                 context.serialize(
-                    src.inner.filter { includeNotAnOption || !it.notAnOption }
+                    src.inner.asSequence()
+                        .filter { includeNotAnOption || !it.notAnOption }
+                        .filter { !withValueType || it.isOptionVisible.asBoolean }
                         .filter {
                             includePrivate || checkIfInclude(it)
                         }
+                        .toList()
                 )
             )
         } catch (e: Exception) {

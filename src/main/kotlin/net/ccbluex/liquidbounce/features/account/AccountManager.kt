@@ -36,6 +36,7 @@ import net.ccbluex.liquidbounce.event.events.AccountManagerAdditionResultEvent
 import net.ccbluex.liquidbounce.event.events.AccountManagerLoginResultEvent
 import net.ccbluex.liquidbounce.event.events.AccountManagerRemovalResultEvent
 import net.ccbluex.liquidbounce.event.events.SessionEvent
+import net.ccbluex.liquidbounce.utils.client.browseUrl
 import net.ccbluex.liquidbounce.utils.client.logger
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.client.with
@@ -77,6 +78,24 @@ object AccountManager : Config("Accounts"), EventListener {
         }
         loginDirectAccount(account)
         loggingIn.set(false)
+    }
+
+    fun loginPreferredDevelopmentAccount() {
+        val account = accounts.firstOrNull { it is MicrosoftAccount && it.favorite }
+            ?: accounts.firstOrNull { it is MicrosoftAccount }
+
+        if (account == null) {
+            logger.info("No saved Microsoft account found. Starting development login flow.")
+            newMicrosoftAccount(
+                url = { browseUrl(it) },
+                success = { loginDirectAccount(it) },
+                error = { logger.error("Development Microsoft login failed: $it") },
+            )
+            return
+        }
+
+        logger.info("Using saved Microsoft account for development session.")
+        loginDirectAccount(account)
     }
 
     fun loginDirectAccount(account: MinecraftAccount) = try {

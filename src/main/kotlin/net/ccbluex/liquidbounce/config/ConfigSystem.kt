@@ -28,6 +28,7 @@ import net.ccbluex.liquidbounce.config.types.Config
 import net.ccbluex.liquidbounce.config.types.Value
 import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.config.types.group.ValueGroup
+import net.ccbluex.liquidbounce.config.types.list.ChoiceListValue
 import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.ModuleKillAura
 import net.ccbluex.liquidbounce.utils.client.clientLogger
 import net.ccbluex.liquidbounce.utils.client.mc
@@ -36,6 +37,34 @@ import net.ccbluex.liquidbounce.utils.io.extractZip
 import java.io.File
 import java.io.Reader
 import java.io.Writer
+
+internal fun deserializeLeafValue(value: Value<*>, jsonObject: JsonObject) {
+    if (value is ChoiceListValue<*> && jsonObject.has("active")) {
+        // Migrate choices that were previously stored as a ModeValueGroup.
+        value.setByString(jsonObject["active"].asString)
+    } else {
+        value.deserializeFrom(fileGson, jsonObject["value"])
+    }
+}
+
+internal fun expandLegacyModeValues(
+    values: Collection<Value<*>>,
+    valuesByName: MutableMap<String, ArrayDeque<JsonObject>>,
+) {
+    values.filterIsInstance<ChoiceListValue<*>>().forEach { value ->
+        val legacyMode = valuesByName[value.name]?.firstOrNull()?.takeIf {
+            it.has("active") && it.has("choices")
+        } ?: return@forEach
+        val activeMode = legacyMode["active"].asString
+        val activeChoice = legacyMode["choices"].asJsonObject[activeMode]?.asJsonObject ?: return@forEach
+
+        activeChoice["value"].asJsonArray.forEach { element ->
+            val valueObject = element.asJsonObject
+            val valueName = valueObject["name"].asString
+            valuesByName.getOrPut(valueName) { ArrayDeque(1) }.addLast(valueObject)
+        }
+    }
+}
 
 /**
  * A hierarchy config system
@@ -269,13 +298,15 @@ object ConfigSystem {
         valueGroup.prepareDeserialize(jsonObject)
 
         val storedValues = jsonObject.getAsJsonArray("value")
-        val valuesByName = buildMap {
+        val valuesByName = mutableMapOf<String, ArrayDeque<JsonObject>>().apply {
             for (valueElem in storedValues) {
                 val valueObj = valueElem.asJsonObject
                 val valueName = valueObj["name"].asString
                 this.getOrPut(valueName) { ArrayDeque(1) }.addLast(valueObj)
             }
         }
+
+        expandLegacyModeValues(valueGroup.inner, valuesByName)
 
         // Migration Code for KillAura's Range Values
         if (valueGroup is ModuleKillAura) {
@@ -335,7 +366,7 @@ object ConfigSystem {
 
         // Otherwise, we simply deserialize the value
         runCatching {
-            value.deserializeFrom(fileGson, jsonObject["value"])
+            deserializeLeafValue(value, jsonObject)
         }.onFailure {
             logger.error("Unable to deserialize value ${value.name}", it)
         }

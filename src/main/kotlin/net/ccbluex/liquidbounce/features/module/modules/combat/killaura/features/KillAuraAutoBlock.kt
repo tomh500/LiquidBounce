@@ -77,6 +77,9 @@ import kotlin.jvm.optionals.getOrNull
 
 object KillAuraAutoBlock : ToggleableValueGroup(ModuleKillAura, "AutoBlocking", false) {
 
+    override val running: Boolean
+        get() = super.running && ModuleKillAura.isLiquidBounceMode
+
     private val blockMode by enumChoice("BlockMode", BlockMode.INTERACT)
     /**
      * This options means to simulate vanilla use item action.

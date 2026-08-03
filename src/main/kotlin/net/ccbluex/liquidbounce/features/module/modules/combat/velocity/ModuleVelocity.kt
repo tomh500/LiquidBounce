@@ -85,7 +85,9 @@ object ModuleVelocity : ClientModule(
     ).apply(::tagBy)
 
     private val delay by intRange("Delay", 0..0, 0..40, "ticks")
+        .visibleWhen { modes.activeMode !== VelocityVape }
     private val pauseOnFlag by int("PauseOnFlag", 0, 0..20, "ticks")
+        .visibleWhen { modes.activeMode !== VelocityVape }
 
     internal var pause = 0
 
@@ -100,13 +102,14 @@ object ModuleVelocity : ClientModule(
     private val packetHandler = sequenceHandler<PacketEvent>(priority = 1) { event ->
         val packet = event.packet
 
-        if (!event.original || pause > 0) {
+        val vapeMode = modes.activeMode === VelocityVape
+        if (!event.original || !vapeMode && pause > 0) {
             return@sequenceHandler
         }
 
         if (packet.isLocalPlayerVelocity()) {
             // When delay is above 0, we will delay the velocity update
-            if (delay.last > 0) {
+            if (!vapeMode && delay.last > 0) {
                 event.cancelEvent()
 
                 delay.random().let { ticks ->
@@ -125,7 +128,7 @@ object ModuleVelocity : ClientModule(
                     (packet as Packet<ClientGamePacketListener>).handle(network)
                 }
             }
-        } else if (packet is ClientboundPlayerPositionPacket) {
+        } else if (!vapeMode && packet is ClientboundPlayerPositionPacket) {
             pause = pauseOnFlag
         }
     }

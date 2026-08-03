@@ -32,6 +32,11 @@ class PercentageChance<T : Number>(
     private val value: Value<T>,
     private val randomGetter: Supplier<out RandomGenerator>,
 ) : BooleanSupplier, ReadOnlyProperty<Any?, Boolean> {
+
+    fun visibleWhen(condition: BooleanSupplier) = apply {
+        value.visibleWhen(condition)
+    }
+
     val percentage: Float
         get() = value.get().toFloat()
 

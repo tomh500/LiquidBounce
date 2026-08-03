@@ -40,6 +40,9 @@ import kotlin.math.pow
 
 internal object KillAuraFailSwing : ToggleableValueGroup(ModuleKillAura, "FailSwing", false) {
 
+    override val running: Boolean
+        get() = super.running && ModuleKillAura.isLiquidBounceMode
+
     /**
      * Additional range for fail swing to work
      */
