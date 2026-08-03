@@ -27,6 +27,7 @@ import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugParameter
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ScaffoldBlockItemSelection.isValidBlock
 import net.ccbluex.liquidbounce.utils.entity.isCloseToEdge
+import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.SAFETY_FEATURE
 import net.ccbluex.liquidbounce.utils.kotlin.matchesAll
 import net.ccbluex.liquidbounce.utils.kotlin.random
@@ -64,7 +65,7 @@ object ModuleEagle : ClientModule(
 
     private fun shouldActivateEagle(event: MovementInputEvent, conditionsMet: Boolean): Boolean {
         if (player.abilities.flying || !conditionsMet ||
-            (requireSneak && !mc.options.keyShift.isDown) ||
+            (requireSneak && !mc.options.keyShift.isPressedOnAny) ||
             (requireBack && !isBackwardsOrSideways(event.directionalInput))
         ) {
             return false
@@ -151,7 +152,7 @@ object ModuleEagle : ClientModule(
     private val handleMovementInput = handler<MovementInputEvent>(priority = SAFETY_FEATURE) { event ->
         debugParameter("EdgeDistance") { currentEdgeDistance }
 
-        val originalSneak = mc.options.keyShift.isDown
+        val originalSneak = mc.options.keyShift.isPressedOnAny
         val conditionsMet = Conditional.shouldSneak(event)
         val isActive = shouldActivateEagle(event, conditionsMet)
 
