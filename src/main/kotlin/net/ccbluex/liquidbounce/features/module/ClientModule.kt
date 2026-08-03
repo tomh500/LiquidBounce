@@ -57,6 +57,7 @@ open class ClientModule(
     name: String, // name parameter in configurable
     @Exclude val category: ModuleCategory, // primary module category
     @Exclude val secondaryCategories: List<ModuleCategory> = emptyList(), // additional display categories
+    @Exclude val displayPrimaryCategory: Boolean = true, // whether the primary category is exposed to callers
     bind: Int = InputConstants.UNKNOWN.value, // default bind
     bindAction: InputBind.BindAction = InputBind.BindAction.TOGGLE, // default action
     state: Boolean = false, // default state
@@ -68,7 +69,11 @@ open class ClientModule(
 ) : ToggleableValueGroup(null, name, state, aliases = aliases), EventListener, MinecraftShortcuts {
 
     val categories: List<ModuleCategory>
-        get() = listOf(category) + secondaryCategories.filter { it != category }
+        get() = if (displayPrimaryCategory) {
+            listOf(category) + secondaryCategories.filter { it != category }
+        } else {
+            secondaryCategories.ifEmpty { listOf(category) }
+        }
 
     protected val logger = clientLogger("Module/$name")
 

@@ -9,6 +9,7 @@ object ModuleRikkaDynamicLights : ClientModule(
     "Rikka DynamicLights",
     ModuleCategories.RENDER,
     secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA),
+    displayPrimaryCategory = false,
     state = true,
     aliases = listOf("DynamicLights", "RikkaLights"),
 ) {

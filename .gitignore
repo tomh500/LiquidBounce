@@ -16,3 +16,5 @@
 *.log
 /.fabric/
 baritone/
+需要合并的/
+AGENTS.MD

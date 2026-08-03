@@ -600,6 +600,15 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleAnchor,
             ModuleSnapTap,
 
+            // Rikka modules are registered in the dedicated XuanRikka section below.
+            // Their original primary-category registrations are intentionally retained
+            // as comments for future reactivation, but are not used currently.
+            // ModuleRikkaFollow,
+            // ModuleRikkaGoto,
+            // ModuleRikkaPause,
+            // ModuleRikkaResume,
+            // ModuleRikkaStop,
+
             // Player
             ModuleAntiVoid,
             ModuleAntiAFK,
@@ -641,7 +650,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleClickGui,
             ModuleDamageParticles,
             ModuleParticles,
-            ModuleRikkaDynamicLights,
+            // ModuleRikkaDynamicLights,
             ModuleESP,
             ModuleLogoffSpot,
             ModuleFreeCam,
@@ -693,7 +702,9 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleAirPlace,
             ModuleAutoBuild,
             ModuleAutoDisable,
-            ModuleRikkaMine,
+            // ModuleRikkaMine,
+            // ModuleRikkaBuild,
+            // ModuleRikkaExplore,
             ModuleAutoFarm,
             ModuleAutoTool,
             ModuleCrystalAura,
@@ -718,7 +729,11 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleStrongholdFinder,
             ModuleNoInterpolation,
 
-            // XuanRikka
+            // Dedicated XuanRikka registration. Each Rikka module is registered
+            // exactly once here so it remains available without appearing in
+            // the original LiquidBounce category sections above.
+            ModuleRikkaDynamicLights,
+            ModuleRikkaMine,
             ModuleRikkaBuild,
             ModuleRikkaExplore,
             ModuleRikkaFollow,
