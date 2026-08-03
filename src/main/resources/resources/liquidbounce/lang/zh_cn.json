@@ -800,4 +800,12 @@
   "liquidbounce.module.noFall.messages.spoofLanding": "NoFall SpoofLanding模式仅在1.8+工作！",
   "liquidbounce.module.antiCheatDetect.messages.description": "Anti Cheat Detect 将尝试在你下次加入任何服务器/游戏时，通过监测 ping 参数来检测服务器的反作弊系统。请注意，结果可能不准确，特别是当服务器上有多个反作弊系统时。"
   ,"liquidbounce.module.rikkaDynamicLights.description": "为实体、物品和粒子提供可配置的动态光源。"
+  ,"liquidbounce.module.aimbot.value.mode.description": "选择 AimAssist 使用的实现风格。",
+  "liquidbounce.module.blockHit.description": "阻止客户端释放正在使用的物品。",
+  "liquidbounce.module.killAura.value.mode.description": "选择 KillAura 使用的实现风格。",
+  "liquidbounce.module.triggerbot.description": "自动攻击准星下符合条件的实体。",
+  "liquidbounce.module.triggerbot.aka": "TriggerBot",
+  "liquidbounce.module.blockHit.aka": "NoItemRelease",
+  "liquidbounce.module.rightClicker.description": "在使用符合条件的物品时自动点击使用键。",
+  "liquidbounce.module.rightClicker.aka": "RightClick"
 }

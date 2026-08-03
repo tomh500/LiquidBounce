@@ -16,6 +16,7 @@ import kotlin.random.Random
 object ModuleTriggerbot : ClientModule(
     "Triggerbot",
     ModuleCategories.COMBAT,
+    aliases = listOf("TriggerBot"),
     origin = ModuleOrigin.XUAN_RIKKA,
 ) {
     private val requireMouseDown by boolean("RequireMouseDown", false)

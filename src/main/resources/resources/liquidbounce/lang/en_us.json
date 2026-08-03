@@ -451,6 +451,7 @@
   "liquidbounce.module.tntTimer.description": "Highlight the active TNTs.",
   "liquidbounce.module.abortBreaking.description": "Allows you to abort breaking without losing progress.",
   "liquidbounce.module.aimbot.description": "Automatically faces targets nearby.",
+  "liquidbounce.module.aimbot.value.mode.description": "Selects the implementation style used by the aim assist.",
   "liquidbounce.module.airJump.description": "Allows you to jump mid-air.",
   "liquidbounce.module.animations.description": "Allows you to modify many of game's animations.",
   "liquidbounce.module.antiAFK.description": "Prevents you from being kicked for being AFK.",
@@ -475,6 +476,7 @@
   "liquidbounce.module.autoBreak.description": "Automatically breaks the block you are looking at.",
   "liquidbounce.module.autoChatGame.description": "Uses OpenAI to play chat games.",
   "liquidbounce.module.autoClicker.description": "Clicks automatically when holding down the attack button.",
+  "liquidbounce.module.blockHit.description": "Prevents the client from releasing an active item-use action.",
   "liquidbounce.module.autoConfig.description": "Automatically applies the correct config for the server you are playing on.",
   "liquidbounce.module.autoConfig.messages.loading": "Loading config for %s...",
   "liquidbounce.module.autoConfig.messages.loaded": "Applied config for %s.",
@@ -624,6 +626,7 @@
   "liquidbounce.module.kick.description": "Kicks yourself from the server.",
   "liquidbounce.module.kick.messages.cantEnableInSingleplayer": "Kick cannot be enabled in single player.",
   "liquidbounce.module.killAura.description": "Automatically attacks enemies around you.",
+  "liquidbounce.module.killAura.value.mode.description": "Selects the implementation style used by KillAura.",
   "liquidbounce.module.tpAura.description": "Automatically teleports and attacks enemies around you.",
   "liquidbounce.module.killAura.messages.badCooldown": "The cooldown should be at least 1.0, otherwise you will not be able to deal critical damage properly.",
   "liquidbounce.module.noMissCooldown.description": "Disables 1.8 hit cooldown or cancels missed attacks entirely.",
@@ -708,6 +711,7 @@
   "liquidbounce.module.storageESP.description": "Highlights all blocks that can contain items allowing you to see them rough walls.",
   "liquidbounce.module.strafe.description": "Allows you to strafe while being in mid-air.",
   "liquidbounce.module.superKnockback.description": "Increases knockback dealt to other entities.",
+  "liquidbounce.module.triggerbot.description": "Automatically attacks a valid entity under your crosshair.",
   "liquidbounce.module.swingFix.description": "Fixes swing packet order for 1.8 servers in-case their anti-cheat is outdated.",
   "liquidbounce.module.swordBlock.description": "Enables 1.8 sword blocking on servers using ViaVersion",
   "liquidbounce.module.teams.description": "Prevents KillAura from attacking team mates.",
@@ -810,5 +814,10 @@
   "liquidbounce.module.macros.description": "Lets you execute chat messages or item actions using custom keybinds.",
   "liquidbounce.module.newChunks.description": "Highlights chunks that are likely newly generated.",
   "liquidbounce.module.rikkaDynamicLights.description": "Adds configurable dynamic lighting to entities, items, and particles.",
-  "liquidbounce.module.rikkaDynamicLights.aka": "DynamicLights, RikkaLights"
+  "liquidbounce.module.rikkaDynamicLights.aka": "DynamicLights",
+  "liquidbounce.module.rightClicker.description": "Automatically clicks the use key while you are using an eligible item.",
+  "liquidbounce.module.rightClicker.aka": "RightClick",
+  "liquidbounce.module.blockHit.aka": "NoItemRelease",
+  "liquidbounce.module.triggerbot.aka": "TriggerBot",
+  "liquidbounce.module.dynamicLights.description": "Provides configurable dynamic lighting for held items and entities."
 }

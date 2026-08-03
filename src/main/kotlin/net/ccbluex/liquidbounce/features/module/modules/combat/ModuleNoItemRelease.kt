@@ -9,9 +9,9 @@ import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
 
 /** Keeps an item-use action active by filtering the client release packet. */
 object ModuleNoItemRelease : ClientModule(
-    "NoItemRelease",
+    "BlockHit",
     ModuleCategories.COMBAT,
-    aliases = listOf("BlockHit"),
+    aliases = listOf("NoItemRelease"),
     origin = ModuleOrigin.XUAN_RIKKA,
 ) {
     private val onlyWhileUsing by boolean("OnlyWhileUsing", true)

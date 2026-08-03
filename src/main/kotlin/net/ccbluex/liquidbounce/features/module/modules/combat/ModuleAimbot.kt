@@ -57,6 +57,12 @@ import net.minecraft.world.entity.Entity
  */
 object ModuleAimbot : ClientModule("Aimbot", ModuleCategories.COMBAT, aliases = listOf("AimAssist", "AutoAim")) {
 
+    private val mode by enumChoice("Mode", AimbotMode.LIQUID_BOUNCE)
+    private val vapeRequireMouseDown by boolean("VapeRequireMouseDown", true)
+    private val vapeMaxAngle by float("VapeMaxAngle", 45f, 1f..180f, "degrees")
+    private val vapeHorizontalSpeed by float("VapeHorizontalSpeed", 7f, 1f..10f, "degrees")
+    private val vapeVerticalSpeed by float("VapeVerticalSpeed", 5f, 1f..10f, "degrees")
+
     private val range = float("Range", 4.2f, 1f..8f)
 
     val targetTracker = tree(TargetTracker(TargetPriority.DIRECTION, range = range))
@@ -69,7 +75,8 @@ object ModuleAimbot : ClientModule("Aimbot", ModuleCategories.COMBAT, aliases = 
     private val requires by multiEnumChoice<KillAuraRequirements>("Requires")
 
     private val requirementsMet
-        get() = mc.gui.screen() == null && requires.all { it.asBoolean }
+        get() = mc.gui.screen() == null && requires.all { it.asBoolean } &&
+            (mode != AimbotMode.VAPE || !vapeRequireMouseDown || mc.options.keyAttack.isDown)
 
     private var angleSmooth = modes(this, "AngleSmooth") {
         arrayOf(
@@ -96,7 +103,9 @@ object ModuleAimbot : ClientModule("Aimbot", ModuleCategories.COMBAT, aliases = 
             return@handler
         }
 
-        targetRotation = findNextTargetRotation()?.let { (target, rotation) ->
+        targetRotation = findNextTargetRotation()?.takeIf { (_, rotation) ->
+            mode != AimbotMode.VAPE || player.rotation.directionAngleTo(rotation.rotation) <= vapeMaxAngle
+        }?.let { (target, rotation) ->
             angleSmooth.activeMode.process(
                 RotationTarget(
                     rotation = rotation.rotation,
@@ -158,7 +167,15 @@ object ModuleAimbot : ClientModule("Aimbot", ModuleCategories.COMBAT, aliases = 
         val playerRotation = playerRotation ?: return
         val targetRotation = targetRotation ?: return
         val timerSpeed = Timer.timerSpeed
-        val interpolatedRotation = playerRotation.interpolateTo(targetRotation, timerSpeed * partialTicks)
+        val interpolatedRotation = if (mode == AimbotMode.VAPE) {
+            playerRotation.towardsLinear(
+                targetRotation,
+                vapeHorizontalSpeed * partialTicks,
+                vapeVerticalSpeed * partialTicks,
+            )
+        } else {
+            playerRotation.interpolateTo(targetRotation, timerSpeed * partialTicks)
+        }
 
         player.setRotation(
             Rotation(
@@ -203,5 +220,10 @@ object ModuleAimbot : ClientModule("Aimbot", ModuleCategories.COMBAT, aliases = 
     private enum class Axis(override val tag: String) : Tagged {
         HORIZONTAL("Horizontal"),
         VERTICAL("Vertical")
+    }
+
+    private enum class AimbotMode(override val tag: String) : Tagged {
+        LIQUID_BOUNCE("LiquidBounce"),
+        VAPE("Vape"),
     }
 }

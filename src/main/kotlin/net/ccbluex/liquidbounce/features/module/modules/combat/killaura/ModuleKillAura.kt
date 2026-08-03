@@ -65,6 +65,7 @@ import net.ccbluex.liquidbounce.utils.entity.rotation
 import net.ccbluex.liquidbounce.utils.entity.squaredBoxedDistanceTo
 import net.ccbluex.liquidbounce.utils.inventory.InventoryManager.isInventoryOpen
 import net.ccbluex.liquidbounce.utils.inventory.isInContainerScreen
+import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.math.sq
 import net.ccbluex.liquidbounce.utils.raytracing.findEntityInCrosshair
@@ -83,6 +84,12 @@ import net.minecraft.world.item.ItemStack
 @Suppress("MagicNumber")
 object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
+    private val mode by enumChoice("Mode", KillAuraMode.LIQUID_BOUNCE)
+    private val vapeRequireMouseDown by boolean("VapeRequireMouseDown", true)
+    private val vapeMaxAngle by float("VapeMaxAngle", 90f, 1f..180f, "degrees")
+    private val vapeHorizontalSpeed by float("VapeHorizontalSpeed", 7f, 1f..10f, "degrees")
+    private val vapeVerticalSpeed by float("VapeVerticalSpeed", 5f, 1f..10f, "degrees")
+
     // Attack speed
     val clicker = tree(KillAuraClicker)
     val range = tree(KillAuraRange)
@@ -95,7 +102,8 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
     private val requires by multiEnumChoice<KillAuraRequirements>("Requires")
 
     private val requirementsMet
-        get() = requires.all { it.asBoolean }
+        get() = requires.all { it.asBoolean } &&
+            (mode != KillAuraMode.VAPE || !vapeRequireMouseDown || mc.options.keyAttack.isPressedOnAny)
 
     // Bypass techniques
     internal val raycast by enumChoice("Raycast", TRACE_ALL)
@@ -216,7 +224,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             targetTracker.target = crosshairTarget
         }
 
-        attackTarget(crosshairTarget, rotation)
+        attackTarget(crosshairTarget, applyModeRotation(rotation))
     }
 
     val shouldBlockSprinting
@@ -348,7 +356,11 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         wallsRange: Float
     ): Boolean {
         val (rotation, _) = findRotation(entity, range, wallsRange) ?: return false
-        val ticks = rotations.calculateTicks(rotation)
+        if (mode == KillAuraMode.VAPE && player.rotation.directionAngleTo(rotation) > vapeMaxAngle) {
+            return false
+        }
+        val aimedRotation = applyModeRotation(rotation)
+        val ticks = rotations.calculateTicks(aimedRotation)
         debugParameter("Rotation Ticks") { ticks }
 
         when (rotations.rotationTiming) {
@@ -373,7 +385,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
         RotationManager.setRotationTarget(
             rotations.toRotationTarget(
-                rotation,
+                aimedRotation,
                 entity,
                 considerInventory = !ignoreOpenInventory
             ),
@@ -454,6 +466,17 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         TRACE_NONE("None"),
         TRACE_ONLYENEMY("Enemy"),
         TRACE_ALL("All")
+    }
+
+    private enum class KillAuraMode(override val tag: String) : Tagged {
+        LIQUID_BOUNCE("LiquidBounce"),
+        VAPE("Vape"),
+    }
+
+    private fun applyModeRotation(rotation: Rotation): Rotation = if (mode == KillAuraMode.VAPE) {
+        player.rotation.towardsLinear(rotation, vapeHorizontalSpeed, vapeVerticalSpeed)
+    } else {
+        rotation
     }
 
 }
