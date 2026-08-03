@@ -25,6 +25,7 @@
     let activeTab = $state(0);
     let minecraftScaleFactor = $state(2);
     let clickGuiScaleFactor = $state(1);
+    let initialized = $state(false);
 
     $effect(() => {
         $scaleFactor = minecraftScaleFactor * clickGuiScaleFactor;
@@ -45,17 +46,22 @@
     }
 
     onMount(async () => {
-        await setHudEditorSelected(false);
+        try {
+            await setHudEditorSelected(false);
 
-        $os = (await getClientInfo()).os;
+            $os = (await getClientInfo()).os;
 
-        const gameWindow = await getGameWindow();
-        minecraftScaleFactor = gameWindow.scaleFactor;
+            const gameWindow = await getGameWindow();
+            minecraftScaleFactor = gameWindow.scaleFactor;
 
-        const clickGuiSettings = await getModuleSettings("ClickGUI");
-        applyValues(clickGuiSettings);
+            const clickGuiSettings = await getModuleSettings("ClickGUI");
+            applyValues(clickGuiSettings);
 
-        await setTyping(false);
+            await setTyping(false);
+        } finally {
+            // Do not paint the GUI at the default scale and then rescale its text.
+            initialized = true;
+        }
     });
 
     listen("scaleFactorChange", (e: ScaleFactorChangeEvent) => {
@@ -67,11 +73,10 @@
     });
 </script>
 
-<div
-        class="tabbed-clickgui"
-        class:darken={$darken}
->
-    <Tabs {tabs} bind:activeTab/>
+<div class="tabbed-clickgui" class:darken={$darken}>
+    {#if initialized}
+        <Tabs {tabs} bind:activeTab/>
+    {/if}
 </div>
 
 <style lang="scss">

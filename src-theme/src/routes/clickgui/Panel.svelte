@@ -32,6 +32,11 @@
 
     const panelConfig = loadPanelConfig();
 
+    const categoryIconNames: Record<string, string> = {
+        xuanrikka: "xuanrikka",
+    };
+    const categoryIconName = categoryIconNames[category.trim().toLowerCase()] ?? category.trim().toLowerCase();
+
     let ignoreGrid = false;
 
     interface PanelConfig {
@@ -198,7 +203,7 @@
     >
         <img
                 class="icon"
-                src="img/clickgui/icon-{category.toLowerCase()}.svg"
+                src="img/clickgui/icon-{categoryIconName}.svg"
                 alt="icon"
         />
         <span class="category">{category}</span>
@@ -229,7 +234,6 @@
     position: absolute;
     overflow: hidden;
     box-shadow: 0 0 10px var(--clickgui-panel-shadow-color);
-    will-change: transform;
     transition: none;
     user-select: none;
   }

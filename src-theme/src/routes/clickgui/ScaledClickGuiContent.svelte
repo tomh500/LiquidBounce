@@ -10,7 +10,7 @@
 <div
         class="scaled-clickgui-content"
         style="
-            transform: scale({$scaleFactor * 50}%);
+            zoom: {$scaleFactor / 2};
             width: {2 / $scaleFactor * 100}vw;
             height: {2 / $scaleFactor * 100}vh;
         "
@@ -24,6 +24,5 @@
     left: 0;
     top: 0;
     overflow: hidden;
-    transform-origin: top left;
   }
 </style>
