@@ -10,6 +10,7 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.combat
 
+import net.ccbluex.liquidbounce.event.events.MouseRotationEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.features.module.ClientModule
@@ -18,6 +19,7 @@ import net.ccbluex.liquidbounce.utils.clicking.Clicker
 import net.ccbluex.liquidbounce.utils.collection.itemSortedSetOf
 import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
 import net.minecraft.client.KeyMapping
+import kotlin.random.Random
 
 /**
  * Right-click autoclicker compatible with the Vape RightClicker layout.
@@ -31,11 +33,14 @@ object ModuleRightClicker : ClientModule(
 
     private val holdToClick by boolean("HoldToClick", true)
     private val startDelay by int("StartDelay", 0, 0..1000, "ms")
+    private val jitter by boolean("Jitter", false)
     private val useItemWhitelist by boolean("UseItemWhitelist", false)
     private val itemWhitelist by items("ItemWhitelist", itemSortedSetOf())
     private val clicker = tree(Clicker(this, mc.options.keyUse, itemCooldown = null))
 
     private var activationStartedAt = 0L
+    private var pendingJitterX = 0.0
+    private var pendingJitterY = 0.0
 
     override fun onEnabled() {
         activationStartedAt = 0L
@@ -70,8 +75,24 @@ object ModuleRightClicker : ClientModule(
         }
 
         clicker.click {
+            if (jitter) {
+                pendingJitterX += Random.nextDouble(-2.5, 2.5)
+                pendingJitterY += Random.nextDouble(-1.5, 1.5)
+            }
             KeyMapping.click(mc.options.keyUse.key)
             true
         }
+    }
+
+    @Suppress("unused")
+    private val jitterHandler = handler<MouseRotationEvent> { event ->
+        if (!jitter || (pendingJitterX == 0.0 && pendingJitterY == 0.0)) return@handler
+
+        event.cursorDeltaX += pendingJitterX
+        event.cursorDeltaY += pendingJitterY
+        pendingJitterX *= 0.45
+        pendingJitterY *= 0.45
+        if (kotlin.math.abs(pendingJitterX) < 0.05) pendingJitterX = 0.0
+        if (kotlin.math.abs(pendingJitterY) < 0.05) pendingJitterY = 0.0
     }
 }
