@@ -120,9 +120,8 @@
             on:mouseleave={() => descriptionStore.set(null)}
             bind:this={moduleNameElement}
             class:enabled
-            class:customOrigin={origin !== "LIQUID_BOUNCE"}
+            class:customOrigin={origin === "XUAN_RIKKA"}
             class:xuanRikka={origin === "XUAN_RIKKA"}
-            class:modified={origin === "LIQUID_BOUNCE_MODIFIED"}
             class:highlight={name === $highlightModuleName}
     >
         {$spaceSeperatedNames ? convertToSpacedString(name) : name}
@@ -188,9 +187,6 @@
           color: #78b7b0;
         }
 
-        &.modified {
-          color: #b6a878;
-        }
       }
     }
 

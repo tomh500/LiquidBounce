@@ -54,6 +54,7 @@ object ModuleEagle : ClientModule(
     private var currentEdgeDistance: Float = edgeDistance.random()
     private var wasSneaking = false
     private var sneakCaptured = false
+    private var requireSneakTriggered = false
     private val requireSneak by boolean("RequireSneak", false)
     private val requireBack by boolean("RequireBack", false)
 
@@ -62,13 +63,20 @@ object ModuleEagle : ClientModule(
      * is walking toward the block, including a forward-sideways diagonal.
      */
     private fun isBackwardsOrSideways(input: DirectionalInput): Boolean {
-        return input.isMoving && !input.forwards
+        // Use the physical keys so another movement module cannot turn forward
+        // input into a false bridge direction.
+        return !input.forwards && (input.backwards || input.left || input.right)
     }
 
-    private fun shouldActivateEagle(event: MovementInputEvent, conditionsMet: Boolean): Boolean {
+    private fun shouldActivateEagle(
+        event: MovementInputEvent,
+        physicalInput: DirectionalInput,
+        physicalSneak: Boolean,
+        conditionsMet: Boolean,
+    ): Boolean {
         if (player.abilities.flying || !conditionsMet ||
-            (requireSneak && !mc.options.keyShift.isPressedOnAny) ||
-            (requireBack && !isBackwardsOrSideways(event.directionalInput))
+            (requireSneak && !physicalSneak) ||
+            (requireBack && !isBackwardsOrSideways(physicalInput))
         ) {
             return false
         }
@@ -147,6 +155,7 @@ object ModuleEagle : ClientModule(
     override fun onDisabled() {
         wasSneaking = false
         sneakCaptured = false
+        requireSneakTriggered = false
         super.onDisabled()
     }
 
@@ -154,18 +163,32 @@ object ModuleEagle : ClientModule(
     private val handleMovementInput = handler<MovementInputEvent>(priority = SAFETY_FEATURE) { event ->
         debugParameter("EdgeDistance") { currentEdgeDistance }
 
-        val originalSneak = mc.options.keyShift.isPressedOnAny
+        val physicalInput = DirectionalInput(mc.options)
+        val physicalSneak = mc.options.keyShift.isPressedOnAny
+        val originalSneak = event.sneak
         val conditionsMet = Conditional.shouldSneak(event)
-        val isActive = shouldActivateEagle(event, conditionsMet)
+        val isActive = shouldActivateEagle(event, physicalInput, physicalSneak, conditionsMet)
+
+        if (requireSneak) {
+            if (!physicalSneak) {
+                requireSneakTriggered = false
+            } else if (isActive) {
+                requireSneakTriggered = true
+            }
+        }
 
         updateSneakCapture(originalSneak, isActive)
 
-        val controlsSneak = shouldOverrideSneak(conditionsMet, isActive)
-
-        event.sneak = if (controlsSneak) {
-            isActive
+        event.sneak = if (requireSneak) {
+            when {
+                !physicalSneak -> false
+                isActive -> true
+                requireSneakTriggered -> false
+                else -> originalSneak
+            }
         } else {
-            originalSneak || isActive
+            val controlsSneak = shouldOverrideSneak(conditionsMet, isActive)
+            if (controlsSneak) isActive else originalSneak || isActive
         }
 
         updateSneakState(event.sneak)
