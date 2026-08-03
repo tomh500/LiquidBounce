@@ -2,8 +2,8 @@ package net.ccbluex.liquidbounce.utils.pathing
 
 import baritone.api.BaritoneAPI
 import net.ccbluex.liquidbounce.event.events.NotificationEvent
-import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.ModuleManager
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.RikkaAutomationModule
 import net.ccbluex.liquidbounce.utils.client.chat
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.minecraft.network.chat.Component
@@ -155,10 +155,10 @@ object PathingEngine {
         execute("cancel", emptyList())
     }
 
-    fun cancelAndDisableMovementModules() {
+    fun cancelAndDisableRikkaAutomationModules() {
         cancel()
         ModuleManager.getModules()
-            .filter { it.category == ModuleCategories.MOVEMENT && it.enabled }
+            .filter { it is RikkaAutomationModule && it.enabled }
             .forEach { it.enabled = false }
     }
 

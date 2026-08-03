@@ -5,11 +5,19 @@ import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.utils.input.InputBind
 import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 
+interface RikkaAutomationModule
+
 abstract class RikkaProcessModule(
     name: String,
     primaryCategory: net.ccbluex.liquidbounce.features.module.ModuleCategory,
     aliases: List<String> = emptyList(),
-) : ClientModule(name, primaryCategory, secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA), aliases = aliases) {
+) : ClientModule(
+    name,
+    primaryCategory,
+    secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA),
+    displayPrimaryCategory = false,
+    aliases = aliases,
+), RikkaAutomationModule {
 
     protected abstract fun startProcess()
 
@@ -69,6 +77,7 @@ object ModuleRikkaPause : ClientModule(
     "RikkaPause",
     ModuleCategories.MOVEMENT,
     secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA),
+    displayPrimaryCategory = false,
     bindAction = InputBind.BindAction.HOLD,
     aliases = listOf("Pause"),
 ) {
@@ -85,10 +94,11 @@ object ModuleRikkaStop : ClientModule(
     "RikkaStop",
     ModuleCategories.MOVEMENT,
     secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA),
+    displayPrimaryCategory = false,
     bindAction = InputBind.BindAction.HOLD,
     aliases = listOf("Stop", "Cancel"),
 ) {
     override fun onEnabled() {
-        PathingEngine.cancelAndDisableMovementModules()
+        PathingEngine.cancelAndDisableRikkaAutomationModules()
     }
 }

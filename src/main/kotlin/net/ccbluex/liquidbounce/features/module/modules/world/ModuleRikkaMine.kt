@@ -3,6 +3,7 @@ package net.ccbluex.liquidbounce.features.module.modules.world
 import net.ccbluex.liquidbounce.event.events.NotificationEvent
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.RikkaAutomationModule
 import net.ccbluex.liquidbounce.utils.collection.blockSortedSetOf
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
@@ -12,8 +13,9 @@ object ModuleRikkaMine : ClientModule(
     "RikkaMine",
     ModuleCategories.WORLD,
     secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA),
+    displayPrimaryCategory = false,
     aliases = listOf("Automine", "Mine"),
-) {
+), RikkaAutomationModule {
 
     private val blocks by blocks(
         "Blocks",
