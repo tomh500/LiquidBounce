@@ -90,7 +90,9 @@ object ScaffoldNormalTechnique : ScaffoldTechnique("Normal") {
         val priorityComparator = priorityComparator(predictedPos, optimalLine)
 
         val offsets = if (!ModuleScaffold.isLiquidBounceMode) {
-            BlockPosOffsets.NORMAL.offsets
+            // Vape's bridge modes maintain an exact placement path. Searching neighboring
+            // positions can advance the path controller with a different placed block.
+            BlockPosOffsets.NO_OFFSET.offsets
         } else if (ModuleFreeze.running) {
             BlockPosOffsets.FULL.offsets
         } else if (ScaffoldDownFeature.shouldGoDown) {

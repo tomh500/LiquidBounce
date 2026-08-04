@@ -152,7 +152,8 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         return getDirectionalInputForDegrees(DirectionalInput.NONE, degrees, deadAngle = 20f)
     }
 
-    internal fun placementY() = floor(player.y - 0.01).toInt() - 1
+    // Player Y is the feet coordinate; subtracting a tiny epsilon selects the block below the feet.
+    internal fun placementY() = floor(player.y - 0.01).toInt()
 
     internal fun isAir(position: BlockPos) = world.getBlockState(position).isAir
 

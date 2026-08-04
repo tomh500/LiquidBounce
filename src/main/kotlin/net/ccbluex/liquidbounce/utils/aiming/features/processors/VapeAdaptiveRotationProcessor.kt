@@ -32,7 +32,9 @@ class VapeAdaptiveRotationProcessor(
         val pitchError = RotationUtil.angleDifference(targetRotation.pitch, currentRotation.pitch)
         val absoluteYawError = abs(yawError)
         val absolutePitchError = abs(pitchError)
-        val baseStep = speed().coerceIn(1f, 25f) * 0.25f
+        // Vape clamps its controller speed at 100 before converting it into a 0.25x mouse step.
+        // Clutch relies on this upper range to finish a landing-timed rotation.
+        val baseStep = speed().coerceIn(1f, 100f) * 0.25f
 
         fun step(error: Float, otherError: Float): Float {
             if (error == 0f) return 0f
