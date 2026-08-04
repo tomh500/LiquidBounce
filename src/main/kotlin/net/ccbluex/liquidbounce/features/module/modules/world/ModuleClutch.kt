@@ -89,6 +89,7 @@ object ModuleClutch : ClientModule(
         Priority.IMPORTANT_FOR_PLAYER_LIFE,
         ::slotFinder,
         vapeRotation = { VapeBlockPlacerRotation(speed, silentAim) },
+        vapeRotationSpeed = { _, target -> predictiveRotationSpeed(target.rotation) },
         cooldownOverride = { 0 },
         supportDelayOverride = { 0 },
     )).apply {
@@ -107,6 +108,7 @@ object ModuleClutch : ClientModule(
     private var resetRotationTicks = -1
     private var resetRotationTarget: Rotation? = null
     private var showingBlockCount = false
+    private var ticksUntilImpact = 1
 
     override fun onEnabled() = resetState(clearRenderCount = false)
 
@@ -127,6 +129,7 @@ object ModuleClutch : ClientModule(
         resetRotationTicks = -1
         resetRotationTarget = null
         previousSlot = null
+        ticksUntilImpact = 1
         placer.clear()
         if (clearRenderCount) EventManager.callEvent(BlockCountChangeEvent(null, null))
         showingBlockCount = false
@@ -228,29 +231,33 @@ object ModuleClutch : ClientModule(
     private fun findPlacementTargets(): List<BlockPos> {
         val result = linkedSetOf<BlockPos>()
         val collision = FallingPlayer.fromPlayer(player).findCollision(PREDICTION_TICKS)
-        collision?.positionBeforeMovement?.let { position ->
-            addCatchTargets(result, position.x, position.y, position.z)
+        if (collision != null) {
+            ticksUntilImpact = (collision.tick + 1).coerceAtLeast(1)
+            addCatchTargets(result, collision.positionBeforeMovement.x, collision.positionBeforeMovement.y,
+                collision.positionBeforeMovement.z)
+        } else {
+            // Void catches cannot provide a collision point. Keep a short, ordered prediction window
+            // so the next tick can replace an unreachable candidate before it is too late.
+            ticksUntilImpact = 1
+            var x = player.x
+            var y = player.y
+            var z = player.z
+            var motionY = player.deltaMovement.y
+            repeat(TARGET_LOOKAHEAD_TICKS) {
+                x += player.deltaMovement.x
+                y += motionY
+                z += player.deltaMovement.z
+                motionY = (motionY - 0.08) * 0.98
+                addCatchTargets(result, x, y, z)
+            }
         }
-
-        var x = player.x
-        var y = player.y
-        var z = player.z
-        var motionY = player.deltaMovement.y
-        repeat(TARGET_LOOKAHEAD_TICKS) {
-            x += player.deltaMovement.x
-            y += motionY
-            z += player.deltaMovement.z
-            motionY = (motionY - 0.08) * 0.98
-            addCatchTargets(result, x, y, z)
-        }
-
-        addCatchTargets(result, player.x, player.boundingBox.minY, player.z)
         val replaceable = result.filter { world.getBlockState(it).canBeReplaced() }
             .sortedWith(
                 compareByDescending<BlockPos> { it.hasAnySolidPlacementNeighbor() }
                     .thenBy { it.distToCenterSqr(player.position()) }
             )
-        return if (limitBlocks) replaceable.take(maxBlocks) else replaceable
+        val placementLimit = if (limitBlocks) maxBlocks else 1
+        return replaceable.take(placementLimit)
     }
 
     private fun addCatchTargets(result: MutableSet<BlockPos>, x: Double, feetY: Double, z: Double) {
@@ -361,6 +368,17 @@ object ModuleClutch : ClientModule(
     private fun resetSpeed(target: Rotation): Float {
         val yawDistance = abs(RotationUtil.angleDifference(target.yaw, RotationManager.serverRotation.yaw))
         return max(1f, yawDistance / 90f * 5f)
+    }
+
+    /**
+     * Vape's BlockIn plans rotation against the simulated landing tick. The current placer
+     * handles finding the valid face, while this keeps its turn speed tied to that same deadline.
+     */
+    private fun predictiveRotationSpeed(target: Rotation): Float {
+        val yawDistance = abs(RotationUtil.angleDifference(target.yaw, RotationManager.serverRotation.yaw))
+        val pitchDistance = abs(target.pitch - RotationManager.serverRotation.pitch)
+        val requiredSpeed = max(yawDistance, pitchDistance) / ticksUntilImpact.coerceAtLeast(1)
+        return max(speed, requiredSpeed).coerceIn(1f, 180f)
     }
 
     private fun defaultBlacklist() = blockSortedSetOf(

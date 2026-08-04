@@ -99,7 +99,7 @@ class NormalRotationMode(modeValueGroup: ModeValueGroup<BlockPlacerRotationMode>
             RotationManager.setRotationTarget(
                 GlobalVapeRotationSettings.rotationTarget(
                     placementTarget.rotation,
-                    speed = { vapeRotation.speed },
+                    speed = { placer.vapeRotationSpeed?.invoke(pos, placementTarget) ?: vapeRotation.speed },
                     silentAim = vapeRotation.silentAim,
                     considerInventory = !placer.ignoreOpenInventory,
                     whenReached = whenReached,

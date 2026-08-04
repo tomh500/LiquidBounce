@@ -76,6 +76,7 @@ class BlockPlacer(
     val slotFinder: (BlockPos?) -> HotbarItemSlot?,
     allowSupportPlacements: Boolean = true,
     val vapeRotation: (() -> VapeBlockPlacerRotation?)? = null,
+    val vapeRotationSpeed: ((BlockPos, BlockPlacementTarget) -> Float)? = null,
     val cooldownOverride: (() -> Int)? = null,
     val supportDelayOverride: (() -> Int)? = null,
 ) : ValueGroup(name), EventListener {
