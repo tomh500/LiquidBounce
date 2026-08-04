@@ -57,11 +57,13 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
         groundRotation = null
     }
 
-    override fun onActivated(nextPlacement: BlockPos, direction: Int) {
+    override fun onActivated(activationAnchor: BlockPos, direction: Int) {
         this.direction = direction
-        this.nextPlacement = nextPlacement
-        this.lastPlacement = VapeScaffoldController.offset(nextPlacement, -1, direction)
-        this.positioningTarget = computeMovementTarget(lastPlacement ?: nextPlacement)
+        this.nextPlacement = VapeScaffoldController.offset(activationAnchor, 1, direction)
+        this.lastPlacement = activationAnchor
+        this.positioningTarget = computeMovementTarget(
+            VapeScaffoldController.offset(activationAnchor, -1, direction)
+        )
         this.positioningDeadline = player.tickCount + 40
         this.positioning = true
         this.wasAirborne = !player.onGround()

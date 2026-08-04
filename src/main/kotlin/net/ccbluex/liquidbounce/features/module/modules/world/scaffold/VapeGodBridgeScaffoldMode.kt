@@ -49,11 +49,11 @@ internal object VapeGodBridgeScaffoldMode : VapeScaffoldModeController, Minecraf
         previousRight = false
     }
 
-    override fun onActivated(nextPlacement: BlockPos, direction: Int) {
+    override fun onActivated(activationAnchor: BlockPos, direction: Int) {
         this.direction = direction
         this.reversed = shouldReverse(direction)
-        this.nextPlacement = nextPlacement
-        this.targetPosition = computePlacementPoint(nextPlacement, direction, reversed)
+        this.nextPlacement = VapeScaffoldController.offset(activationAnchor, 1, direction)
+        this.targetPosition = computePlacementPoint(activationAnchor, direction, reversed)
         this.positioning = !mc.options.keyJump.isPressedOnAny
         this.positioningDeadline = player.tickCount + 40
         this.movementStartedAt = System.currentTimeMillis()

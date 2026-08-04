@@ -25,6 +25,7 @@ import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.events.BlockCountChangeEvent
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
+import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.events.SprintEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
@@ -106,6 +107,7 @@ import net.ccbluex.liquidbounce.utils.sorting.ComparatorChain
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.Pose
 import net.minecraft.world.item.BlockItem
@@ -584,6 +586,14 @@ object ModuleScaffold : ClientModule(
                 forceSneak = ledgeAction.sneakTime
             }
         }
+    }
+
+    @Suppress("unused")
+    private val vapeActivationHandler = handler<PacketEvent> { event ->
+        val packet = event.packet as? ServerboundUseItemOnPacket ?: return@handler
+        if (isLiquidBounceMode || event.isCancelled) return@handler
+
+        VapeScaffoldController.onManualPlacementRequest(packet)
     }
 
     @Suppress("unused")

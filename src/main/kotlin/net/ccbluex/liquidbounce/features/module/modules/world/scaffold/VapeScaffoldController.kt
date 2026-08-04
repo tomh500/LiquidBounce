@@ -17,23 +17,29 @@ import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.aiming.utils.RotationUtil
 import net.ccbluex.liquidbounce.utils.block.targetfinding.BlockPlacementTarget
+import net.ccbluex.liquidbounce.utils.entity.isCloseToEdge
 import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
 import net.ccbluex.liquidbounce.utils.item.getBlock
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
 import net.ccbluex.liquidbounce.utils.movement.getDegreesRelativeToView
 import net.ccbluex.liquidbounce.utils.movement.getDirectionalInputForDegrees
 import net.minecraft.core.BlockPos
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.context.BlockPlaceContext
+import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.phys.Vec3
 import kotlin.math.abs
 import kotlin.math.floor
+import kotlin.random.Random
 
 /** Shared dispatch and activation tracking adapted from Vape Scaffold.java. */
 internal object VapeScaffoldController : MinecraftShortcuts {
 
     private val activation = ManualBridgeActivation()
     private var automated = false
+    private var activationSneakUntil = 0
 
     private val activeMode: VapeScaffoldModeController
         get() = when (ModuleScaffold.mode) {
@@ -46,6 +52,7 @@ internal object VapeScaffoldController : MinecraftShortcuts {
 
     fun reset() {
         automated = false
+        activationSneakUntil = 0
         activation.reset()
         VapeGodBridgeScaffoldMode.reset()
         VapeTellyBridgeScaffoldMode.reset()
@@ -85,9 +92,9 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         }
 
         if (!automated) {
-            activation.update()?.let { (nextPlacement, direction) ->
+            activation.update()?.let { (activationAnchor, direction) ->
                 automated = true
-                activeMode.onActivated(nextPlacement, direction)
+                activeMode.onActivated(activationAnchor, direction)
             }
             return
         }
@@ -106,12 +113,26 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         if (automated) activeMode.onPlacement(placed)
     }
 
+    fun onManualPlacementRequest(packet: ServerboundUseItemOnPacket) {
+        if (automated || !canActivate()) return
+
+        val stack = player.getItemInHand(packet.hand)
+        if (!isAllowedBlock(stack) || stack.getBlock() == null) return
+
+        val placement = BlockPlaceContext(UseOnContext(player, packet.hand, packet.hitResult)).clickedPos
+        activation.record(placement)
+    }
+
     fun targetedPosition(default: BlockPos): BlockPos =
         if (automated) activeMode.targetedPosition(default) else default
 
     fun handleMovement(event: MovementInputEvent) {
         updateState()
-        if (automated) activeMode.handleMovement(event)
+        if (automated) {
+            activeMode.handleMovement(event)
+        } else {
+            handleManualActivationMovement(event)
+        }
     }
 
     fun rotationFor(target: BlockPlacementTarget?): Rotation? =
@@ -149,8 +170,15 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         return getDirectionalInputForDegrees(DirectionalInput.NONE, degrees, deadAngle = 20f)
     }
 
-    // Player Y is the feet coordinate; subtracting a tiny epsilon selects the block below the feet.
-    internal fun placementY() = floor(player.y - 0.01).toInt()
+    // Vape treats an exact half-block height specially and otherwise targets one full block below the feet.
+    internal fun placementY(): Int {
+        val playerY = player.y
+        return if (abs(playerY - playerY.toInt()) == 0.5) {
+            floor(playerY).toInt()
+        } else {
+            floor(playerY - 1.0).toInt()
+        }
+    }
 
     internal fun isAir(position: BlockPos) = world.getBlockState(position).isAir
 
@@ -159,20 +187,47 @@ internal object VapeScaffoldController : MinecraftShortcuts {
 
     private fun deactivate() {
         automated = false
+        activationSneakUntil = 0
         activation.reset()
         VapeGodBridgeScaffoldMode.reset()
         VapeTellyBridgeScaffoldMode.reset()
     }
 
+    private fun handleManualActivationMovement(event: MovementInputEvent) {
+        val physicalInput = DirectionalInput(mc.options)
+        val reachedEdge = player.onGround() && !physicalInput.forwards &&
+            player.isCloseToEdge(event.directionalInput, distance = 0.2)
+
+        if (reachedEdge) {
+            activationSneakUntil = player.tickCount + Random.nextInt(2, 11)
+        }
+        if (reachedEdge || player.tickCount < activationSneakUntil) {
+            event.sneak = true
+        }
+    }
+
     private class ManualBridgeActivation {
+        private data class PendingPlacement(val position: BlockPos, val expiresAt: Int)
+
+        private val pending = ArrayDeque<PendingPlacement>()
         private var direction = 0
-        private var placement: BlockPos? = null
+        private var lastPlacement: BlockPos? = null
         private var blocksPlaced = 0
 
         fun reset() {
             direction = 0
-            placement = null
+            pending.clear()
+            lastPlacement = null
             blocksPlaced = 0
+        }
+
+        fun record(position: BlockPos) {
+            if (!player.onGround() || abs(position.y - placementY()) > 1 ||
+                position.distToCenterSqr(player.position()) > 16.0
+            ) return
+
+            pending.removeAll { it.position == position }
+            pending.addLast(PendingPlacement(position.immutable(), player.tickCount + PLACEMENT_CONFIRM_TICKS))
         }
 
         fun update(): Pair<BlockPos, Int>? {
@@ -181,51 +236,39 @@ internal object VapeScaffoldController : MinecraftShortcuts {
                 return null
             }
 
-            val currentDirection = cardinalDirection()
-            if (direction != 0 && currentDirection != direction) {
-                placement = null
-                blocksPlaced = 0
-            }
-            direction = currentDirection
+            pending.removeAll { player.tickCount > it.expiresAt }
+            while (pending.isNotEmpty()) {
+                val confirmedIndex = pending.indexOfFirst { !isAir(it.position) }
+                if (confirmedIndex < 0) return null
 
-            val playerBlock = BlockPos(floor(player.x).toInt(), placementY(), floor(player.z).toInt())
-            val currentPlacement = placement
-            if (currentPlacement == null && player.onGround()) {
-                placement = sequenceOf(
-                    playerBlock,
-                    offset(playerBlock, 1, direction),
-                    offset(playerBlock, 2, direction),
-                ).firstOrNull(::isAir)
-                return null
-            }
+                // A newer confirmed placement proves that older still-air attempts failed.
+                repeat(confirmedIndex) { pending.removeFirst() }
+                val candidate = pending.removeFirst()
 
-            if (currentPlacement == null) return null
-            if (blocksPlaced >= ModuleScaffold.vapeActivationBlocks) {
-                val nextPlacement = offset(currentPlacement, 1, direction)
-                reset()
-                return nextPlacement to direction
-            }
-
-            if (!isAir(currentPlacement)) {
-                blocksPlaced++
-                val nextPlacement = offset(currentPlacement, 1, direction)
-                // Vape leaves the final manually placed position intact. On the next tick the
-                // activation-count branch consumes it and hands the following block to the bridge mode.
-                placement = if (blocksPlaced >= ModuleScaffold.vapeActivationBlocks) {
-                    currentPlacement
-                } else if (isAir(nextPlacement)) {
-                    nextPlacement
-                } else {
-                    null
+                val currentDirection = cardinalDirection()
+                val expected = lastPlacement?.let { offset(it, 1, currentDirection) }
+                val playerBlock = BlockPos(floor(player.x).toInt(), placementY(), floor(player.z).toInt())
+                if (direction != currentDirection || expected != null && expected != candidate.position ||
+                    hasPlacementDrifted(candidate.position, playerBlock, currentDirection)
+                ) {
+                    blocksPlaced = 0
+                    lastPlacement = null
                 }
-            } else if (hasPlacementDrifted(currentPlacement, playerBlock)) {
-                placement = null
-                blocksPlaced = 0
+
+                direction = currentDirection
+                lastPlacement = candidate.position
+                blocksPlaced++
+
+                if (blocksPlaced >= ModuleScaffold.vapeActivationBlocks) {
+                    val activationAnchor = candidate.position
+                    reset()
+                    return activationAnchor to currentDirection
+                }
             }
             return null
         }
 
-        private fun hasPlacementDrifted(placement: BlockPos, playerBlock: BlockPos): Boolean {
+        private fun hasPlacementDrifted(placement: BlockPos, playerBlock: BlockPos, direction: Int): Boolean {
             if (direction > 4 && if (direction % 2 == 0) placement.z != playerBlock.z else placement.x != playerBlock.x) {
                 return true
             }
@@ -237,6 +280,10 @@ internal object VapeScaffoldController : MinecraftShortcuts {
             return origin.distToCenterSqr(player.position()) > (ModuleScaffold.vapeActivationBlocks + 2.0) *
                 (ModuleScaffold.vapeActivationBlocks + 2.0)
         }
+
+        private companion object {
+            const val PLACEMENT_CONFIRM_TICKS = 20
+        }
     }
 }
 
@@ -244,7 +291,7 @@ internal interface VapeScaffoldModeController {
     val readyToPlace: Boolean
     val shouldSprint: Boolean get() = false
     fun reset()
-    fun onActivated(nextPlacement: BlockPos, direction: Int)
+    fun onActivated(activationAnchor: BlockPos, direction: Int)
     fun onPlacement(placed: BlockPos) = Unit
     fun targetedPosition(default: BlockPos) = default
     fun handleMovement(event: MovementInputEvent)
