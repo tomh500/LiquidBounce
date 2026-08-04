@@ -34,9 +34,10 @@
     left: 50%;
     transform: translateX(-50%);
     width: min(820px, 92vw);
-    --window-max-height: 70vh;
+    height: min(70vh, calc(100vh - 90px));
+    display: flex;
+    flex-direction: column;
     background-color: var(--clickgui-window-background-color);
-    max-height: var(--window-max-height, none);
     border-radius: 5px;
     overflow: hidden;
     box-shadow: 0 0 10px var(--clickgui-window-shadow-color);
@@ -44,6 +45,7 @@
   }
 
   .title {
+    flex: 0 0 auto;
     display: grid;
     grid-template-columns: max-content 1fr;
     align-items: center;
@@ -61,8 +63,10 @@
   }
 
   .content {
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 12px 22px 18px;
-    overflow: auto;
-    max-height: calc(var(--window-max-height, 9999px) - 60px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 </style>
