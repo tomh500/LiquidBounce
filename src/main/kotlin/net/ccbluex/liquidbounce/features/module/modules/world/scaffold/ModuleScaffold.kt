@@ -25,7 +25,6 @@ import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.events.BlockCountChangeEvent
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
-import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.events.SprintEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
@@ -107,7 +106,6 @@ import net.ccbluex.liquidbounce.utils.sorting.ComparatorChain
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.Pose
 import net.minecraft.world.item.BlockItem
@@ -133,14 +131,11 @@ object ModuleScaffold : ClientModule(
     origin = ModuleOrigin.LIQUID_BOUNCE_MODIFIED,
 ) {
 
-    private val mode by enumChoice("Mode", ScaffoldImplementation.NORMAL)
+    internal val mode by enumChoice("Mode", ScaffoldImplementation.NORMAL)
         .apply(::tagBy)
         .onChanged { reset() }
     internal val isLiquidBounceMode get() = mode == ScaffoldImplementation.NORMAL
-
-    internal val vapeMode by enumChoice("VapeMode", VapeScaffoldMode.GOD_BRIDGE)
-        .visibleWhen { !isLiquidBounceMode }
-        .onChanged { VapeScaffoldController.reset() }
+    internal val isTellyBridgeMode get() = mode == ScaffoldImplementation.TELLY_BRIDGE
     private val vapeBlockCount by boolean("BlockCount", false)
         .visibleWhen { !isLiquidBounceMode }
     internal val vapePitchCheck by boolean("PitchCheck", false)
@@ -158,9 +153,9 @@ object ModuleScaffold : ClientModule(
     internal val vapeActivationBlocks by int("ActivationBlocks", 2, 1..4)
         .visibleWhen { !isLiquidBounceMode }
     internal val vapeRequireRightClick by boolean("RequireRightClick", true)
-        .visibleWhen { !isLiquidBounceMode && vapeMode == VapeScaffoldMode.TELLY_BRIDGE }
+        .visibleWhen { isTellyBridgeMode }
     internal val vapeYIncrease by int("YIncrease", 1, 0..3)
-        .visibleWhen { !isLiquidBounceMode && vapeMode == VapeScaffoldMode.TELLY_BRIDGE }
+        .visibleWhen { isTellyBridgeMode }
 
     private val delay by intRange("Delay", 0..0, 0..40, "ticks")
         .visibleWhen { isLiquidBounceMode }
@@ -752,18 +747,6 @@ object ModuleScaffold : ClientModule(
         }
     }
 
-    @Suppress("unused")
-    private val vapeActivationHandler = handler<PacketEvent> { event ->
-        val packet = event.packet as? ServerboundUseItemOnPacket ?: return@handler
-        if (isLiquidBounceMode || event.isCancelled || !isValidForCurrentMode(player.getItemInHand(packet.hand))) {
-            return@handler
-        }
-
-        VapeScaffoldController.onManualPlacement(
-            packet.hitResult.blockPos.relative(packet.hitResult.direction)
-        )
-    }
-
     internal fun findPlaceableSlots() = buildList(9) {
         for (i in 0..8) {
             val stack = player.inventory.getItem(i)
@@ -887,14 +870,10 @@ object ModuleScaffold : ClientModule(
         return hasBlockInMainHand
     }
 
-    private enum class ScaffoldImplementation(override val tag: String) : Tagged {
+    internal enum class ScaffoldImplementation(override val tag: String) : Tagged {
         NORMAL("Normal") {
             override val tagAliases = listOf("LiquidBounce")
         },
-        VAPE("Vape"),
-    }
-
-    internal enum class VapeScaffoldMode(override val tag: String) : Tagged {
         GOD_BRIDGE("GodBridge") {
             override val tagAliases = listOf("Legit")
         },

@@ -12,7 +12,7 @@ package net.ccbluex.liquidbounce.features.module.modules.world.scaffold
 
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.features.module.MinecraftShortcuts
-import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold.VapeScaffoldMode
+import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold.ScaffoldImplementation
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.aiming.utils.RotationUtil
@@ -36,9 +36,10 @@ internal object VapeScaffoldController : MinecraftShortcuts {
     private var automated = false
 
     private val activeMode: VapeScaffoldModeController
-        get() = when (ModuleScaffold.vapeMode) {
-            VapeScaffoldMode.GOD_BRIDGE -> VapeGodBridgeScaffoldMode
-            VapeScaffoldMode.TELLY_BRIDGE -> VapeTellyBridgeScaffoldMode
+        get() = when (ModuleScaffold.mode) {
+            ScaffoldImplementation.GOD_BRIDGE -> VapeGodBridgeScaffoldMode
+            ScaffoldImplementation.TELLY_BRIDGE -> VapeTellyBridgeScaffoldMode
+            ScaffoldImplementation.NORMAL -> error("Normal Scaffold does not have a Vape controller")
         }
 
     val shouldSprint get() = automated && activeMode.shouldSprint
@@ -60,7 +61,7 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         if (mc.gui.screen() != null || player.isFallFlying || player.abilities.flying) return false
         if (ModuleScaffold.vapePitchCheck && player.xRot < ModuleScaffold.vapePitch) return false
         if (ModuleScaffold.findPlaceableSlots().isEmpty()) return false
-        if (ModuleScaffold.vapeMode == VapeScaffoldMode.TELLY_BRIDGE && ModuleScaffold.blockCount < 5) return false
+        if (ModuleScaffold.isTellyBridgeMode && ModuleScaffold.blockCount < 5) return false
 
         if (ModuleScaffold.vapeWhitelistEnabled) {
             val heldAllowed = InteractionHand.entries.any { hand ->
@@ -73,7 +74,7 @@ internal object VapeScaffoldController : MinecraftShortcuts {
 
     private fun activationKeysHeld(): Boolean {
         if (!mc.options.keyDown.isPressedOnAny) return false
-        return ModuleScaffold.vapeMode != VapeScaffoldMode.TELLY_BRIDGE ||
+        return !ModuleScaffold.isTellyBridgeMode ||
             !ModuleScaffold.vapeRequireRightClick || mc.options.keyUse.isPressedOnAny
     }
 
@@ -88,9 +89,10 @@ internal object VapeScaffoldController : MinecraftShortcuts {
                 automated = true
                 activeMode.onActivated(nextPlacement, direction)
             }
+            return
         }
 
-        if (!activationKeysHeld() && (!automated || player.onGround())) {
+        if (!activationKeysHeld() && player.onGround()) {
             deactivate()
         }
     }
@@ -98,11 +100,6 @@ internal object VapeScaffoldController : MinecraftShortcuts {
     fun canAutomate(): Boolean {
         updateState()
         return automated && activeMode.readyToPlace
-    }
-
-    fun onManualPlacement(placed: BlockPos) {
-        if (automated || !canActivate() || !activationKeysHeld()) return
-        activation.record(placed)
     }
 
     fun onAutomatedPlacement(placed: BlockPos) {
@@ -168,55 +165,77 @@ internal object VapeScaffoldController : MinecraftShortcuts {
     }
 
     private class ManualBridgeActivation {
-        private data class PendingPlacement(val position: BlockPos, val expiresAt: Int)
-
-        private val pending = ArrayDeque<PendingPlacement>()
         private var direction = 0
-        private var lastPlacement: BlockPos? = null
+        private var placement: BlockPos? = null
         private var blocksPlaced = 0
 
         fun reset() {
-            pending.clear()
             direction = 0
-            lastPlacement = null
+            placement = null
             blocksPlaced = 0
         }
 
-        fun record(position: BlockPos) {
-            if (!player.onGround()) return
-            if (abs(position.y - placementY()) > 1) return
-            if (position.distToCenterSqr(player.position()) > 16.0) return
-            pending.removeAll { it.position == position }
-            pending.addLast(PendingPlacement(position.immutable(), player.tickCount + 10))
-        }
-
         fun update(): Pair<BlockPos, Int>? {
-            while (pending.isNotEmpty()) {
-                val candidate = pending.first()
-                if (isAir(candidate.position)) {
-                    if (player.tickCount <= candidate.expiresAt) return null
-                    pending.removeFirst()
-                    continue
-                }
+            if (ModuleScaffold.findPlaceableSlots().isEmpty()) {
+                reset()
+                return null
+            }
 
-                pending.removeFirst()
-                val currentDirection = cardinalDirection()
-                val expected = lastPlacement?.let { offset(it, 1, currentDirection) }
-                if (direction != currentDirection || expected != null && expected != candidate.position) {
-                    blocksPlaced = 0
-                    lastPlacement = null
-                }
-                direction = currentDirection
-                lastPlacement = candidate.position
+            val currentDirection = cardinalDirection()
+            if (direction != 0 && currentDirection != direction) {
+                placement = null
+                blocksPlaced = 0
+            }
+            direction = currentDirection
+
+            val playerBlock = BlockPos(floor(player.x).toInt(), placementY(), floor(player.z).toInt())
+            val currentPlacement = placement
+            if (currentPlacement == null && player.onGround()) {
+                placement = sequenceOf(
+                    playerBlock,
+                    offset(playerBlock, 1, direction),
+                    offset(playerBlock, 2, direction),
+                ).firstOrNull(::isAir)
+                return null
+            }
+
+            if (currentPlacement == null) return null
+            if (blocksPlaced >= ModuleScaffold.vapeActivationBlocks) {
+                val nextPlacement = offset(currentPlacement, 1, direction)
+                reset()
+                return nextPlacement to direction
+            }
+
+            if (!isAir(currentPlacement)) {
                 blocksPlaced++
-
-                if (blocksPlaced >= ModuleScaffold.vapeActivationBlocks) {
-                    val nextPlacement = offset(candidate.position, 1, direction)
-                    pending.clear()
-                    return nextPlacement to direction
+                val nextPlacement = offset(currentPlacement, 1, direction)
+                // Vape leaves the final manually placed position intact. On the next tick the
+                // activation-count branch consumes it and hands the following block to the bridge mode.
+                placement = if (blocksPlaced >= ModuleScaffold.vapeActivationBlocks) {
+                    currentPlacement
+                } else if (isAir(nextPlacement)) {
+                    nextPlacement
+                } else {
+                    null
                 }
+            } else if (hasPlacementDrifted(currentPlacement, playerBlock)) {
+                placement = null
+                blocksPlaced = 0
             }
             return null
+        }
+
+        private fun hasPlacementDrifted(placement: BlockPos, playerBlock: BlockPos): Boolean {
+            if (direction > 4 && if (direction % 2 == 0) placement.z != playerBlock.z else placement.x != playerBlock.x) {
+                return true
+            }
+            if (direction < 5 && (kotlin.math.abs(placement.x - playerBlock.x) >= 4 ||
+                    kotlin.math.abs(placement.z - playerBlock.z) >= 4)) return true
+            if (placement.y != playerBlock.y) return true
+
+            val origin = offset(placement, -blocksPlaced, direction)
+            return origin.distToCenterSqr(player.position()) > (ModuleScaffold.vapeActivationBlocks + 2.0) *
+                (ModuleScaffold.vapeActivationBlocks + 2.0)
         }
     }
 }

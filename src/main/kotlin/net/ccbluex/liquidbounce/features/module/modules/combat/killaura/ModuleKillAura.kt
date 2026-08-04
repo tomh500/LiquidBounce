@@ -130,9 +130,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
         override fun enable() = resetAlternativeState()
 
-        val cooldown by boolean("Cooldown", true)
         val attackRate by intRange("AttacksPerSecond", 6..13, 1..20, "attacks")
-            .visibleWhen { !cooldown }
         val swingRangeValue = float("SwingRange", 4f, 0f..6f, "blocks")
         val swingRange by swingRangeValue
         val attackRangeValue = float("AttackRange", 3.5f, 0f..6f, "blocks")
@@ -231,6 +229,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
      */
     internal var waitTicks = 0
     private var vapeNextAttackAt = 0L
+    private val vapeClickDelay = VapeClickDelay()
     private var vapePauseTicks = 0
     private var silentNextAttackAt = 0L
     private var silentBreakAllowedAt = 0L
@@ -259,6 +258,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
     private fun resetAlternativeState() {
         targetTracker.reset()
         vapeNextAttackAt = 0L
+        vapeClickDelay.reset()
         vapePauseTicks = 0
         silentNextAttackAt = 0L
         silentBreakAllowedAt = 0L
@@ -557,8 +557,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             .toList()
 
         targetTracker.target = targets.firstOrNull()
-        if (targets.isEmpty() || Vape.cooldown && player.getAttackStrengthScale(0.5f) < 1f ||
-            !Vape.cooldown && System.currentTimeMillis() < vapeNextAttackAt) {
+        if (targets.isEmpty() || System.currentTimeMillis() < vapeNextAttackAt) {
             return
         }
 
@@ -572,10 +571,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             swung = true
         }
 
-        if (!Vape.cooldown) {
-            val cps = Random.nextInt(Vape.attackRate.first, Vape.attackRate.last + 1)
-            vapeNextAttackAt = System.currentTimeMillis() + 1000L / cps
-        }
+        vapeNextAttackAt = System.currentTimeMillis() + vapeClickDelay.nextDelay(Vape.attackRate)
     }
 
     private fun vapeTargetComparator(targetMode: VapeTargetMode): Comparator<LivingEntity> = when (targetMode) {
@@ -818,6 +814,44 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             val result = currentRotation.towardsLinear(controlled, maxStep, maxStep)
             previousRotation = result
             return result
+        }
+    }
+
+    /** Exact burst and delay-spike distribution from Vape's RandomClickDelayValue. */
+    private class VapeClickDelay {
+        private var burstActive = false
+        private var burstLength = 0
+        private var burstProgress = 0
+
+        fun reset() {
+            burstActive = false
+            burstLength = 0
+            burstProgress = 0
+        }
+
+        fun nextDelay(cpsRange: IntRange): Long {
+            val cps = Random.nextInt(cpsRange.first, cpsRange.last + 1).coerceAtLeast(1)
+            var delay = 1000L / cps
+            if (!burstActive) {
+                when {
+                    Random.nextInt(4) == 1 -> {
+                        burstActive = true
+                        burstLength = 1 + Random.nextInt(5)
+                    }
+                    Random.nextInt(10) != 1 && Random.nextInt(10) == 1 -> {
+                        burstActive = true
+                        burstLength = 5 + Random.nextInt(10)
+                    }
+                }
+            }
+            if (burstActive && ++burstProgress >= burstLength) {
+                burstProgress = 0
+                burstActive = false
+            }
+            if (Random.nextInt(48) % 10 == 0 && !burstActive) {
+                delay += Random.nextLong(25L, 70L)
+            }
+            return delay
         }
     }
 
