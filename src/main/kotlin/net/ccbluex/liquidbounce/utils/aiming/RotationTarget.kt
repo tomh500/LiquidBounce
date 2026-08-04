@@ -64,7 +64,9 @@ class RotationTarget(
     /**
      * What should be done if the target rotation has been reached. Can be `null`.
       */
-    val whenReached: RestrictedSingleUseAction? = null
+    val whenReached: RestrictedSingleUseAction? = null,
+    /** Marks rotations controlled by Vape-compatible shared rotation settings. */
+    val vapeCompatible: Boolean = false,
 ) {
 
     /**

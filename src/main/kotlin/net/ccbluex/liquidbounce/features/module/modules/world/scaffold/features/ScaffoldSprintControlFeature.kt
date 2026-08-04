@@ -28,6 +28,8 @@ import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention
 
 object ScaffoldSprintControlFeature : ToggleableValueGroup(ModuleScaffold, "SprintControl", false) {
 
+    override val running get() = super.running && ModuleScaffold.isLiquidBounceMode
+
     private val clientMode by enumChoice("Client", SprintMode.DO_NOT_CHANGE)
     private val serverMode by enumChoice("Server", SprintMode.DO_NOT_CHANGE)
 

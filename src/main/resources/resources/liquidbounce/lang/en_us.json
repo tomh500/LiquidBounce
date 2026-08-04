@@ -819,5 +819,7 @@
   "liquidbounce.module.rightClicker.aka": "RightClick",
   "liquidbounce.module.blockHit.aka": "NoItemRelease",
   "liquidbounce.module.triggerbot.aka": "TriggerBot",
-  "liquidbounce.module.dynamicLights.description": "Provides configurable dynamic lighting for held items and entities."
+  "liquidbounce.module.dynamicLights.description": "Provides configurable dynamic lighting for held items and entities.",
+  "liquidbounce.module.clutch.description": "Saves you from falling by placing blocks beneath your path.",
+  "liquidbounce.module.clutch.aka": "VapeClutch"
 }

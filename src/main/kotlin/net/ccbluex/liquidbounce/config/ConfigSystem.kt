@@ -66,6 +66,26 @@ internal fun expandLegacyModeValues(
     }
 }
 
+/** Migrates a root enum choice and its flat options into a new mode group. */
+internal fun migrateLegacyLeafModes(
+    values: Collection<Value<*>>,
+    valuesByName: MutableMap<String, ArrayDeque<JsonObject>>,
+    deserialize: (Value<*>, JsonObject) -> Unit,
+) {
+    values.filterIsInstance<ModeValueGroup<*>>().forEach { modeGroup ->
+        val storedMode = valuesByName[modeGroup.name]?.firstOrNull() ?: return@forEach
+        val legacyValue = storedMode["value"]?.takeIf { it.isJsonPrimitive } ?: return@forEach
+        modeGroup.setByString(legacyValue.asString)
+
+        for (option in modeGroup.activeMode.inner) {
+            val queue = valuesByName[option.name]
+                ?: option.aliases.firstNotNullOfOrNull { valuesByName[it] }
+                ?: continue
+            if (queue.isNotEmpty()) deserialize(option, queue.removeFirst())
+        }
+    }
+}
+
 /**
  * A hierarchy config system
  */
@@ -307,6 +327,7 @@ object ConfigSystem {
         }
 
         expandLegacyModeValues(valueGroup.inner, valuesByName)
+        migrateLegacyLeafModes(valueGroup.inner, valuesByName, ::deserializeValue)
 
         // Migration Code for KillAura's Range Values
         if (valueGroup is ModuleKillAura) {
@@ -329,6 +350,11 @@ object ConfigSystem {
     fun deserializeValue(value: Value<*>, jsonObject: JsonObject) {
         // In the case of a config, we need to go deeper and deserialize the config itself
         if (value is ValueGroup) {
+            if (value is ModeValueGroup<*> && jsonObject["value"]?.isJsonPrimitive == true) {
+                value.setByString(jsonObject["value"].asString)
+                return
+            }
+
             runCatching {
                 if (value is ModeValueGroup<*>) {
                     // Set current active choice

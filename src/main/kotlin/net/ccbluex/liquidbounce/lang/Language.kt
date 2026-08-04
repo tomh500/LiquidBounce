@@ -111,7 +111,7 @@ object LanguageManager : ValueGroup("Language") {
         }
     }
 
-    private fun currentLanguageChoice(): ClientLanguage {
+    fun currentLanguageChoice(): ClientLanguage {
         if (clientLanguage != ClientLanguage.AUTO) {
             return clientLanguage
         }

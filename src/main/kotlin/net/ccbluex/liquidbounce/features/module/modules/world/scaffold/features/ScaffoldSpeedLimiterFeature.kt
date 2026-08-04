@@ -28,6 +28,8 @@ import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
 
 object ScaffoldSpeedLimiterFeature : ToggleableValueGroup(ModuleScaffold, "SpeedLimiter", false) {
 
+    override val running get() = super.running && ModuleScaffold.isLiquidBounceMode
+
     private val speedLimit by float("SpeedLimit", 0.11f, 0.01f..0.4f)
 
     @Suppress("unused")

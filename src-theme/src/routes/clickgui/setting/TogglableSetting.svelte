@@ -9,6 +9,7 @@
 
     export let setting: ModuleSetting;
     export let path: string;
+    export let localizeSettings: boolean = false;
 
     const cSetting = setting as TogglableSetting;
     const thisPath = `${path}.${cSetting.name}`;
@@ -67,7 +68,7 @@
     {#if expanded}
         <div class="nested-settings">
             {#each nestedSettings as setting (setting.name)}
-                <GenericSetting path={thisPath} bind:setting on:change={handleChange}/>
+                <GenericSetting {localizeSettings} path={thisPath} bind:setting on:change={handleChange}/>
             {/each}
         </div>
     {/if}

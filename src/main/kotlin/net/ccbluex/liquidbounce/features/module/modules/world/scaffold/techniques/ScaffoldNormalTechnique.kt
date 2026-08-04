@@ -21,6 +21,7 @@ package net.ccbluex.liquidbounce.features.module.modules.world.scaffold.techniqu
 import net.ccbluex.liquidbounce.event.events.PlayerAfterJumpEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.modules.movement.ModuleFreeze
+import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold.getTargetedPosition
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.features.ScaffoldCeilingFeature
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.features.ScaffoldHeadHitterFeature
@@ -88,7 +89,9 @@ object ScaffoldNormalTechnique : ScaffoldTechnique("Normal") {
     ): BlockPlacementTarget? {
         val priorityComparator = priorityComparator(predictedPos, optimalLine)
 
-        val offsets = if (ModuleFreeze.running) {
+        val offsets = if (!ModuleScaffold.isLiquidBounceMode) {
+            BlockPosOffsets.NORMAL.offsets
+        } else if (ModuleFreeze.running) {
             BlockPosOffsets.FULL.offsets
         } else if (ScaffoldDownFeature.shouldGoDown) {
             BlockPosOffsets.DOWN.offsets
@@ -97,7 +100,11 @@ object ScaffoldNormalTechnique : ScaffoldTechnique("Normal") {
         }
 
         // Face position factory for current config
-        val facePositionFactory = getFacePositionFactoryForConfig(predictedPos, predictedPose, optimalLine)
+        val facePositionFactory = if (ModuleScaffold.isLiquidBounceMode) {
+            getFacePositionFactoryForConfig(predictedPos, predictedPose, optimalLine)
+        } else {
+            CenterTargetPositionFactory
+        }
 
         val searchOptions = BlockPlacementTargetFindingOptions(
             BlockOffsetOptions(
@@ -106,7 +113,7 @@ object ScaffoldNormalTechnique : ScaffoldTechnique("Normal") {
             ),
             FaceHandlingOptions(
                 facePositionFactory,
-                considerFacingAwayFaces = ScaffoldDownFeature.shouldGoDown
+                considerFacingAwayFaces = ModuleScaffold.isLiquidBounceMode && ScaffoldDownFeature.shouldGoDown
             ),
             stackToPlaceWith = bestStack,
             PlayerLocationOnPlacement(position = predictedPos, pose = predictedPose),
@@ -115,7 +122,7 @@ object ScaffoldNormalTechnique : ScaffoldTechnique("Normal") {
     }
 
     override fun getRotations(target: BlockPlacementTarget?): Rotation? {
-        if (ScaffoldTellyFeature.enabled && ScaffoldTellyFeature.doNotAim) {
+        if (ModuleScaffold.isLiquidBounceMode && ScaffoldTellyFeature.enabled && ScaffoldTellyFeature.doNotAim) {
             return when (ScaffoldTellyFeature.resetMode) {
                 Mode.REVERSE -> Rotation(
                     round(player.rotation.yaw / 45) * 45,
@@ -126,7 +133,7 @@ object ScaffoldNormalTechnique : ScaffoldTechnique("Normal") {
             }
         }
 
-        if (requiresSight) {
+        if (ModuleScaffold.isLiquidBounceMode && requiresSight) {
             val target = target ?: return null
             val raycast = traceFromPlayer(rotation = target.rotation)
 
@@ -147,7 +154,7 @@ object ScaffoldNormalTechnique : ScaffoldTechnique("Normal") {
         }
 
         // Allow a non-visible hit result
-        if (ScaffoldDownFeature.shouldGoDown) {
+        if (ModuleScaffold.isLiquidBounceMode && ScaffoldDownFeature.shouldGoDown) {
             return target.blockHitResult
         }
 

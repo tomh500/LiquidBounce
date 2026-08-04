@@ -27,6 +27,8 @@ import net.minecraft.world.effect.MobEffects
 
 object ScaffoldStrafeFeature : ToggleableValueGroup(ModuleScaffold, "Strafe", false) {
 
+    override val running get() = super.running && ModuleScaffold.isLiquidBounceMode
+
     private val speed by float("Speed", 0.247f, 0.0f..5.0f)
     private val hypixel by boolean("Hypixel", false)
     private val onlyOnGround by boolean("OnlyOnGround", false)

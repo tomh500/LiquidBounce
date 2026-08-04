@@ -194,7 +194,7 @@ public abstract class MixinPlayer extends MixinLivingEntity {
     @ModifyReturnValue(method = "entityInteractionRange", at = @At("RETURN"))
     private double hookEntityInteractionRange(double original) {
         if (liquid_bounce$isClientPlayer() && ModuleReach.INSTANCE.getRunning()) {
-            return ModuleReach.INSTANCE.getEntity().getInteractionRange();
+            return ModuleReach.INSTANCE.getCurrentEntityRange();
         }
 
         return original;
@@ -203,7 +203,7 @@ public abstract class MixinPlayer extends MixinLivingEntity {
     @ModifyReturnValue(method = "blockInteractionRange", at = @At("RETURN"))
     private double hookBlockInteractionRange(double original) {
         if (liquid_bounce$isClientPlayer() && ModuleReach.INSTANCE.getRunning()) {
-            return ModuleReach.INSTANCE.getBlockRangeIncrease() + original;
+            return ModuleReach.INSTANCE.getCurrentBlockRangeIncrease() + original;
         }
 
         return original;

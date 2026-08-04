@@ -434,6 +434,7 @@ export type OS = "linux" | "solaris" | "windows" | "mac" | "unknown";
 
 export interface ClientInfo {
     os: OS;
+    language: string;
     gameVersion: string;
     clientVersion: string;
     clientName: string;

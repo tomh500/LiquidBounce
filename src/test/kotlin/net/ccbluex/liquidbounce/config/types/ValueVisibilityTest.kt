@@ -14,6 +14,7 @@ import com.google.gson.JsonParser
 import com.google.gson.JsonObject
 import net.ccbluex.liquidbounce.config.deserializeLeafValue
 import net.ccbluex.liquidbounce.config.expandLegacyModeValues
+import net.ccbluex.liquidbounce.config.migrateLegacyLeafModes
 import net.ccbluex.liquidbounce.config.gson.fileGson
 import net.ccbluex.liquidbounce.config.gson.interopGson
 import net.ccbluex.liquidbounce.config.types.group.Mode
@@ -24,6 +25,7 @@ import net.ccbluex.liquidbounce.test.MinecraftBootstrap
 import java.util.function.ToIntFunction
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 
 class ValueVisibilityTest {
 
@@ -110,6 +112,39 @@ class ValueVisibilityTest {
         val valuesByName = mutableMapOf("Mode" to ArrayDeque<JsonObject>().apply { add(legacyMode) })
         expandLegacyModeValues(group.inner, valuesByName)
         assertEquals(45f, valuesByName.getValue("MaxAngle").single()["value"].asFloat)
+    }
+
+    @Test
+    fun `mode group migrates from legacy leaf choice and flat options`() {
+        val group = ValueGroup("Test")
+        val modes = group.modes(null, "Mode", ToIntFunction { 0 }) { parent ->
+            arrayOf(
+                testMode("LiquidBounce", parent),
+                testMode("Vape", parent, flattened = true),
+            )
+        }
+        val json = JsonParser.parseString(
+            """
+            {
+              "name": "Test",
+              "value": [
+                { "name": "Mode", "value": "Vape" },
+                { "name": "Option", "value": false }
+              ]
+            }
+            """.trimIndent()
+        )
+
+        val storedValues = json.asJsonObject.getAsJsonArray("value")
+        val valuesByName = mutableMapOf<String, ArrayDeque<JsonObject>>()
+        storedValues.forEach { element ->
+            val value = element.asJsonObject
+            valuesByName.getOrPut(value["name"].asString) { ArrayDeque() }.add(value)
+        }
+        migrateLegacyLeafModes(group.inner, valuesByName, ::deserializeLeafValue)
+
+        assertEquals("Vape", modes.activeMode.name)
+        assertFalse(modes.activeMode.inner.single().get() as Boolean)
     }
 
     private fun testMode(

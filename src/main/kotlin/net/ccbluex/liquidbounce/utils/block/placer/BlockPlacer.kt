@@ -74,7 +74,10 @@ class BlockPlacer(
     val module: ClientModule,
     val priority: Priority,
     val slotFinder: (BlockPos?) -> HotbarItemSlot?,
-    allowSupportPlacements: Boolean = true
+    allowSupportPlacements: Boolean = true,
+    val vapeRotation: (() -> VapeBlockPlacerRotation?)? = null,
+    val cooldownOverride: (() -> Int)? = null,
+    val supportDelayOverride: (() -> Int)? = null,
 ) : ValueGroup(name), EventListener {
 
     val range by float("Range", 4.5f, 1f..6f)
@@ -153,7 +156,7 @@ class BlockPlacer(
             ticksToWait--
         } else if (ranAction) {
             ranAction = false
-            ticksToWait = cooldown.random()
+            ticksToWait = cooldownOverride?.invoke() ?: cooldown.random()
         }
 
         val inventoryOpen = !ignoreOpenInventory && mc.gui.screen() is AbstractContainerScreen<*>
@@ -179,7 +182,8 @@ class BlockPlacer(
 
         // no possible position found, now a support placement can be considered
 
-        if (support.enabled && support.chronometer.hasElapsed(support.delay.toLong())) {
+        val supportDelay = supportDelayOverride?.invoke() ?: support.delay
+        if (support.enabled && support.chronometer.hasElapsed(supportDelay.toLong())) {
             findSupportPath(itemStack)
         }
     }
@@ -464,3 +468,5 @@ class BlockPlacer(
         USING_ITEM("UsingItem")
     }
 }
+
+data class VapeBlockPlacerRotation(val speed: Float, val silentAim: Boolean)

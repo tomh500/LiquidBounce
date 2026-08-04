@@ -807,5 +807,7 @@
   "liquidbounce.module.triggerbot.aka": "TriggerBot",
   "liquidbounce.module.blockHit.aka": "NoItemRelease",
   "liquidbounce.module.rightClicker.description": "在使用符合条件的物品时自动点击使用键。",
-  "liquidbounce.module.rightClicker.aka": "RightClick"
+  "liquidbounce.module.rightClicker.aka": "RightClick",
+  "liquidbounce.module.clutch.description": "在坠落路径下方放置方块以避免跌落。",
+  "liquidbounce.module.clutch.aka": "VapeClutch"
 }

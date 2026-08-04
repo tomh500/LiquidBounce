@@ -74,18 +74,21 @@ object ModuleRotations : ClientModule("Rotations", ModuleCategories.RENDER) {
      * directly but this is required for [smooth] to work.
      */
     var modelRotation: Rotation? = null
-        get() = if (this.running) field else null
     var prevModelRotation: Rotation? = null
 
     @Suppress("unused")
     private val modelUpdater = handler<GameTickEvent>(priority = EventPriorityConvention.READ_FINAL_STATE) {
+        updateModelRotation()
+    }
+
+    internal fun updateModelRotation() {
         val prev = prevModelRotation ?: player.lastRotation
         val current = RotationManager.currentRotation
 
         if (current == null) {
             prevModelRotation = modelRotation
             modelRotation = null
-            return@handler
+            return
         }
 
         val next = if (smooth > 0f) {
@@ -96,6 +99,11 @@ object ModuleRotations : ClientModule("Rotations", ModuleCategories.RENDER) {
 
         prevModelRotation = modelRotation
         modelRotation = next
+    }
+
+    internal fun clearModelRotation() {
+        modelRotation = null
+        prevModelRotation = null
     }
 
     @Suppress("unused")
@@ -127,8 +135,7 @@ object ModuleRotations : ClientModule("Rotations", ModuleCategories.RENDER) {
     }
 
     override fun onDisabled() {
-        this.modelRotation = null
-        this.prevModelRotation = null
+        clearModelRotation()
         super.onDisabled()
     }
 }

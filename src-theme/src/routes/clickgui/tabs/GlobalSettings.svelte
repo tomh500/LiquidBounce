@@ -5,6 +5,7 @@
     import ConfigurableSetting from "../setting/ConfigurableSetting.svelte";
     import WindowPanel from "./WindowPanel.svelte";
     import ScaledClickGuiContent from "../ScaledClickGuiContent.svelte";
+    import {clientLanguage, settingsText} from "../settings_i18n";
 
     let globalSettings = $state<ConfigurableSettingData | null>(null);
 
@@ -25,7 +26,7 @@
 </script>
 
 <ScaledClickGuiContent>
-    <WindowPanel title="Global Settings" icon="client">
+    <WindowPanel title={settingsText("Global Settings", $clientLanguage)} icon="client">
         <div class="settings-grid">
             {#if globalSettings}
                 {#each globalSettings.value as _, i (globalSettings.value[i].name)}
@@ -36,6 +37,7 @@
                                     path="clickgui.global"
                                     bind:setting={globalSettings.value[i]}
                                     hideExpandControl={true}
+                                    localizeSettings={true}
                                     on:change={updateGlobalSettings}
                             />
                         </div>

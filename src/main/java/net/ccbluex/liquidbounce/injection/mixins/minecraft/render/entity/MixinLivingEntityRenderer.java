@@ -28,6 +28,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import kotlin.Pair;
 import net.ccbluex.liquidbounce.api.models.cosmetics.CosmeticCategory;
 import net.ccbluex.liquidbounce.features.cosmetic.CosmeticService;
+import net.ccbluex.liquidbounce.features.global.GlobalVapeRotationSettings;
 import net.ccbluex.liquidbounce.features.module.modules.render.*;
 import net.ccbluex.liquidbounce.interfaces.EntityRenderStateAddition;
 import net.ccbluex.liquidbounce.render.engine.type.Color4b;
@@ -66,7 +67,10 @@ public abstract class MixinLivingEntityRenderer<T extends LivingEntity, S extend
 
     @Unique
     private @Nullable Pair<Rotation, Rotation> getOverwriteRotation(ModuleRotations.BodyPart bodyPart) {
-        if (ModuleRotations.INSTANCE.getRunning() && ModuleRotations.INSTANCE.isPartAllowed(bodyPart)) {
+        boolean vapeThirdPerson = GlobalVapeRotationSettings.INSTANCE.getThirdPersonAimView()
+            && GlobalVapeRotationSettings.INSTANCE.getHasActiveVapeRotation();
+        if ((ModuleRotations.INSTANCE.getRunning() && ModuleRotations.INSTANCE.isPartAllowed(bodyPart))
+            || vapeThirdPerson) {
             var rotation = ModuleRotations.INSTANCE.getModelRotation();
             var prevRotation = ModuleRotations.INSTANCE.getPrevModelRotation();
 

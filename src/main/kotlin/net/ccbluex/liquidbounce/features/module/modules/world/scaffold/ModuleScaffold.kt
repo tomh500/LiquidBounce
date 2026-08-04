@@ -21,9 +21,11 @@ package net.ccbluex.liquidbounce.features.module.modules.world.scaffold
 import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.EventManager
+import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.events.BlockCountChangeEvent
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
+import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.event.handler
@@ -31,6 +33,8 @@ import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.event.waitTicks
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.ModuleOrigin
+import net.ccbluex.liquidbounce.features.global.GlobalVapeRotationSettings
 import net.ccbluex.liquidbounce.features.module.modules.movement.ModuleSafeWalk
 import net.ccbluex.liquidbounce.features.module.modules.player.nofall.modes.NoFallBlink
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug
@@ -68,6 +72,8 @@ import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.tower.Sca
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsValueGroup
+import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
+import net.ccbluex.liquidbounce.utils.aiming.utils.RotationUtil
 import net.ccbluex.liquidbounce.utils.aiming.utils.withFixedYaw
 import net.ccbluex.liquidbounce.utils.block.SwingMode
 import net.ccbluex.liquidbounce.utils.block.doPlacement
@@ -76,6 +82,7 @@ import net.ccbluex.liquidbounce.utils.block.targetfinding.BlockPlacementTarget
 import net.ccbluex.liquidbounce.utils.clicking.Clicker
 import net.ccbluex.liquidbounce.utils.client.SilentHotbar
 import net.ccbluex.liquidbounce.utils.client.Timer
+import net.ccbluex.liquidbounce.utils.collection.blockSortedSetOf
 import net.ccbluex.liquidbounce.utils.entity.moving
 import net.ccbluex.liquidbounce.utils.entity.rotation
 import net.ccbluex.liquidbounce.utils.item.PreferAverageHardBlocks
@@ -85,6 +92,7 @@ import net.ccbluex.liquidbounce.utils.item.PreferSolidBlocks
 import net.ccbluex.liquidbounce.utils.item.PreferStackSize
 import net.ccbluex.liquidbounce.utils.item.PreferWalkableBlocks
 import net.ccbluex.liquidbounce.utils.item.getBlock
+import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.math.copy
@@ -98,6 +106,7 @@ import net.ccbluex.liquidbounce.utils.sorting.ComparatorChain
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot
+import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.Pose
 import net.minecraft.world.item.BlockItem
@@ -106,6 +115,7 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.level.block.Block
+import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.HitResult
 import kotlin.math.abs
@@ -116,16 +126,56 @@ import kotlin.math.abs
  * Places blocks under you.
  */
 @Suppress("TooManyFunctions")
-object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
+object ModuleScaffold : ClientModule(
+    "Scaffold",
+    ModuleCategories.WORLD,
+    origin = ModuleOrigin.LIQUID_BOUNCE_MODIFIED,
+) {
+
+    private val mode by enumChoice("Mode", ScaffoldImplementation.LIQUID_BOUNCE)
+        .apply(::tagBy)
+        .onChanged { reset() }
+    internal val isLiquidBounceMode get() = mode == ScaffoldImplementation.LIQUID_BOUNCE
+
+    private val vapeMode by enumChoice("VapeMode", VapeScaffoldMode.LEGIT)
+        .visibleWhen { !isLiquidBounceMode }
+        .onChanged { Vape.reset() }
+    private val vapeBlockCount by boolean("BlockCount", false)
+        .visibleWhen { !isLiquidBounceMode }
+    private val vapePitchCheck by boolean("PitchCheck", false)
+        .visibleWhen { !isLiquidBounceMode }
+    private val vapePitch by float("Pitch", 45f, 0f..90f)
+        .visibleWhen { !isLiquidBounceMode && vapePitchCheck }
+    private val vapeBlacklistEnabled by boolean("Blacklist", true)
+        .visibleWhen { !isLiquidBounceMode }
+    private val vapeBlacklist by blocks("BlockBlacklist", blockSortedSetOf(Blocks.TNT, Blocks.COBWEB))
+        .visibleWhen { !isLiquidBounceMode && vapeBlacklistEnabled }
+    private val vapeWhitelistEnabled by boolean("Whitelist", false)
+        .visibleWhen { !isLiquidBounceMode }
+    private val vapeWhitelist by blocks("BlockWhitelist", blockSortedSetOf())
+        .visibleWhen { !isLiquidBounceMode && vapeWhitelistEnabled }
+    private val vapeSneakDelay by intRange("SneakDelay", 100..200, 0..500, "ms")
+        .visibleWhen { !isLiquidBounceMode && vapeMode == VapeScaffoldMode.LEGIT }
+    private val vapeRequireSneak by boolean("RequireSneak", false)
+        .visibleWhen { !isLiquidBounceMode && vapeMode == VapeScaffoldMode.LEGIT }
+    private val vapeActivationBlocks by int("ActivationBlocks", 2, 1..4)
+        .visibleWhen { !isLiquidBounceMode && vapeMode != VapeScaffoldMode.LEGIT }
+    private val vapeRequireRightClick by boolean("RequireRightClick", true)
+        .visibleWhen { !isLiquidBounceMode && vapeMode == VapeScaffoldMode.TELLY_BRIDGE }
+    private val vapeYIncrease by int("YIncrease", 1, 0..3)
+        .visibleWhen { !isLiquidBounceMode && vapeMode == VapeScaffoldMode.TELLY_BRIDGE }
 
     private val delay by intRange("Delay", 0..0, 0..40, "ticks")
+        .visibleWhen { isLiquidBounceMode }
     private val minDist by float("MinDist", 0.0f, 0.0f..0.25f)
+        .visibleWhen { isLiquidBounceMode }
     private val timer by float("Timer", 1f, 0.01f..10f)
+        .visibleWhen { isLiquidBounceMode }
 
     init {
-        tree(ScaffoldBlockItemSelection)
-        tree(ScaffoldAutoBlockFeature)
-        tree(ScaffoldMovementPrediction)
+        tree(ScaffoldBlockItemSelection).visibleWhen { isLiquidBounceMode }
+        tree(ScaffoldAutoBlockFeature).visibleWhen { isLiquidBounceMode }
+        tree(ScaffoldMovementPrediction).visibleWhen { isLiquidBounceMode }
     }
 
     internal val technique = choices(
@@ -137,9 +187,10 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
             ScaffoldGodBridgeTechnique,
             ScaffoldBreezilyTechnique
         )
-    ).apply(::tagBy)
+    ).also { it.visibleWhen { isLiquidBounceMode } }
 
     private val sameYMode by enumChoice("SameY", SameYMode.OFF)
+        .visibleWhen { isLiquidBounceMode }
 
     @Suppress("unused")
     private enum class SameYMode(
@@ -196,10 +247,10 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
             ScaffoldTowerVulcan,
             ScaffoldTowerHypixel
         )
-    }
+    }.also { it.visibleWhen { isLiquidBounceMode } }
 
     internal val isTowering: Boolean
-        get() = if (towerMode.activeMode != ScaffoldTowerNone && mc.options.keyJump.isDown) {
+        get() = if (isLiquidBounceMode && towerMode.activeMode != ScaffoldTowerNone && mc.options.keyJump.isDown) {
             this.wasTowering = true
             true
         } else {
@@ -207,15 +258,32 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         }
     private var wasTowering: Boolean = false
 
-    private val activeTechnique get() = if (isTowering) {
+    private val activeTechnique get() = if (!isLiquidBounceMode) {
+        when (vapeMode) {
+            VapeScaffoldMode.GOD_BRIDGE -> ScaffoldGodBridgeTechnique
+            VapeScaffoldMode.TELLY_BRIDGE, VapeScaffoldMode.LEGIT -> ScaffoldNormalTechnique
+        }
+    } else if (isTowering) {
         ScaffoldNormalTechnique
     } else {
         technique.activeMode
     }
 
     // SafeWalk feature - uses the SafeWalk module as a base
+    private object LiquidBounceScaffoldListener : EventListener {
+        override val running get() = ModuleScaffold.running && isLiquidBounceMode
+        override fun parent() = ModuleScaffold
+    }
+
     @Suppress("unused")
-    private val safeWalkMode = choices("SafeWalk", 1, ModuleSafeWalk::safeWalkChoices)
+    private val safeWalkMode = modes(
+        LiquidBounceScaffoldListener,
+        "SafeWalk",
+        1,
+        ModuleSafeWalk::safeWalkChoices,
+    ).also {
+        it.visibleWhen { isLiquidBounceMode }
+    }
 
     internal object ScaffoldRotationValueGroup : RotationsValueGroup(this) {
 
@@ -244,8 +312,10 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
     }
 
     private var currentTarget: BlockPlacementTarget? = null
+    private val effectiveRotationTiming get() = if (isLiquidBounceMode) rotationTiming else NORMAL
 
     private val swingMode by enumChoice("Swing", SwingMode.DO_NOT_HIDE)
+        .visibleWhen { isLiquidBounceMode }
 
     private object SimulatePlacementAttempts : ToggleableValueGroup(this, "SimulatePlacementAttempts", false) {
         val clicker = tree(Clicker(ModuleScaffold, mc.options.keyUse, null, maxCps = 100))
@@ -253,14 +323,14 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
     }
 
     init {
-        tree(ScaffoldRotationValueGroup)
-        tree(ScaffoldSprintControlFeature)
-        tree(SimulatePlacementAttempts)
-        tree(ScaffoldAccelerationFeature)
-        tree(ScaffoldStrafeFeature)
-        tree(ScaffoldJumpStrafe)
-        tree(ScaffoldSpeedLimiterFeature)
-        tree(ScaffoldBlinkFeature)
+        tree(ScaffoldRotationValueGroup).visibleWhen { isLiquidBounceMode }
+        tree(ScaffoldSprintControlFeature).visibleWhen { isLiquidBounceMode }
+        tree(SimulatePlacementAttempts).visibleWhen { isLiquidBounceMode }
+        tree(ScaffoldAccelerationFeature).visibleWhen { isLiquidBounceMode }
+        tree(ScaffoldStrafeFeature).visibleWhen { isLiquidBounceMode }
+        tree(ScaffoldJumpStrafe).visibleWhen { isLiquidBounceMode }
+        tree(ScaffoldSpeedLimiterFeature).visibleWhen { isLiquidBounceMode }
+        tree(ScaffoldBlinkFeature).visibleWhen { isLiquidBounceMode }
     }
 
     /**
@@ -268,8 +338,10 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
      * while Scaffold is enabled.
      */
     val autoSpeed by boolean("AutoSpeed", false)
+        .visibleWhen { isLiquidBounceMode }
 
     private val ledge by boolean("Ledge", true)
+        .visibleWhen { isLiquidBounceMode }
 
     private val renderer = tree(PlacementRenderer("Render", true, this, keep = false))
 
@@ -284,7 +356,7 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         get() {
             fun ItemStack.blockCount() = if (isValidBlock(this)) this.count else 0
 
-            return player.offhandItem.blockCount() + if (ScaffoldAutoBlockFeature.enabled) {
+            return player.offhandItem.blockCount() + if (ScaffoldAutoBlockFeature.enabled || !isLiquidBounceMode) {
                 findPlaceableSlots().sumOf { it.value.blockCount() }
             } else {
                 player.inventory.getItem(player.inventory.selectedSlot).blockCount()
@@ -338,6 +410,7 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         jumps = 2
 
         ScaffoldMovementPlanner.reset()
+        Vape.reset()
 
         super.onEnabled()
     }
@@ -356,6 +429,7 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         forceSneak = 0
         currentTarget = null
         renderer.clearSilently()
+        Vape.reset()
     }
 
     @Suppress("unused")
@@ -369,6 +443,11 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
 
     @Suppress("unused")
     private val rotationUpdateHandler = handler<RotationUpdateEvent> {
+        if (!isLiquidBounceMode && !Vape.canAutomate()) {
+            currentTarget = null
+            return@handler
+        }
+
         NoFallBlink.waitUntilGround = true
 
         val blockInHotbar = findBestValidHotbarSlotForTarget()
@@ -384,10 +463,15 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
 
         val optimalLine = this.currentOptimalLine
 
-        val predictedPos = ScaffoldMovementPrediction.getPredictedPlacementPos(optimalLine) ?: player.position()
+        val predictedPos = if (isLiquidBounceMode) {
+            ScaffoldMovementPrediction.getPredictedPlacementPos(optimalLine) ?: player.position()
+        } else {
+            player.position()
+        }
         // Check if the player is probably going to sneak at the predicted position
         val predictedPose =
-            if (ScaffoldEagleFeature.enabled && ScaffoldEagleFeature.shouldEagle(DirectionalInput(player.input))) {
+            if (isLiquidBounceMode && ScaffoldEagleFeature.enabled &&
+                ScaffoldEagleFeature.shouldEagle(DirectionalInput(player.input))) {
                 Pose.CROUCHING
             } else {
                 Pose.STANDING
@@ -416,16 +500,29 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         }
 
         // Do not aim yet in SKIP mode, since we want to aim at the block only when we are about to place it
-        if (rotationTiming == NORMAL) {
+        if (effectiveRotationTiming == NORMAL) {
             val rotation = technique.getRotations(target)
+                ?: return@handler
 
-            RotationManager.setRotationTarget(
-                rotation ?: return@handler,
-                considerInventory = considerInventory,
-                valueGroup = ScaffoldRotationValueGroup,
-                provider = this@ModuleScaffold,
-                priority = Priority.IMPORTANT_FOR_PLAYER_LIFE
-            )
+            if (isLiquidBounceMode) {
+                RotationManager.setRotationTarget(
+                    rotation,
+                    considerInventory = considerInventory,
+                    valueGroup = ScaffoldRotationValueGroup,
+                    provider = this@ModuleScaffold,
+                    priority = Priority.IMPORTANT_FOR_PLAYER_LIFE
+                )
+            } else {
+                RotationManager.setRotationTarget(
+                    GlobalVapeRotationSettings.rotationTarget(
+                        rotation,
+                        speed = { Vape.rotationSpeed(rotation) },
+                        silentAim = true,
+                    ),
+                    priority = Priority.IMPORTANT_FOR_PLAYER_LIFE,
+                    provider = this@ModuleScaffold,
+                )
+            }
         }
     }
 
@@ -455,6 +552,15 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         // Runs after the model state
         priority = EventPriorityConvention.SAFETY_FEATURE
     ) { event ->
+        if (!isLiquidBounceMode) {
+            if (vapeMode == VapeScaffoldMode.LEGIT) {
+                Vape.handleLegitInput(event)
+            } else if (Vape.canAutomate() && vapeMode == VapeScaffoldMode.TELLY_BRIDGE && player.onGround()) {
+                event.jump = true
+            }
+            return@handler
+        }
+
         if (forceSneak > 0) {
             event.sneak = true
             forceSneak--
@@ -494,14 +600,19 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
 
     @Suppress("unused")
     private val timerHandler = handler<GameTickEvent> {
-        if (timer != 1f) {
+        if (isLiquidBounceMode && timer != 1f) {
             Timer.requestTimerSpeed(timer, Priority.IMPORTANT_FOR_USAGE_1, this@ModuleScaffold)
         }
     }
 
     @Suppress("unused")
     private val tickHandler = tickHandler {
-        updateRenderCount(blockCount)
+        if (!isLiquidBounceMode && !Vape.canAutomate()) {
+            updateRenderCount(if (vapeBlockCount) blockCount else null)
+            return@tickHandler
+        }
+
+        updateRenderCount(if (isLiquidBounceMode || vapeBlockCount) blockCount else null)
 
         if (player.onGround()) {
             // Placement Y is the Y coordinate of the block below the player
@@ -521,7 +632,8 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         val target = currentTarget
         val technique = activeTechnique
 
-        val currentRotation = if ((rotationTiming == ON_TICK || rotationTiming == ON_TICK_SNAP) && target != null) {
+        val currentRotation = if ((effectiveRotationTiming == ON_TICK ||
+                effectiveRotationTiming == ON_TICK_SNAP) && target != null) {
             technique.getRotations(target) ?: (RotationManager.currentRotation ?: player.rotation)
         } else {
             RotationManager.currentRotation ?: player.rotation
@@ -529,24 +641,28 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         val currentCrosshairTarget = technique.getCrosshairTarget(target, currentRotation)
         val currentDelay = delay.random()
 
-        var hasBlockInMainHand = isValidBlock(player.inventory.getItem(player.inventory.selectedSlot))
-        val hasBlockInOffHand = isValidBlock(player.offhandItem)
+        var hasBlockInMainHand = isValidForCurrentMode(player.inventory.getItem(player.inventory.selectedSlot))
+        val hasBlockInOffHand = isValidForCurrentMode(player.offhandItem)
 
-        if (ScaffoldAutoBlockFeature.alwaysHoldBlock) {
+        if (isLiquidBounceMode && ScaffoldAutoBlockFeature.alwaysHoldBlock) {
             hasBlockInMainHand = handleSilentBlockSelection(hasBlockInMainHand, hasBlockInOffHand)
         }
 
         // Prioritize by all means the main hand if it has a block
         val suitableHand = InteractionHand.entries.firstOrNull {
-            isValidBlock(player.getItemInHand(it))
+            isValidForCurrentMode(player.getItemInHand(it))
         }
 
         fun commonPlaceSucceed(placed: BlockPos) {
             ScaffoldMovementPlanner.trackPlacedBlock(placed)
             renderer.addBlock(placed)
-            ScaffoldEagleFeature.onBlockPlacement()
-            ScaffoldBlinkFeature.onBlockPlacement()
-            ScaffoldSprintControlFeature.onBlockPlacement()
+            if (isLiquidBounceMode) {
+                ScaffoldEagleFeature.onBlockPlacement()
+                ScaffoldBlinkFeature.onBlockPlacement()
+                ScaffoldSprintControlFeature.onBlockPlacement()
+            } else {
+                Vape.onAutomatedPlacement(placed)
+            }
         }
 
         if (simulatePlacementAttempts(currentCrosshairTarget, suitableHand) && player.moving
@@ -572,7 +688,7 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
             return@tickHandler
         }
 
-        if (!ScaffoldAutoBlockFeature.alwaysHoldBlock) {
+        if (!isLiquidBounceMode || !ScaffoldAutoBlockFeature.alwaysHoldBlock) {
             hasBlockInMainHand = handleSilentBlockSelection(hasBlockInMainHand, hasBlockInOffHand)
         }
 
@@ -583,7 +699,7 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         val handToInteractWith = if (hasBlockInMainHand) InteractionHand.MAIN_HAND else InteractionHand.OFF_HAND
         var wasSuccessful = false
 
-        if (rotationTiming == ON_TICK || rotationTiming == ON_TICK_SNAP) {
+        if (effectiveRotationTiming == ON_TICK || effectiveRotationTiming == ON_TICK_SNAP) {
             // Check if server rotation matches the current rotation
             if (currentRotation != RotationManager.serverRotation) {
                 network.send(
@@ -597,7 +713,7 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
                 )
             }
 
-            if (rotationTiming == ON_TICK_SNAP) {
+            if (effectiveRotationTiming == ON_TICK_SNAP) {
                 RotationManager.setRotationTarget(
                     currentRotation,
                     considerInventory = considerInventory,
@@ -618,7 +734,7 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
             true
         }, swingMode = swingMode)
 
-        if (rotationTiming == ON_TICK && RotationManager.serverRotation != player.rotation) {
+        if (effectiveRotationTiming == ON_TICK && RotationManager.serverRotation != player.rotation) {
             network.send(
                 PosRot(
                     player.x, player.y, player.z, player.withFixedYaw(currentRotation), player.xRot, player.onGround(),
@@ -634,15 +750,25 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         }
     }
 
+    @Suppress("unused")
+    private val vapeActivationHandler = handler<PacketEvent> { event ->
+        if (!isLiquidBounceMode && event.packet is ServerboundUseItemOnPacket && !event.isCancelled) {
+            Vape.onManualPlacement()
+        }
+    }
+
     private fun findPlaceableSlots() = buildList(9) {
         for (i in 0..8) {
             val stack = player.inventory.getItem(i)
 
-            if (isValidBlock(stack)) {
+            if (isValidBlock(stack) && (isLiquidBounceMode || Vape.isAllowedBlock(stack))) {
                 add(IndexedValue(i, stack))
             }
         }
     }
+
+    private fun isValidForCurrentMode(stack: ItemStack) =
+        isValidBlock(stack) && (isLiquidBounceMode || Vape.isAllowedBlock(stack))
 
     private fun findBestValidHotbarSlotForTarget(): Int? {
         val placeableSlots = findPlaceableSlots()
@@ -658,6 +784,8 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
     }
 
     internal fun isValidCrosshairTarget(rayTraceResult: BlockHitResult): Boolean {
+        if (!isLiquidBounceMode) return true
+
         val diff = rayTraceResult.location - player.eyePosition
 
         val side = rayTraceResult.direction
@@ -676,14 +804,17 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
 
     internal fun getTargetedPosition(blockPos: BlockPos) = when {
         isTowering || wasTowering -> towerMode.activeMode.getTargetedPosition(blockPos)
-        ScaffoldDownFeature.running && ScaffoldDownFeature.shouldGoDown ->
+        isLiquidBounceMode && ScaffoldDownFeature.running && ScaffoldDownFeature.shouldGoDown ->
             blockPos.offset(0, -2, 0)
-        ScaffoldCeilingFeature.running && ScaffoldCeilingFeature.canConstructCeiling() ->
+        isLiquidBounceMode && ScaffoldCeilingFeature.running && ScaffoldCeilingFeature.canConstructCeiling() ->
             blockPos.offset(0, 3, 0)
-        player.input.keyPresses.jump && (!player.moving || player.horizontalCollision) ->
+        isLiquidBounceMode && player.input.keyPresses.jump && (!player.moving || player.horizontalCollision) ->
             blockPos.offset(0, -1, 0)
-        else -> sameYMode.getTargetedBlockPos(blockPos)
-            ?: blockPos.offset(0, -1, 0)
+        else -> if (isLiquidBounceMode) {
+            sameYMode.getTargetedBlockPos(blockPos) ?: blockPos.offset(0, -1, 0)
+        } else {
+            Vape.targetedPosition(blockPos.offset(0, -1, 0))
+        }
     }
 
     private fun simulatePlacementAttempts(
@@ -728,7 +859,8 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
 
     private fun handleSilentBlockSelection(hasBlockInMainHand: Boolean, hasBlockInOffHand: Boolean): Boolean {
         // Handle silent block selection
-        if (ScaffoldAutoBlockFeature.enabled && !hasBlockInMainHand && !hasBlockInOffHand) {
+        if ((ScaffoldAutoBlockFeature.enabled || !isLiquidBounceMode) &&
+            !hasBlockInMainHand && !hasBlockInOffHand) {
             val bestMainHandSlot = findBestValidHotbarSlotForTarget()
 
             if (bestMainHandSlot != null) {
@@ -746,6 +878,165 @@ object ModuleScaffold : ClientModule("Scaffold", ModuleCategories.WORLD) {
         }
 
         return hasBlockInMainHand
+    }
+
+    private object Vape {
+        private var activationProgress = 0
+        private var automated = false
+        private var sneakUntil = 0L
+        private var automatedPlacements = 0
+        private var lastPlacementY: Int? = null
+        private var consecutiveHeightIncreases = 0
+        private var heightIncreaseThreshold = 1
+        private var requireSneakTriggered = false
+        private var standAfterPlacement = false
+
+        fun reset() {
+            activationProgress = 0
+            automated = false
+            sneakUntil = 0L
+            automatedPlacements = 0
+            lastPlacementY = null
+            consecutiveHeightIncreases = 0
+            heightIncreaseThreshold = randomHeightIncreaseThreshold()
+            requireSneakTriggered = false
+            standAfterPlacement = false
+        }
+
+        fun isAllowedBlock(stack: ItemStack): Boolean {
+            val block = stack.getBlock() ?: return false
+            return (!vapeBlacklistEnabled || block !in vapeBlacklist) &&
+                (!vapeWhitelistEnabled || block in vapeWhitelist)
+        }
+
+        private fun canActivate(): Boolean {
+            if (mc.gui.screen() != null || player.isFallFlying || player.abilities.flying) return false
+            if (vapePitchCheck && player.xRot < vapePitch) return false
+            if (findPlaceableSlots().isEmpty()) return false
+
+            if (vapeWhitelistEnabled) {
+                val heldAllowed = InteractionHand.entries.any { hand ->
+                    player.getItemInHand(hand).getBlock() in vapeWhitelist
+                }
+                if (!heldAllowed) return false
+            }
+            return true
+        }
+
+        fun canAutomate(): Boolean {
+            if (vapeMode == VapeScaffoldMode.LEGIT || !canActivate()) return false
+
+            val backPressed = mc.options.keyDown.isPressedOnAny
+            val activationPressed = vapeMode != VapeScaffoldMode.TELLY_BRIDGE ||
+                !vapeRequireRightClick || mc.options.keyUse.isPressedOnAny
+            if (!backPressed || !activationPressed) {
+                activationProgress = 0
+                automated = false
+                automatedPlacements = 0
+                return false
+            }
+            return automated
+        }
+
+        fun onManualPlacement() {
+            if (vapeMode == VapeScaffoldMode.LEGIT) {
+                if (vapeRequireSneak && requireSneakTriggered) {
+                    standAfterPlacement = true
+                    sneakUntil = 0L
+                }
+                return
+            }
+            if (automated || !canActivate() || !mc.options.keyDown.isPressedOnAny) {
+                return
+            }
+
+            activationProgress++
+            if (activationProgress >= vapeActivationBlocks) {
+                automated = true
+            }
+        }
+
+        fun onAutomatedPlacement(placed: BlockPos? = currentTarget?.placedBlock) {
+            automatedPlacements++
+            if (vapeMode != VapeScaffoldMode.TELLY_BRIDGE || placed == null) return
+
+            val previousY = lastPlacementY
+            if (previousY != null && placed.y > previousY) {
+                consecutiveHeightIncreases++
+            } else if (previousY != null && placed.y == previousY) {
+                consecutiveHeightIncreases = 0
+                heightIncreaseThreshold = randomHeightIncreaseThreshold()
+            }
+            lastPlacementY = placed.y
+        }
+
+        fun targetedPosition(default: BlockPos): BlockPos {
+            if (vapeMode != VapeScaffoldMode.TELLY_BRIDGE || vapeYIncrease <= 0) return default
+            val previousY = lastPlacementY ?: return default
+            return if (consecutiveHeightIncreases >= heightIncreaseThreshold && default.y > previousY) {
+                default.atY(previousY)
+            } else {
+                default
+            }
+        }
+
+        private fun randomHeightIncreaseThreshold(): Int {
+            if (vapeYIncrease <= 0) return 0
+            val roll = Math.random()
+            return when {
+                roll < 0.15 -> vapeYIncrease + 1
+                roll < 0.25 -> (vapeYIncrease - 1).coerceAtLeast(0)
+                else -> vapeYIncrease
+            }
+        }
+
+        fun handleLegitInput(event: MovementInputEvent) {
+            if (!canActivate()) return
+            val physicalSneak = mc.options.keyShift.isPressedOnAny
+            if (vapeRequireSneak && !physicalSneak) {
+                requireSneakTriggered = false
+                standAfterPlacement = false
+                return
+            }
+
+            val input = DirectionalInput(mc.options)
+            val bridgeDirection = !input.forwards && (input.backwards || input.left || input.right)
+            val checkBox = player.boundingBox
+                .deflate(0.2, 0.0, 0.2)
+                .move(player.deltaMovement.x, -1.0, player.deltaMovement.z)
+            val atEdge = bridgeDirection && player.onGround() && world.noCollision(player, checkBox)
+            val now = System.currentTimeMillis()
+
+            if (atEdge) {
+                sneakUntil = now + vapeSneakDelay.random()
+                if (vapeRequireSneak) requireSneakTriggered = true
+            }
+
+            if (standAfterPlacement) {
+                event.sneak = false
+                if (!atEdge) standAfterPlacement = false
+            } else if (atEdge || now < sneakUntil) {
+                event.sneak = true
+            } else if (vapeRequireSneak && requireSneakTriggered) {
+                event.sneak = false
+            }
+        }
+
+        fun rotationSpeed(rotation: Rotation): Float {
+            val yawDistance = abs(RotationUtil.angleDifference(rotation.yaw, RotationManager.serverRotation.yaw))
+            return (2f + yawDistance / 8f).coerceAtMost(12f)
+        }
+    }
+
+    private enum class ScaffoldImplementation(override val tag: String) : Tagged {
+        LIQUID_BOUNCE("LiquidBounce"),
+        VAPE("Vape"),
+    }
+
+    private enum class VapeScaffoldMode(override val tag: String) : Tagged {
+        LEGIT("Legit"),
+        GOD_BRIDGE("GodBridge"),
+        TELLY_BRIDGE("TellyBridge"),
     }
 
 }

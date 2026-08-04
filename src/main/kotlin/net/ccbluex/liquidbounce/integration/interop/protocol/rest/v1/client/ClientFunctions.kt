@@ -35,6 +35,7 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHud
 import net.ccbluex.liquidbounce.integration.interop.badRequest
 import net.ccbluex.liquidbounce.integration.interop.forbidden
 import net.ccbluex.liquidbounce.integration.interop.notFound
+import net.ccbluex.liquidbounce.lang.LanguageManager
 import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.client.usesViaFabricPlus
@@ -58,6 +59,7 @@ private fun Route.getClientInfo() = get("/info") {
         addProperty("inGame", inGame)
         addProperty("viaFabricPlus", usesViaFabricPlus)
         addProperty("hasProtocolHack", usesViaFabricPlus)
+        addProperty("language", LanguageManager.currentLanguageChoice().code)
     })
 }
 

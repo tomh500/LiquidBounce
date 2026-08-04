@@ -273,7 +273,7 @@ public abstract class MixinLocalPlayer extends MixinPlayer implements LocalPlaye
 
         // Through Walls Reach
         if (ModuleReach.INSTANCE.getRunning()) {
-            var throughWallsRange = ModuleReach.INSTANCE.getEntity().getInteractionThroughWallsRange();
+            var throughWallsRange = ModuleReach.INSTANCE.getCurrentThroughWallsRange();
 
             if (throughWallsRange > 0.0) {
                 var hitEntityResult = EntityRaytracingKt.findEntityInCrosshair(throughWallsRange, rotation, null);

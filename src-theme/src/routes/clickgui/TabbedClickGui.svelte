@@ -15,12 +15,13 @@
     import {listen} from "../../integration/ws";
     import type {ClickGuiValueChangeEvent, ScaleFactorChangeEvent} from "../../integration/events";
     import HudEditor from "./tabs/hud_editor/HudEditor.svelte";
+    import {clientLanguage, settingsText} from "./settings_i18n";
 
-    const tabs = [
+    const tabs = $derived([
         {title: "ClickGUI", content: ClickGui},
         {title: "HUD Editor", content: HudEditor},
-        {title: "Settings", content: GlobalSettings},
-    ];
+        {title: settingsText("Settings", $clientLanguage), content: GlobalSettings},
+    ]);
 
     let activeTab = $state(0);
     let minecraftScaleFactor = $state(2);
@@ -49,7 +50,9 @@
         try {
             await setHudEditorSelected(false);
 
-            $os = (await getClientInfo()).os;
+            const clientInfo = await getClientInfo();
+            $os = clientInfo.os;
+            $clientLanguage = clientInfo.language;
 
             const gameWindow = await getGameWindow();
             minecraftScaleFactor = gameWindow.scaleFactor;
@@ -70,6 +73,10 @@
 
     listen("clickGuiValueChange", (e: ClickGuiValueChangeEvent) => {
         applyValues(e.configurable);
+    });
+
+    listen("clientLanguageChanged", async () => {
+        $clientLanguage = (await getClientInfo()).language;
     });
 </script>
 

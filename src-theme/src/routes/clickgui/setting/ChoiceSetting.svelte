@@ -9,6 +9,7 @@
 
     export let setting: ModuleSetting;
     export let path: string;
+    export let localizeSettings: boolean = false;
 
     let cSetting: ChoiceSetting = setting as ChoiceSetting;
     $: cSetting = setting as ChoiceSetting;
@@ -65,7 +66,7 @@
     {#if (expanded || cSetting.flattened) && nestedSettings.length > 0}
         <div class:nested-settings={!cSetting.flattened} class:flat-settings={cSetting.flattened}>
             {#each nestedSettings as setting (setting.name)}
-                <GenericSetting path={thisPath} bind:setting={setting} on:change={handleChange} />
+                <GenericSetting {localizeSettings} path={thisPath} bind:setting={setting} on:change={handleChange} />
             {/each}
         </div>
     {/if}

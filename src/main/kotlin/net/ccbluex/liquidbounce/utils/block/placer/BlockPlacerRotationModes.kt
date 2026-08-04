@@ -21,6 +21,7 @@ package net.ccbluex.liquidbounce.utils.block.placer
 import net.ccbluex.liquidbounce.config.types.group.Mode
 import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.features.module.MinecraftShortcuts
+import net.ccbluex.liquidbounce.features.global.GlobalVapeRotationSettings
 import net.ccbluex.liquidbounce.utils.aiming.PostRotationExecutor
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsValueGroup
@@ -64,13 +65,7 @@ class NormalRotationMode(modeValueGroup: ModeValueGroup<BlockPlacerRotationMode>
 
     override fun invoke(isSupport: Boolean, pos: BlockPos, placementTarget: BlockPlacementTarget): Boolean {
         val interactedBlockPos = placementTarget.interactedBlockPos
-        RotationManager.setRotationTarget(
-            placementTarget.rotation,
-            considerInventory = !placer.ignoreOpenInventory,
-            valueGroup = rotations,
-            provider = placer.module,
-            priority = placer.priority,
-            whenReached = RestrictedSingleUseAction({
+        val whenReached = RestrictedSingleUseAction({
                 val raytraceResult = raytraceBlock(
                     max(placer.range, placer.wallRange).toDouble(),
                     RotationManager.currentRotation ?: return@RestrictedSingleUseAction false,
@@ -89,7 +84,30 @@ class NormalRotationMode(modeValueGroup: ModeValueGroup<BlockPlacerRotationMode>
                     placer.ranAction = true
                 }
             })
-        )
+
+        val vapeRotation = placer.vapeRotation?.invoke()
+        if (vapeRotation == null) {
+            RotationManager.setRotationTarget(
+                placementTarget.rotation,
+                considerInventory = !placer.ignoreOpenInventory,
+                valueGroup = rotations,
+                provider = placer.module,
+                priority = placer.priority,
+                whenReached = whenReached,
+            )
+        } else {
+            RotationManager.setRotationTarget(
+                GlobalVapeRotationSettings.rotationTarget(
+                    placementTarget.rotation,
+                    speed = { vapeRotation.speed },
+                    silentAim = vapeRotation.silentAim,
+                    considerInventory = !placer.ignoreOpenInventory,
+                    whenReached = whenReached,
+                ),
+                priority = placer.priority,
+                provider = placer.module,
+            )
+        }
 
         return true
     }

@@ -36,6 +36,9 @@ sealed class ScaffoldTechnique(name: String) : Mode(name) {
     final override val parent: ModeValueGroup<ScaffoldTechnique>
         get() = ModuleScaffold.technique
 
+    override val running: Boolean
+        get() = super.running && ModuleScaffold.isLiquidBounceMode
+
     abstract fun findPlacementTarget(
         predictedPos: Vec3,
         predictedPose: Pose,

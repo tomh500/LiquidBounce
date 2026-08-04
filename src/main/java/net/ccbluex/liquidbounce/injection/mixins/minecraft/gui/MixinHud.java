@@ -278,7 +278,7 @@ public abstract class MixinHud {
     )
     private AttackRange injectReachAttackRange(AttackRange instance, LivingEntity entity, Vec3 pos) {
         if (ModuleReach.INSTANCE.getRunning()) {
-            return ModuleReach.INSTANCE.getEntity().adjustAttackRange(instance);
+            return ModuleReach.INSTANCE.adjustAttackRange(instance);
         }
 
         return instance;

@@ -5,10 +5,12 @@
     import ExpandArrow from "./common/ExpandArrow.svelte";
     import {setItem} from "../../../integration/persistent_storage";
     import {convertToSpacedString, spaceSeperatedNames} from "../../../theme/theme_config";
+    import {clientLanguage, settingsText} from "../settings_i18n";
 
     export let setting: ModuleSetting;
     export let path: string;
     export let hideExpandControl: boolean = false;
+    export let localizeSettings: boolean = false;
 
     const cSetting = setting as ConfigurableSetting;
     const thisPath = `${path}.${cSetting.name}`;
@@ -35,7 +37,9 @@
 <div class="setting">
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="head" class:expanded on:contextmenu|preventDefault={toggleExpanded}>
-        <div class="title">{$spaceSeperatedNames ? convertToSpacedString(setting.name) : setting.name}</div>
+        <div class="title">{localizeSettings
+            ? settingsText(setting.name, $clientLanguage)
+            : ($spaceSeperatedNames ? convertToSpacedString(setting.name) : setting.name)}</div>
         {#if !hideExpandControl}
             <ExpandArrow bind:expanded />
         {/if}
@@ -44,7 +48,7 @@
     {#if expanded}
         <div class="nested-settings">
             {#each cSetting.value as setting (setting.name)}
-                <GenericSetting path={thisPath} bind:setting on:change={handleChange}/>
+                <GenericSetting {localizeSettings} path={thisPath} bind:setting on:change={handleChange}/>
             {/each}
         </div>
     {/if}

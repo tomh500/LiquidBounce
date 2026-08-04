@@ -31,6 +31,8 @@ import kotlin.math.round
 
 object ScaffoldJumpStrafe : ToggleableValueGroup(ModuleScaffold, "StrafeOnJump", false) {
 
+    override val running get() = super.running && ModuleScaffold.isLiquidBounceMode
+
     /**
      * Allows to adjust the speed of the strafe.
      *

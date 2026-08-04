@@ -33,6 +33,8 @@ import java.util.function.Predicate
 
 object ScaffoldBlinkFeature : ToggleableValueGroup(ModuleScaffold, "Blink", false) {
 
+    override val running get() = super.running && ModuleScaffold.isLiquidBounceMode
+
     private val time by intRange("Time", 50..250, 0..3000, "ms")
     private val flushOn by multiEnumChoice<FlushOn>("FlushOn")
 

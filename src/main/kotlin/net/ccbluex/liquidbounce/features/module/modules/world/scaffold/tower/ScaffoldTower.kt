@@ -29,6 +29,9 @@ sealed class ScaffoldTower(name: String) : Mode(name) {
     final override val parent: ModeValueGroup<*>
         get() = towerMode
 
+    override val running: Boolean
+        get() = super.running && ModuleScaffold.isLiquidBounceMode
+
     /**
      * Overwrites the [ModuleScaffold.getTargetedPosition] with a tower-specific one.
      */

@@ -25,6 +25,8 @@ import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleSca
 import net.ccbluex.liquidbounce.utils.math.multiply
 
 object ScaffoldAccelerationFeature : ToggleableValueGroup(ModuleScaffold, "Acceleration", false) {
+
+    override val running get() = super.running && ModuleScaffold.isLiquidBounceMode
     private val speedMultiplier by float("SpeedMultiplier", 0.6f, 0.1f..3f)
     private val onlyOnGround by boolean("OnlyOnGround", false)
 
