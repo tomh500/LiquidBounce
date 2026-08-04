@@ -109,6 +109,11 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         return automated && activeMode.readyToPlace
     }
 
+    fun canRotate(): Boolean {
+        updateState()
+        return automated
+    }
+
     fun onAutomatedPlacement(placed: BlockPos) {
         if (automated) activeMode.onPlacement(placed)
     }
@@ -136,7 +141,7 @@ internal object VapeScaffoldController : MinecraftShortcuts {
     }
 
     fun rotationFor(target: BlockPlacementTarget?): Rotation? =
-        if (automated && activeMode.readyToPlace) activeMode.rotationFor(target) else null
+        if (automated) activeMode.rotationFor(target) else null
 
     fun rotationSpeed(rotation: Rotation): Float {
         val yawDistance = abs(RotationUtil.angleDifference(rotation.yaw, RotationManager.serverRotation.yaw))
@@ -166,7 +171,7 @@ internal object VapeScaffoldController : MinecraftShortcuts {
     }
 
     internal fun movementInputToward(target: Vec3): DirectionalInput {
-        val degrees = getDegreesRelativeToView(target.subtract(player.position()), player.yRot)
+        val degrees = getDegreesRelativeToView(target.subtract(player.position()))
         return getDirectionalInputForDegrees(DirectionalInput.NONE, degrees, deadAngle = 20f)
     }
 

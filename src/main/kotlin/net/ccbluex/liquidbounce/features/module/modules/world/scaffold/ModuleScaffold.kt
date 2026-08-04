@@ -434,7 +434,7 @@ object ModuleScaffold : ClientModule(
 
     @Suppress("unused")
     private val rotationUpdateHandler = handler<RotationUpdateEvent> {
-        if (!isLiquidBounceMode && !VapeScaffoldController.canAutomate()) {
+        if (!isLiquidBounceMode && !VapeScaffoldController.canRotate()) {
             currentTarget = null
             return@handler
         }
