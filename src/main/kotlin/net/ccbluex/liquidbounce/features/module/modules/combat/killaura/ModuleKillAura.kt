@@ -480,6 +480,11 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
     }
 
     private fun updateTarget() {
+        if (ModuleRikkaKAHelper.shouldSuppressKillAura) {
+            targetTracker.reset()
+            return
+        }
+
         ModuleRikkaKAHelper.killAuraTarget?.let { helperTarget ->
             targetTracker.target = helperTarget
             return
@@ -734,8 +739,9 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
                 .getNearestPoint(player.eyePosition)
         ) <= silentInteractionRange()
 
-        // Vape only lets its hidden clicker fire once silent aim is within roughly three degrees.
-        if (!inRange || managedRotation.directionAngleTo(targetRotation) >= SILENT_READY_ANGLE ||
+        // Jittered, packet-silent rotations need a tolerance proportional to their configured step.
+        val readyAngle = maxOf(SILENT_READY_ANGLE, Silent.aimSpeed * SILENT_READY_ANGLE)
+        if (!inRange || managedRotation.directionAngleTo(targetRotation) >= readyAngle ||
             Silent.cooldown && player.getAttackStrengthScale(0f) < 1f ||
             !Silent.cooldown && System.currentTimeMillis() < silentNextAttackAt
         ) {

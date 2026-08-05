@@ -37,7 +37,10 @@ object ModuleRikkaKAHelper : ClientModule(
     private var projectileThreat: AbstractArrow? = null
 
     val killAuraTarget: LivingEntity?
-        get() = threat?.takeIf { canAttack(it) }
+        get() = threat?.takeIf { it !is Creeper && canAttack(it) }
+
+    val shouldSuppressKillAura: Boolean
+        get() = threat is Creeper
 
     override fun onEnabled() {
         if (!installed) {
@@ -78,7 +81,7 @@ object ModuleRikkaKAHelper : ClientModule(
 
         override fun isTemporary() = true
         override fun onLostControl() = Unit
-        override fun priority() = IBaritoneProcess.DEFAULT_PRIORITY + 2
+        override fun priority() = IBaritoneProcess.DEFAULT_PRIORITY + 10
         override fun displayName0() = "Rikka threat response"
     }
 
@@ -88,7 +91,7 @@ object ModuleRikkaKAHelper : ClientModule(
             .filterIsInstance<LivingEntity>()
             .filter(::isThreat)
             .filter { it is Creeper || ModuleKillAura.enabled }
-            .minByOrNull { it.distanceToSqr(player) }
+            .minWithOrNull(compareBy<LivingEntity> { if (it is Creeper) 0 else 1 }.thenBy { it.distanceToSqr(player) })
     }
 
     private fun findProjectileThreat(): AbstractArrow? {
@@ -103,7 +106,9 @@ object ModuleRikkaKAHelper : ClientModule(
     }
 
     private fun isThreat(entity: LivingEntity): Boolean {
-        if (!entity.isAlive || entity.distanceTo(player) > threatRange || !entity.shouldBeAttacked(targets)) return false
+        if (!entity.isAlive || entity.distanceTo(player) > threatRange) return false
+        if (entity is Creeper) return true
+        if (!entity.shouldBeAttacked(targets)) return false
         return entity is Enemy || entity is NeutralMob && entity.persistentAngerTarget == player.uuid
     }
 
