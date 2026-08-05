@@ -28,6 +28,7 @@ import net.ccbluex.liquidbounce.utils.aiming.RotationTarget
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.aiming.features.MovementCorrection
 import net.ccbluex.liquidbounce.utils.aiming.features.processors.VapeAdaptiveRotationProcessor
+import net.ccbluex.liquidbounce.utils.aiming.features.processors.VapeMouseRotationState
 import net.ccbluex.liquidbounce.utils.client.RestrictedSingleUseAction
 import net.ccbluex.liquidbounce.utils.math.toVec3f
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention
@@ -68,11 +69,23 @@ object GlobalVapeRotationSettings : ValueGroup("VapeRotations"), EventListener {
         rotation: Rotation,
         speed: () -> Float,
         silentAim: Boolean,
+        scaleAxesProportionally: Boolean = true,
+        emulateMouseController: Boolean = false,
+        mouseRotationState: VapeMouseRotationState = VapeMouseRotationState(),
+        tolerance: Float = 0f,
         considerInventory: Boolean = true,
         whenReached: RestrictedSingleUseAction? = null,
     ) = RotationTarget(
         rotation = rotation,
-        processors = listOf(VapeAdaptiveRotationProcessor(speed)),
+        processors = listOf(
+            VapeAdaptiveRotationProcessor(
+                speed,
+                scaleAxesProportionally = scaleAxesProportionally,
+                emulateMouseController = emulateMouseController,
+                mouseRotationState = mouseRotationState,
+                tolerance = tolerance,
+            )
+        ),
         ticksUntilReset = 2,
         resetThreshold = 2f,
         considerInventory = considerInventory,

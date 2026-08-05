@@ -120,7 +120,7 @@ object ModuleSpeed : ClientModule("Speed", ModuleCategories.MOVEMENT) {
             // prevents accessing player when it's null below
             // in case it was forgotten to be checked
             return when {
-                !(super.running || ModuleScaffold.running && ModuleScaffold.autoSpeed) -> false
+                !(super.running || ModuleScaffold.running && ModuleScaffold.shouldAutoSpeed) -> false
                 !passesRequirements() -> false
                 OnlyInCombat.enabled && CombatManager.isInCombat -> false
                 OnlyOnPotionEffect.enabled && potionEffects.activeMode.checkPotionEffects() -> false

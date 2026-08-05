@@ -12,34 +12,45 @@ package net.ccbluex.liquidbounce.features.module.modules.world.scaffold
 
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.features.module.MinecraftShortcuts
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeLook
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold.ScaffoldImplementation
+import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.vape.ScaffoldEdgeSneakHelper
+import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.vape.movement.MovementInputHelper
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
+import net.ccbluex.liquidbounce.utils.aiming.RotationTarget
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
+import net.ccbluex.liquidbounce.utils.aiming.features.processors.VapeMouseRotationState
 import net.ccbluex.liquidbounce.utils.aiming.utils.RotationUtil
 import net.ccbluex.liquidbounce.utils.block.targetfinding.BlockPlacementTarget
-import net.ccbluex.liquidbounce.utils.entity.isCloseToEdge
 import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
 import net.ccbluex.liquidbounce.utils.item.getBlock
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
-import net.ccbluex.liquidbounce.utils.movement.getDegreesRelativeToView
-import net.ccbluex.liquidbounce.utils.movement.getDirectionalInputForDegrees
 import net.minecraft.core.BlockPos
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
-import net.minecraft.world.InteractionHand
 import net.minecraft.world.item.ItemStack
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.item.context.UseOnContext
+import net.minecraft.world.phys.BlockHitResult
+import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
 import kotlin.math.abs
 import kotlin.math.floor
-import kotlin.random.Random
+import kotlin.math.roundToInt
 
 /** Shared dispatch and activation tracking adapted from Vape Scaffold.java. */
 internal object VapeScaffoldController : MinecraftShortcuts {
 
     private val activation = ManualBridgeActivation()
+    private val edgeSneakHelper = ScaffoldEdgeSneakHelper()
+    val mouseRotationState = VapeMouseRotationState()
     private var automated = false
-    private var activationSneakUntil = 0
+    private var activatedAtTick = Int.MIN_VALUE
+    private var releaseMovement = false
+    private var rotationClaimed = false
+    private var pendingMouseDeltaX = 0.0
+    private var pendingMouseDeltaY = 0.0
+    private var mouseHistoryTick = Int.MIN_VALUE
+    private val recentMouseMovement = ArrayDeque<Int>()
 
     private val activeMode: VapeScaffoldModeController
         get() = when (ModuleScaffold.mode) {
@@ -49,10 +60,18 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         }
 
     val shouldSprint get() = automated && activeMode.shouldSprint
+    val scaleAxesProportionally get() = automated && activeMode.scaleAxesProportionally
+    val rotationTolerance get() = if (automated) activeMode.rotationTolerance else 0f
+    val isAutomated get() = automated
 
     fun reset() {
         automated = false
-        activationSneakUntil = 0
+        activatedAtTick = Int.MIN_VALUE
+        releaseMovement = false
+        rotationClaimed = false
+        mouseRotationState.reset()
+        edgeSneakHelper.reset()
+        resetMouseHistory()
         activation.reset()
         VapeGodBridgeScaffoldMode.reset()
         VapeTellyBridgeScaffoldMode.reset()
@@ -70,12 +89,6 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         if (ModuleScaffold.findPlaceableSlots().isEmpty()) return false
         if (ModuleScaffold.isTellyBridgeMode && ModuleScaffold.blockCount < 5) return false
 
-        if (ModuleScaffold.vapeWhitelistEnabled) {
-            val heldAllowed = InteractionHand.entries.any { hand ->
-                player.getItemInHand(hand).getBlock() in ModuleScaffold.vapeWhitelist
-            }
-            if (!heldAllowed) return false
-        }
         return true
     }
 
@@ -94,19 +107,38 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         if (!automated) {
             activation.update()?.let { (activationAnchor, direction) ->
                 automated = true
+                rotationClaimed = true
+                activatedAtTick = player.tickCount
+                resetMouseHistory()
                 activeMode.onActivated(activationAnchor, direction)
             }
             return
         }
 
-        if (!activationKeysHeld() && player.onGround()) {
+        val activeRotation = RotationManager.activeRotationTarget
+        // A completed CHANGE_LOOK request temporarily leaves no active target. Vape keeps its
+        // rotation claim during that gap; only a different live target means control was lost.
+        val lostRotationControl = rotationClaimed && activeRotation != null && !activeRotation.vapeCompatible
+        if (lostRotationControl) {
             deactivate()
+            return
         }
+
+        if (hasManualLookOverride()) {
+            deactivate()
+            return
+        }
+
+        if (!activationKeysHeld() && activeMode.canDeactivateSafely()) {
+            deactivate()
+            return
+        }
+
     }
 
     fun canAutomate(): Boolean {
         updateState()
-        return automated && activeMode.readyToPlace
+        return automated && player.tickCount > activatedAtTick && activeMode.readyToPlace
     }
 
     fun canRotate(): Boolean {
@@ -114,8 +146,29 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         return automated
     }
 
-    fun onAutomatedPlacement(placed: BlockPos) {
-        if (automated) activeMode.onPlacement(placed)
+    /** Vape clicks using the old path phase, then advances the controller from confirmed world state. */
+    fun finishPlacementTick() {
+        updateState()
+        if (automated) activeMode.update()
+    }
+
+    fun onRotationSubmitted(rotationTarget: RotationTarget) {
+        rotationClaimed = rotationTarget.vapeCompatible
+    }
+
+    fun onRotationReleased() {
+        rotationClaimed = false
+        mouseRotationState.reset()
+    }
+
+    fun resetRotationIntegrator() {
+        mouseRotationState.reset()
+    }
+
+    fun onMouseRotation(deltaX: Double, deltaY: Double) {
+        if (!automated) return
+        pendingMouseDeltaX += deltaX
+        pendingMouseDeltaY += deltaY
     }
 
     fun onManualPlacementRequest(packet: ServerboundUseItemOnPacket) {
@@ -133,6 +186,13 @@ internal object VapeScaffoldController : MinecraftShortcuts {
 
     fun handleMovement(event: MovementInputEvent) {
         updateState()
+        if (releaseMovement) {
+            event.directionalInput = DirectionalInput.NONE
+            event.jump = false
+            releaseMovement = false
+            return
+        }
+
         if (automated) {
             activeMode.handleMovement(event)
         } else {
@@ -143,8 +203,29 @@ internal object VapeScaffoldController : MinecraftShortcuts {
     fun rotationFor(target: BlockPlacementTarget?): Rotation? =
         if (automated) activeMode.rotationFor(target) else null
 
-    fun rotationSpeed(rotation: Rotation): Float {
-        val yawDistance = abs(RotationUtil.angleDifference(rotation.yaw, RotationManager.serverRotation.yaw))
+    fun isValidPlacementHit(hitResult: BlockHitResult): Boolean =
+        automated && hitResult.type == HitResult.Type.BLOCK && activeMode.isValidPlacementHit(hitResult)
+
+    fun rotationSpeed(rotation: Rotation): Float = if (automated) {
+        activeMode.rotationSpeed(rotation)
+    } else {
+        defaultRotationSpeed(rotation)
+    }
+
+    internal fun defaultRotationSpeed(rotation: Rotation): Float {
+        val yawDistance = abs(RotationUtil.angleDifference(rotation.yaw, player.yRot))
+        return (2f + yawDistance / 8f).coerceAtMost(12f)
+    }
+
+    internal fun directionRotationSpeed(direction: Int): Float {
+        val targetYaw = when (direction) {
+            6 -> 90f
+            8 -> 270f
+            7 -> 0f
+            5 -> 180f
+            else -> player.yRot
+        }
+        val yawDistance = abs(RotationUtil.angleDifference(targetYaw, player.yRot))
         return (2f + yawDistance / 8f).coerceAtMost(12f)
     }
 
@@ -170,10 +251,11 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         else -> position
     }
 
-    internal fun movementInputToward(target: Vec3): DirectionalInput {
-        val degrees = getDegreesRelativeToView(target.subtract(player.position()))
-        return getDirectionalInputForDegrees(DirectionalInput.NONE, degrees, deadAngle = 20f)
-    }
+    /** Greedy four-key waypoint steering used by Vape's TargetPositionMovementTask. */
+    internal fun movementInputToward(target: Vec3) = MovementInputHelper.applyMovementToward(
+        targetOffsetX = target.x - player.x,
+        targetOffsetZ = target.z - player.z,
+    )
 
     // Vape treats an exact half-block height specially and otherwise targets one full block below the feet.
     internal fun placementY(): Int {
@@ -191,24 +273,41 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         abs(RotationUtil.angleDifference(first, second))
 
     private fun deactivate() {
+        releaseMovement = releaseMovement || automated
         automated = false
-        activationSneakUntil = 0
+        activatedAtTick = Int.MIN_VALUE
+        rotationClaimed = false
+        mouseRotationState.reset()
+        edgeSneakHelper.reset()
+        resetMouseHistory()
         activation.reset()
         VapeGodBridgeScaffoldMode.reset()
         VapeTellyBridgeScaffoldMode.reset()
     }
 
-    private fun handleManualActivationMovement(event: MovementInputEvent) {
-        val physicalInput = DirectionalInput(mc.options)
-        val reachedEdge = player.onGround() && !physicalInput.forwards &&
-            player.isCloseToEdge(event.directionalInput, distance = 0.2)
+    private fun hasManualLookOverride(): Boolean {
+        if (mouseHistoryTick != player.tickCount) {
+            mouseHistoryTick = player.tickCount
+            recentMouseMovement.addFirst(abs(pendingMouseDeltaX).roundToInt())
+            recentMouseMovement.addFirst(abs(pendingMouseDeltaY).roundToInt())
+            pendingMouseDeltaX = 0.0
+            pendingMouseDeltaY = 0.0
+            while (recentMouseMovement.size > MOUSE_HISTORY_SIZE) {
+                recentMouseMovement.removeLast()
+            }
+        }
+        return !ModuleFreeLook.running && recentMouseMovement.sum() >= MANUAL_LOOK_THRESHOLD
+    }
 
-        if (reachedEdge) {
-            activationSneakUntil = player.tickCount + Random.nextInt(2, 11)
-        }
-        if (reachedEdge || player.tickCount < activationSneakUntil) {
-            event.sneak = true
-        }
+    private fun resetMouseHistory() {
+        pendingMouseDeltaX = 0.0
+        pendingMouseDeltaY = 0.0
+        mouseHistoryTick = Int.MIN_VALUE
+        recentMouseMovement.clear()
+    }
+
+    private fun handleManualActivationMovement(event: MovementInputEvent) {
+        edgeSneakHelper.apply(event)
     }
 
     private class ManualBridgeActivation {
@@ -290,15 +389,23 @@ internal object VapeScaffoldController : MinecraftShortcuts {
             const val PLACEMENT_CONFIRM_TICKS = 20
         }
     }
+
+    private const val MOUSE_HISTORY_SIZE = 6
+    private const val MANUAL_LOOK_THRESHOLD = 10
 }
 
 internal interface VapeScaffoldModeController {
     val readyToPlace: Boolean
     val shouldSprint: Boolean get() = false
+    val scaleAxesProportionally: Boolean get() = true
+    val rotationTolerance: Float get() = 0.5f
     fun reset()
     fun onActivated(activationAnchor: BlockPos, direction: Int)
-    fun onPlacement(placed: BlockPos) = Unit
+    fun update() = Unit
     fun targetedPosition(default: BlockPos) = default
     fun handleMovement(event: MovementInputEvent)
     fun rotationFor(target: BlockPlacementTarget?): Rotation?
+    fun rotationSpeed(rotation: Rotation) = VapeScaffoldController.defaultRotationSpeed(rotation)
+    fun isValidPlacementHit(hitResult: BlockHitResult): Boolean
+    fun canDeactivateSafely(): Boolean
 }
