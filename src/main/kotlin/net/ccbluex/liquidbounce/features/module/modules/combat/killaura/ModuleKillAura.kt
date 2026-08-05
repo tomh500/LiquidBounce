@@ -31,6 +31,7 @@ import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.global.GlobalVapeRotationSettings
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleAutoWeapon
+import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleRikkaKAHelper
 import net.ccbluex.liquidbounce.features.module.modules.combat.criticals.ModuleCriticals.CriticalsSelectionMode
 import net.ccbluex.liquidbounce.features.module.modules.combat.elytratarget.ModuleElytraTarget
 import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.KillAuraRotationsValueGroup.KillAuraRotationTiming.ON_TICK
@@ -479,6 +480,11 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
     }
 
     private fun updateTarget() {
+        ModuleRikkaKAHelper.killAuraTarget?.let { helperTarget ->
+            targetTracker.target = helperTarget
+            return
+        }
+
         // Calculate maximum range based on enemy distance
         val maximumRange = if (targetTracker.closestSquaredEnemyDistance > range.interactionRange.sq()) {
             range.scanRange
@@ -545,7 +551,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             return
         }
 
-        val targets = world.entitiesForRendering()
+        val targets = ModuleRikkaKAHelper.killAuraTarget?.let(::listOf) ?: world.entitiesForRendering()
             .asSequence()
             .filterIsInstance<LivingEntity>()
             .filter { isValidVapeTarget(it, Vape.targets, Vape.ignoreNaked,
@@ -670,7 +676,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             baseComparator
         }
 
-        val target = world.entitiesForRendering().asSequence()
+        val target = ModuleRikkaKAHelper.killAuraTarget ?: world.entitiesForRendering().asSequence()
             .filterIsInstance<LivingEntity>()
             .filter { isValidVapeTarget(it, Silent.targets, Silent.ignoreNaked,
                 Silent.ignoreInvisible, Silent.ignoreBehindWalls) }

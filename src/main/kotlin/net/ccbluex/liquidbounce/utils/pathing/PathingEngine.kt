@@ -1,9 +1,13 @@
 package net.ccbluex.liquidbounce.utils.pathing
 
 import baritone.api.BaritoneAPI
+import baritone.api.process.IBaritoneProcess
+import baritone.api.process.PathingCommand
+import baritone.api.process.PathingCommandType
 import net.ccbluex.liquidbounce.event.events.NotificationEvent
 import net.ccbluex.liquidbounce.features.module.ModuleManager
 import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.RikkaAutomationModule
+import net.ccbluex.liquidbounce.utils.combat.CombatManager
 import net.ccbluex.liquidbounce.utils.client.chat
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.minecraft.network.chat.Component
@@ -26,6 +30,27 @@ object PathingEngine {
 
     private var pathingMovementActive = false
     private var strafeWasEnabled = false
+    private var combatPauserInstalled = false
+
+    private val combatPauser = object : IBaritoneProcess {
+        override fun isActive(): Boolean =
+            isRikkaAutomationActive() && CombatManager.isInCombat
+
+        override fun onTick(calcFailed: Boolean, isSafeToCancel: Boolean): PathingCommand {
+            // Rikka must not retain movement, mining, placement, or a stale look target while combat owns the player.
+            primary.inputOverrideHandler.clearAllKeys()
+            primary.lookBehavior.updateTarget(null, false)
+            return PathingCommand(null, PathingCommandType.REQUEST_PAUSE)
+        }
+
+        override fun isTemporary() = true
+
+        override fun onLostControl() = Unit
+
+        override fun priority() = IBaritoneProcess.DEFAULT_PRIORITY + 1
+
+        override fun displayName0() = "LiquidBounce combat pause"
+    }
 
     fun onStrafeStateChanged(enabled: Boolean) {
         if (isPathing()) {
@@ -51,6 +76,15 @@ object PathingEngine {
 
     fun isPathing(): Boolean = primary.pathingBehavior.isPathing
 
+    fun isRikkaAutomationEnabled(): Boolean =
+        ModuleManager.getModules().any { it is RikkaAutomationModule && it.enabled }
+
+    fun isRikkaAutomationActive(): Boolean =
+        isRikkaAutomationEnabled() && (primary.pathingBehavior.hasPath() || isMining())
+
+    fun shouldPauseRikkaAutomationForCombat(): Boolean =
+        isRikkaAutomationEnabled() && CombatManager.isInCombat
+
     /**
      * Whether the integrated pathing engine currently needs to control the player.
      * Mining can briefly stop pathing between targets, so it must be included too.
@@ -62,6 +96,10 @@ object PathingEngine {
         .replace("Baritoe", "LiquidBounce", ignoreCase = true)
 
     fun installOutputBridge() {
+        if (!combatPauserInstalled) {
+            primary.pathingControlManager.registerProcess(combatPauser)
+            combatPauserInstalled = true
+        }
         settings.chatControl.value = false
         settings.prefixControl.value = false
         settings.logAsToast.value = false

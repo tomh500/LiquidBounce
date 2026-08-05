@@ -492,6 +492,7 @@
   "liquidbounce.module.autoRod.description": "Automatically uses fishing rod for combat.",
   "liquidbounce.module.autoTool.description": "Automatically chooses the best tool in your inventory to mine a block.",
   "liquidbounce.module.rikkaMine.description": "Automatically navigates to and mines selected blocks (aka Automine, Mine).",
+  "liquidbounce.module.rikkaKAHelper.description": "Temporarily clears nearby threats for Rikka automation through KillAura and dodges incoming arrows.",
   "liquidbounce.module.rikkaBuild.description": "Builds the configured schematic using the integrated pathing engine (aka Build).",
   "liquidbounce.module.rikkaExplore.description": "Explores the world from your current position or configured coordinates (aka Explore).",
   "liquidbounce.module.rikkaFollow.description": "Follows the configured entity group or target type (aka Follow).",

@@ -50,6 +50,7 @@ import net.ccbluex.liquidbounce.utils.raytracing.raytraceBlock
 import net.ccbluex.liquidbounce.utils.render.BreakingProgress
 import net.ccbluex.liquidbounce.utils.render.BreakingProgressRenderer
 import net.ccbluex.liquidbounce.utils.render.placement.PlacementRenderer
+import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 import net.minecraft.core.BlockPos
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket
 import net.minecraft.network.protocol.game.ClientboundSectionBlocksUpdatePacket
@@ -126,6 +127,7 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
     private var rotation: Rotation? = null
     private var tickCounter = 0L
     private var nextAllowedStartTick = 0L
+    private var rikkaTarget = false
 
     /**
      * The current target of the module.
@@ -142,6 +144,9 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
             field?.cleanUp()
             value?.init()
             field = value
+            if (value == null) {
+                rikkaTarget = false
+            }
         }
 
     private fun shouldBlockTargetChange(mineTarget: MineTarget): Boolean {
@@ -165,11 +170,16 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
     override fun onDisabled() {
         targetRenderer.clearSilently()
         nextAllowedStartTick = 0L
+        rikkaTarget = false
         _target = null
     }
 
     @Suppress("unused")
     private val rotationUpdateHandler = handler<RotationUpdateEvent> {
+        if (rikkaTarget && PathingEngine.shouldPauseRikkaAutomationForCombat()) {
+            return@handler
+        }
+
         val mineTarget = _target ?: return@handler
         mineTarget.updateBlockState()
         rotate(mineTarget)
@@ -179,6 +189,17 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
     private val repeatable = handler<GameTickEvent> {
         tickCounter++
         val mineTarget = _target ?: return@handler
+        if (rikkaTarget) {
+            if (!PathingEngine.isRikkaAutomationEnabled()) {
+                _resetTarget()
+                return@handler
+            }
+
+            if (PathingEngine.shouldPauseRikkaAutomationForCombat()) {
+                return@handler
+            }
+        }
+
         if (mineTarget.isInvalidOrOutOfRange()) {
             _target = null
             return@handler
@@ -378,8 +399,10 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
         }
 
         _target = if (shouldTargetBlock && world.worldBorder.isWithinBounds(blockPos) && !isCancelledByUser) {
+            rikkaTarget = false
             MineTarget(blockPos.immutable)
         } else {
+            rikkaTarget = false
             null
         }
 
@@ -387,8 +410,11 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
     }
 
     @Suppress("unused")
-    private val blockAttackHandler = handler<BlockAttackEvent> {
-        it.cancelEvent()
+    private val blockAttackHandler = handler<BlockAttackEvent> { event ->
+        if (PathingEngine.isRikkaAutomationActive()) {
+            setRikkaTarget(event.pos)
+        }
+        event.cancelEvent()
     }
 
     @Suppress("unused")
@@ -423,6 +449,14 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
     }
 
     fun setTarget(blockPos: BlockPos) {
+        setTarget(blockPos, fromRikka = false)
+    }
+
+    private fun setRikkaTarget(blockPos: BlockPos) {
+        setTarget(blockPos, fromRikka = true)
+    }
+
+    private fun setTarget(blockPos: BlockPos, fromRikka: Boolean) {
         val state = blockPos.getState()
         val shouldTargetBlock = state != null && mode.activeMode.shouldTarget(blockPos, state)
         if (!shouldTargetBlock || !world.worldBorder.isWithinBounds(blockPos)) {
@@ -436,11 +470,13 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
 
         if (activeTarget?.finished != false && mode.activeMode.canManuallyChange || activeTarget == null) {
             _target = MineTarget(blockPos.immutable)
+            rikkaTarget = fromRikka
         }
     }
 
     @Suppress("FunctionNaming", "FunctionName")
     fun _resetTarget() {
+        rikkaTarget = false
         _target = null
     }
 
