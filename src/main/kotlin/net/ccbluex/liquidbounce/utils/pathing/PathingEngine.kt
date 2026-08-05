@@ -11,6 +11,9 @@ import net.ccbluex.liquidbounce.utils.combat.CombatManager
 import net.ccbluex.liquidbounce.utils.client.chat
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.minecraft.network.chat.Component
+import net.minecraft.core.BlockPos
+import net.minecraft.resources.ResourceKey
+import net.minecraft.world.level.Level
 import net.minecraft.world.level.block.Block
 import java.util.function.BiConsumer
 import java.util.function.Consumer
@@ -31,6 +34,7 @@ object PathingEngine {
     private var pathingMovementActive = false
     private var strafeWasEnabled = false
     private var combatPauserInstalled = false
+    private var deathLocation: Pair<ResourceKey<Level>, BlockPos>? = null
 
     private val combatPauser = object : IBaritoneProcess {
         override fun isActive(): Boolean =
@@ -142,6 +146,8 @@ object PathingEngine {
         settings.maxYLevelWhileMining.value = maxY
         settings.allowOnlyExposedOres.value = exposedOnly
         settings.allowOnlyExposedOresDistance.value = exposedDistance
+        settings.useSwordToMine.value = false
+        settings.allowInventory.value = false
 
         // LiquidBounce owns all user-facing output and command handling.
     }
@@ -191,6 +197,16 @@ object PathingEngine {
 
     fun cancel() {
         execute("cancel", emptyList())
+    }
+
+    fun recordDeath(location: BlockPos, dimension: ResourceKey<Level>) {
+        deathLocation = dimension to location
+    }
+
+    fun returnToDeathLocation(currentDimension: ResourceKey<Level>): Boolean {
+        val (dimension, location) = deathLocation ?: return false
+        if (dimension != currentDimension) return false
+        return execute("goto", listOf(location.x.toString(), location.y.toString(), location.z.toString()))
     }
 
     fun cancelAndDisableRikkaAutomationModules() {

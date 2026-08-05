@@ -35,6 +35,7 @@ import net.ccbluex.liquidbounce.features.module.modules.player.ModuleNoRotateSet
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager;
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation;
 import net.ccbluex.liquidbounce.utils.kotlin.Priority;
+import net.ccbluex.liquidbounce.utils.pathing.PathingEngine;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.LevelLoadingScreen;
 import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
@@ -225,6 +226,7 @@ public abstract class MixinClientPacketListener extends ClientCommonPacketListen
         EventManager.INSTANCE.callEvent(new HealthUpdateEvent(packet.getHealth(), packet.getFood(), packet.getSaturation(), player.getHealth()));
 
         if (packet.getHealth() == 0) {
+            PathingEngine.INSTANCE.recordDeath(player.blockPosition(), player.level().dimension());
             EventManager.INSTANCE.callEvent(DeathEvent.INSTANCE);
         }
     }

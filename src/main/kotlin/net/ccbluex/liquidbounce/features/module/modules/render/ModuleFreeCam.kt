@@ -73,6 +73,13 @@ import kotlin.math.abs
  */
 object ModuleFreeCam : ClientModule("FreeCam", ModuleCategories.RENDER, disableOnQuit = true) {
 
+    private enum class FreeCamMode(override val tag: String) : Tagged {
+        DETACHED("Detached"),
+        OBSERVE("Observe"),
+    }
+
+    private val mode by enumChoice("Mode", FreeCamMode.DETACHED)
+
     private val speed by float("Speed", 1f, 0.1f..2f)
 
     /**
@@ -164,6 +171,8 @@ object ModuleFreeCam : ClientModule("FreeCam", ModuleCategories.RENDER, disableO
 
     private val rotations = tree(RotationsValueGroup(this))
 
+    private val observeMode get() = mode == FreeCamMode.OBSERVE
+
     init {
         tree(CameraInteract)
         tree(Navigation)
@@ -238,7 +247,7 @@ object ModuleFreeCam : ClientModule("FreeCam", ModuleCategories.RENDER, disableO
     private val inputHandler = handler<MovementInputEvent>(priority = FIRST_PRIORITY) { event ->
         // Keep the real player's input alive while the pathing engine is moving or mining.
         // FreeCam's own camera movement is read directly from the key state below.
-        if (PathingEngine.isAutomatedMovement()) {
+        if (observeMode || PathingEngine.isAutomatedMovement()) {
             return@handler
         }
 
@@ -318,8 +327,9 @@ object ModuleFreeCam : ClientModule("FreeCam", ModuleCategories.RENDER, disableO
     }
 
     @JvmStatic
-    fun shouldCameraInteractActive() = running && CameraInteract.running
-    fun shouldDisableCameraInteract() = running && !CameraInteract.running
+    fun shouldCameraInteractActive() = running && CameraInteract.running && !observeMode
+    fun shouldDisableCameraInteract() = running && (!CameraInteract.running || observeMode)
+    fun shouldFreezePlayer() = running && !observeMode
 
     private fun getCameraLookingAt(): Vec3? {
         if (!PositionState.available) return null

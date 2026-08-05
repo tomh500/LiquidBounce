@@ -4,6 +4,9 @@ import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.utils.input.InputBind
 import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
+import net.ccbluex.liquidbounce.utils.client.notification
+import net.ccbluex.liquidbounce.event.events.NotificationEvent
+import net.ccbluex.liquidbounce.utils.client.player
 
 interface RikkaAutomationModule
 
@@ -100,5 +103,14 @@ object ModuleRikkaStop : ClientModule(
 ) {
     override fun onEnabled() {
         PathingEngine.cancelAndDisableRikkaAutomationModules()
+    }
+}
+
+object ModuleRikkaDeathReturn : RikkaProcessModule("RikkaDeathReturn", ModuleCategories.MOVEMENT, aliases = listOf("DeathReturn")) {
+    override fun startProcess() {
+        if (!PathingEngine.returnToDeathLocation(player.level().dimension())) {
+            notification(name, "No death point in this dimension", NotificationEvent.Severity.ERROR)
+            enabled = false
+        }
     }
 }

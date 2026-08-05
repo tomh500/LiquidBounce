@@ -248,6 +248,7 @@ import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAirPlace
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAutoDisable
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleRikkaMine
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleRikkaKAHelper
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaDeathReturn
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAutoTool
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleBedDefender
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleBlockIn
@@ -749,6 +750,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleRikkaPause,
             ModuleRikkaResume,
             ModuleRikkaStop,
+            ModuleRikkaDeathReturn,
             ModuleRikkaKAHelper,
         )
 

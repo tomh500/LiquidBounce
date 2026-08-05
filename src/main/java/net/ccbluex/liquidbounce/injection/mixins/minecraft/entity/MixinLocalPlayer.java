@@ -404,13 +404,13 @@ public abstract class MixinLocalPlayer extends MixinPlayer implements LocalPlaye
 
     @ModifyExpressionValue(method = "aiStep", at = @At(value = "FIELD", target = "Lnet/minecraft/world/entity/player/Abilities;mayfly:Z", opcode = Opcodes.GETFIELD))
     private boolean hookFreeCamPreventCreativeFly(boolean original) {
-        return !ModuleFreeCam.INSTANCE.getRunning() && original;
+        return !ModuleFreeCam.INSTANCE.shouldFreezePlayer() && original;
     }
 
     @ModifyVariable(method = "sendPosition", at = @At("STORE"), name = "rot")
     private boolean hookFreeCamPreventRotations(boolean bl4) {
         // Prevent rotation changes when free cam is active, unless a rotation is being set via the rotation manager
-        return (!ModuleFreeCam.INSTANCE.getRunning() ||
+        return (!ModuleFreeCam.INSTANCE.shouldFreezePlayer() ||
                 RotationManager.INSTANCE.getCurrentRotation() != null) && bl4;
     }
 

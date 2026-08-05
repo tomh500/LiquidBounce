@@ -4,6 +4,7 @@ import net.ccbluex.liquidbounce.event.events.NotificationEvent
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.RikkaAutomationModule
+import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleRikkaKAHelper
 import net.ccbluex.liquidbounce.utils.collection.blockSortedSetOf
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
@@ -52,6 +53,7 @@ object ModuleRikkaMine : ClientModule(
             exposedOnly,
             exposedDistance,
         )
+        ModuleRikkaKAHelper.enabled = true
         PathingEngine.mine(quantity, blocks)
     }
 

@@ -21,7 +21,7 @@ import net.minecraft.world.entity.monster.Creeper
 import net.minecraft.world.entity.projectile.arrow.AbstractArrow
 import kotlin.math.max
 
-/** Keeps Rikka automation safe by temporarily clearing nearby hostile threats through KillAura. */
+/** Keeps Rikka automation safe by withdrawing from immediate threats and handing other targets to KillAura. */
 object ModuleRikkaKAHelper : ClientModule(
     "RikkaKAHelper",
     ModuleCategories.COMBAT,
@@ -31,6 +31,7 @@ object ModuleRikkaKAHelper : ClientModule(
     private val targets by multiEnumChoice<Targets>("Targets", Targets.HOSTILE, Targets.ANGERABLE)
     private val threatRange by float("ThreatRange", 16f, 4f..32f, "blocks")
     private val engageRange by float("EngageRange", 3.2f, 2f..5f, "blocks")
+    private val creeperRetreatDistance by float("CreeperRetreatDistance", 10f, 6f..20f, "blocks")
     private var installed = false
     private var threat: LivingEntity? = null
     private var projectileThreat: AbstractArrow? = null
@@ -65,8 +66,9 @@ object ModuleRikkaKAHelper : ClientModule(
             }
 
             val target = threat ?: return PathingCommand(null, PathingCommandType.DEFER)
-            val goal = if (target is Creeper && target.swellDir > 0) {
-                val away = player.position().subtract(target.position()).normalize().scale(7.0)
+            val goal = if (target is Creeper) {
+                BaritoneAPI.getProvider().primaryBaritone.inputOverrideHandler.clearAllKeys()
+                val away = player.position().subtract(target.position()).normalize().scale(creeperRetreatDistance.toDouble())
                 GoalNear(BlockPos.containing(player.position().add(away)), 2)
             } else {
                 GoalNear(target.blockPosition(), max(2, engageRange.toInt()))
@@ -81,10 +83,11 @@ object ModuleRikkaKAHelper : ClientModule(
     }
 
     private fun findThreat(): LivingEntity? {
-        if (!enabled || !ModuleKillAura.enabled || !PathingEngine.isRikkaAutomationEnabled()) return null
+        if (!enabled || !PathingEngine.isRikkaAutomationEnabled()) return null
         return world.entitiesForRendering().asSequence()
             .filterIsInstance<LivingEntity>()
             .filter(::isThreat)
+            .filter { it is Creeper || ModuleKillAura.enabled }
             .minByOrNull { it.distanceToSqr(player) }
     }
 
