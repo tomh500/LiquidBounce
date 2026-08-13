@@ -29,6 +29,7 @@ import com.mojang.blaze3d.textures.GpuTextureView
 import net.ccbluex.liquidbounce.LiquidBounce
 import net.ccbluex.liquidbounce.render.ClientRenderPipelines.screenQuadSnippet
 import net.ccbluex.liquidbounce.render.ClientRenderPipelines.withUniformBuffer
+import net.ccbluex.liquidbounce.render.ClientRenderPipelines.withBindGroupLayout
 import net.ccbluex.liquidbounce.render.ClientUniformDefine
 import net.ccbluex.liquidbounce.render.createRenderPass
 import net.ccbluex.liquidbounce.render.drawBlitOnCurrentLayer
@@ -44,6 +45,7 @@ import net.ccbluex.liquidbounce.utils.render.textureSetup
 import net.ccbluex.liquidbounce.utils.render.writeStd140
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.render.TextureSetup
+import net.minecraft.client.renderer.texture.DynamicTexture
 import net.minecraft.resources.Identifier
 import java.io.Closeable
 import java.util.Locale
@@ -110,11 +112,14 @@ sealed interface ThemeBackground : Closeable {
         private val pipeline: RenderPipeline,
         private val fshId: Identifier,
         private val fragmentShader: String,
+        private val inputTexture: DynamicTexture?,
     ) : ThemeBackground {
 
         private val ubo = ClientUniformDefine.THEME_BACKGROUND.createRingBuffer {
             "ThemeShaderBackground UBO - ${metadata.name}"
         }
+
+        private val inputTextureView: GpuTextureView? = inputTexture?.textureView
 
         private var background: GpuTexture? = null
         private var backgroundView: GpuTextureView? = null
@@ -146,6 +151,9 @@ sealed interface ThemeBackground : Closeable {
             ).use { pass ->
                 pass.setPipeline(pipeline)
                 pass.setUniform(ClientUniformDefine.THEME_BACKGROUND.uboName, uboSlice)
+                inputTextureView?.let { view ->
+                    pass.bindTexture("InSampler", view, INPUT_SAMPLER)
+                }
                 pass.draw(3, 1, 0, 0)
             }
 
@@ -162,6 +170,7 @@ sealed interface ThemeBackground : Closeable {
 
         override fun close() {
             ubo.close()
+            inputTexture?.close()
             backgroundView?.close()
             background?.close()
         }
@@ -203,26 +212,43 @@ sealed interface ThemeBackground : Closeable {
             private val SAMPLER = RenderSystem.getSamplerCache().getRepeat(FilterMode.NEAREST)
 
             @JvmStatic
+            private val INPUT_SAMPLER = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR)
+
+            @JvmStatic
             fun build(
                 metadata: ThemeMetadata,
                 background: Background,
                 fragmentShader: String,
+                image: NativeImage? = null,
             ): Shader {
                 val bgName = background.name.lowercase(Locale.US)
                 val themeName = metadata.name.lowercase(Locale.US)
 
                 val fshId = LiquidBounce.identifier("shader/fsh/theme-bg-$themeName-$bgName")
 
+                val usesInputTexture = image != null && "sampler2D" in fragmentShader
+
                 val pipeline = RenderPipeline.Builder()
                     .withLocation(LiquidBounce.identifier("pipeline/theme-bg-$themeName"))
                     .screenQuadSnippet()
                     .withFragmentShader(fshId)
+                    .apply {
+                        if (usesInputTexture) {
+                            withBindGroupLayout { withSampler("InSampler") }
+                        }
+                    }
                     .withUniformBuffer(ClientUniformDefine.THEME_BACKGROUND)
                     .withColorTargetState(ColorTargetState.DEFAULT)
                     .withDepthStencilState(optional())
                     .build()
 
-                return Shader(metadata, pipeline, fshId, fragmentShader)
+                val inputTexture = if (usesInputTexture) {
+                    image.asTexture { "ThemeBackground/Shader Texture - ${metadata.name}" }
+                } else {
+                    null
+                }
+
+                return Shader(metadata, pipeline, fshId, fragmentShader, inputTexture)
             }
         }
     }

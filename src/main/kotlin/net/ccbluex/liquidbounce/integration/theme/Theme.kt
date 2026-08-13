@@ -270,11 +270,20 @@ class Theme private constructor(val origin: Origin, url: String) :
             get<String>("/backgrounds/${background.name.lowercase(Locale.US)}.frag")
         }.getOrNull() ?: return false
 
+        val image = if ("sampler2D" in fragmentShader) {
+            runCatching {
+                get<NativeImage>("/backgrounds/${background.name.lowercase(Locale.US)}.png")
+            }.getOrNull()
+        } else {
+            null
+        }
+
         withContext(Dispatchers.Minecraft) {
             backgroundShader = ThemeBackground.Shader.build(
                 metadata,
                 background,
                 fragmentShader,
+                image,
             ).also {
                 it.onResourceReload()
             }
