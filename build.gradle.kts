@@ -122,6 +122,18 @@ dependencies {
     // The standalone mod JAR needs the same runtime libraries.
     jij(libs.nightconfig.core)
     jij(libs.nightconfig.toml)
+    // CloudMusic audio codecs and QR code support
+    implementation("com.google.zxing:core:3.5.1")
+    jij("com.google.zxing:core:3.5.1")
+    implementation("javazoom:jlayer:1.0.1")
+    jij("javazoom:jlayer:1.0.1")
+    implementation("com.googlecode.soundlibs:mp3spi:1.9.5.4")
+    jij("com.googlecode.soundlibs:mp3spi:1.9.5.4")
+    implementation("com.googlecode.soundlibs:tritonus-share:0.3.7.4")
+    jij("com.googlecode.soundlibs:tritonus-share:0.3.7.4")
+    implementation("org.jflac:jflac-codec:1.5.2")
+    jij("org.jflac:jflac-codec:1.5.2")
+
 
     // Mod menu
     api(libs.modmenu)

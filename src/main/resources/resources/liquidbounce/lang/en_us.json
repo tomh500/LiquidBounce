@@ -518,6 +518,7 @@
   "liquidbounce.module.clickGUI.description": "Shows you an easy to use menu to toggle and configure modules.",
   "liquidbounce.module.clientSpoofer.description": "Spoofs your game client brand to another.",
   "liquidbounce.module.clip.description": "Allows you to clip through blocks.",
+  "liquidbounce.module.cloudMusic.description": "Built-in NetEase Cloud Music player with login, playlists, search, lyrics and HUD display.",
   "liquidbounce.module.clip.messages.whoosh": "Whoosh!",
   "liquidbounce.module.combineMobs.description": "Combines cramped entities.",
   "liquidbounce.module.criticals.description": "Automatically deals critical damage every time you attack an entity.",

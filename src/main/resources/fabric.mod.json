@@ -20,7 +20,8 @@
   "entrypoints": {
     "main": [],
     "client": [
-      "net.ccbluex.liquidbounce.integration.RikkaDynamicLightsInitializer"
+      "net.ccbluex.liquidbounce.integration.RikkaDynamicLightsInitializer",
+      "net.ccbluex.liquidbounce.integration.MergedModulesInitializer"
     ]
   },
   "custom": {
@@ -34,7 +35,9 @@
     "liquidbounce.mixins.json",
     "lambdynlights.mixins.json",
     "lambdynlights.lightsource.mixins.json",
-    "liquidbounce.pathing.mixins.json"
+    "liquidbounce.pathing.mixins.json",
+    "malilib.mixins.json",
+    "cloudmusic.mixins.json"
   ],
   "depends": {
     "minecraft": ["${minecraft_version}"],
