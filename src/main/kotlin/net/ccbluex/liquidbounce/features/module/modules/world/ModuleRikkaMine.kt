@@ -28,7 +28,7 @@ object ModuleRikkaMine : ClientModule(
 
     private val quantity by int("Quantity", 0, 0..2304, "items")
     private val legitMine by boolean("LegitMine", false)
-    private val exploreForBlocks by boolean("ExploreForBlocks", true)
+    private val exploreForBlocks by boolean("ExploreForBlocks", false)
     private val mineGoalUpdateInterval by int("GoalUpdateInterval", 5, 0..40, "ticks")
     private val maxOreLocations by int("MaxOreLocations", 64, 1..256)
     private val minY by int("MinY", 0, -64..2031)

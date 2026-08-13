@@ -104,6 +104,7 @@ dependencies {
 
     // Integrated pathing and automation engine
     implementation("dev.babbaj:nether-pathfinder:1.6")
+    jij("dev.babbaj:nether-pathfinder:1.6")
     compileOnly("com.google.code.findbugs:jsr305:3.0.2")
 
     // Fabric
@@ -113,8 +114,14 @@ dependencies {
 
     // Integrated SpruceUI and dynamic-light engine support
     api(libs.yumi.mc.foundation)
+    jij(libs.yumi.mc.foundation)
+    // NightConfig is used by the bundled LambDynamicLights implementation.
     implementation(libs.nightconfig.core)
     implementation(libs.nightconfig.toml)
+
+    // The standalone mod JAR needs the same runtime libraries.
+    jij(libs.nightconfig.core)
+    jij(libs.nightconfig.toml)
 
     // Mod menu
     api(libs.modmenu)

@@ -192,7 +192,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
     val clicker = tree(KillAuraClicker).also { it.visibleWhen { isLiquidBounceMode } }
     val range = tree(KillAuraRange).also { it.visibleWhen { isLiquidBounceMode } }
     val targetTracker = tree(KillAuraTargetTracker).also {
-        it.visibleWhen { isLiquidBounceMode }
+        it.visibleWhen { isLiquidBounceMode || modes.activeMode === Vape }
     }
 
     // Rotation
@@ -480,11 +480,6 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
     }
 
     private fun updateTarget() {
-        if (ModuleRikkaKAHelper.shouldSuppressKillAura) {
-            targetTracker.reset()
-            return
-        }
-
         ModuleRikkaKAHelper.killAuraTarget?.let { helperTarget ->
             targetTracker.target = helperTarget
             return
@@ -556,14 +551,12 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             return
         }
 
-        val targets = ModuleRikkaKAHelper.killAuraTarget?.let(::listOf) ?: world.entitiesForRendering()
+        // Vape keeps its attack timing and ranges, but shares LB's Target selector for types, FOV and priority.
+        val targets = ModuleRikkaKAHelper.killAuraTarget?.let(::listOf) ?: targetTracker.targets()
             .asSequence()
-            .filterIsInstance<LivingEntity>()
-            .filter { isValidVapeTarget(it, Vape.targets, Vape.ignoreNaked,
-                Vape.ignoreInvisible, Vape.ignoreBehindWalls) }
+            .filter { isValidVapeTarget(it, Vape.ignoreNaked, Vape.ignoreInvisible, Vape.ignoreBehindWalls) }
             .filter { player.distanceTo(it) <= Vape.swingRange }
             .filter { RotationUtil.crosshairAngleToEntity(it) <= Vape.maxAngle / 2f }
-            .sortedWith(vapeTargetComparator(Vape.targetMode))
             .take(Vape.maxTargets)
             .toList()
 
@@ -599,12 +592,11 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
     private fun isValidVapeTarget(
         entity: LivingEntity,
-        targets: Set<Targets>,
         ignoreNaked: Boolean,
         ignoreInvisible: Boolean,
         ignoreBehindWalls: Boolean,
     ): Boolean {
-        if (entity === player || entity.isRemoved || !entity.isAlive || !entity.shouldBeAttacked(targets)) return false
+        if (entity === player || entity.isRemoved || !entity.isAlive) return false
         if (ignoreNaked && entity is Player && entity.armorValue == 0) return false
         if (ignoreInvisible && entity.isInvisible) return false
         return !ignoreBehindWalls || player.hasLineOfSight(entity)
@@ -683,7 +675,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
         val target = ModuleRikkaKAHelper.killAuraTarget ?: world.entitiesForRendering().asSequence()
             .filterIsInstance<LivingEntity>()
-            .filter { isValidVapeTarget(it, Silent.targets, Silent.ignoreNaked,
+            .filter { isValidVapeTarget(it, Silent.ignoreNaked,
                 Silent.ignoreInvisible, Silent.ignoreBehindWalls) }
             .filter { player.eyePosition.distanceTo(it.boundingBox.getNearestPoint(player.eyePosition)) <= interactionRange }
             .filter { RotationUtil.crosshairAngleToEntity(it) <= Silent.maxAngle / 2f }
@@ -733,7 +725,9 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
         val target = targetTracker.target ?: return
         val targetRotation = silentAimRotation ?: return
-        val managedRotation = RotationManager.currentRotation ?: return
+        // A rotation packet may already have been sent while the per-frame target was reset.
+        // In that case the server rotation is still the authoritative silent aim state.
+        val managedRotation = RotationManager.currentRotation ?: RotationManager.serverRotation
         val inRange = player.eyePosition.distanceTo(
             target.boundingBox.inflate(GlobalVapeRotationSettings.hitboxExpansion())
                 .getNearestPoint(player.eyePosition)
