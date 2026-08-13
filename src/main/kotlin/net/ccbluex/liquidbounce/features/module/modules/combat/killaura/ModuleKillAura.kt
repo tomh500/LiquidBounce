@@ -52,6 +52,7 @@ import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.features
 import net.ccbluex.liquidbounce.features.module.modules.misc.debugrecorder.modes.GenericDebugRecorder
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugGeometry
+import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeCam
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugParameter
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.renderEnvironment
@@ -67,6 +68,7 @@ import net.ccbluex.liquidbounce.utils.block.SwingMode
 import net.ccbluex.liquidbounce.utils.combat.CombatManager
 import net.ccbluex.liquidbounce.utils.combat.attackEntity
 import net.ccbluex.liquidbounce.utils.combat.shouldBeAttacked
+import net.ccbluex.liquidbounce.utils.entity.armorItems
 import net.ccbluex.liquidbounce.utils.entity.rotation
 import net.ccbluex.liquidbounce.utils.entity.squaredBoxedDistanceTo
 import net.ccbluex.liquidbounce.utils.inventory.InventoryManager.isInventoryOpen
@@ -76,28 +78,33 @@ import net.ccbluex.liquidbounce.utils.collection.itemSortedSetOf
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.math.sq
 import net.ccbluex.liquidbounce.utils.aiming.utils.RotationUtil
-import net.ccbluex.liquidbounce.utils.combat.TargetPriority
 import net.ccbluex.liquidbounce.utils.combat.Targets
+import net.ccbluex.liquidbounce.utils.item.armorValue
 import net.ccbluex.liquidbounce.utils.item.attackDamage
+import net.ccbluex.liquidbounce.utils.item.getEnchantment
 import net.ccbluex.liquidbounce.utils.raytracing.findEntityInCrosshair
 import net.ccbluex.liquidbounce.utils.raytracing.isLookingAtEntity
 import net.ccbluex.liquidbounce.utils.render.TargetRenderer
-import net.ccbluex.liquidbounce.utils.math.getNearestPoint
+import net.ccbluex.liquidbounce.utils.math.firstHit
 import net.minecraft.client.gui.screens.inventory.ContainerScreen
 import net.minecraft.world.InteractionHand
+import net.minecraft.world.effect.MobEffects
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.player.Player
 import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.enchantment.Enchantments
 import net.minecraft.world.item.Items
 import net.minecraft.world.phys.HitResult
 import net.minecraft.world.phys.Vec3
 import kotlin.math.abs
+import kotlin.math.atan
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.min
 import kotlin.math.sign
+import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -162,7 +169,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         override fun enable() = resetAlternativeState()
 
         val aimSpeed by float("AimSpeed", 7f, 1f..10f)
-        val cooldown by boolean("Cooldown", true)
+        val cooldown by boolean("Cooldown", false)
         val attackRate by intRange("AttacksPerSecond", 6..13, 1..20, "attacks")
             .visibleWhen { !cooldown }
         val extraSwingDistance by float("ExtraSwingDistance", 1f, 0f..3f, "blocks")
@@ -229,10 +236,10 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
      * such as KillAura. So back to the basics.
      */
     internal var waitTicks = 0
-    private var vapeNextAttackAt = 0L
+    private var vapeLastClickAt = 0L
     private val vapeClickDelay = VapeClickDelay()
     private var vapePauseTicks = 0
-    private var silentNextAttackAt = 0L
+    private var silentLastClickAt = 0L
     private var silentBreakAllowedAt = 0L
     private var silentTargetId: Int? = null
     private var silentAimRotation: Rotation? = null
@@ -258,10 +265,10 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
     private fun resetAlternativeState() {
         targetTracker.reset()
-        vapeNextAttackAt = 0L
+        vapeLastClickAt = 0L
         vapeClickDelay.reset()
         vapePauseTicks = 0
-        silentNextAttackAt = 0L
+        silentLastClickAt = 0L
         silentBreakAllowedAt = 0L
         silentTargetId = null
         silentAimRotation = null
@@ -554,14 +561,19 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         // Vape keeps its attack timing and ranges, but shares LB's Target selector for types, FOV and priority.
         val targets = ModuleRikkaKAHelper.killAuraTarget?.let(::listOf) ?: targetTracker.targets()
             .asSequence()
-            .filter { isValidVapeTarget(it, Vape.ignoreNaked, Vape.ignoreInvisible, Vape.ignoreBehindWalls) }
-            .filter { player.distanceTo(it) <= Vape.swingRange }
-            .filter { RotationUtil.crosshairAngleToEntity(it) <= Vape.maxAngle / 2f }
+            .filter {
+                isValidVapeTarget(it, Vape.targets, Vape.ignoreNaked, Vape.ignoreInvisible, Vape.ignoreBehindWalls)
+            }
+            .filter { player.distanceTo(it) <= Vape.attackRange }
+            .filter { vapeYawAngle(it) <= Vape.maxAngle.toInt() / 2 }
+            .sortedWith(vapeTargetComparator(Vape.targetMode))
             .take(Vape.maxTargets)
             .toList()
 
         targetTracker.target = targets.firstOrNull()
-        if (targets.isEmpty() || System.currentTimeMillis() < vapeNextAttackAt) {
+        val clickReady = System.currentTimeMillis() - vapeLastClickAt >=
+            vapeClickDelay.calculateNextDelayMillis(Vape.attackRate)
+        if (targets.isEmpty() || !clickReady) {
             return
         }
 
@@ -575,28 +587,101 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             swung = true
         }
 
-        vapeNextAttackAt = System.currentTimeMillis() + vapeClickDelay.nextDelay(Vape.attackRate)
+        vapeLastClickAt = System.currentTimeMillis()
     }
 
+    /**
+     * Vape's target mode comparators. Armor/Threat fall back to distance for non-player targets.
+     *
+     * @see gg.vape.utils.EntityDistanceComparator
+     * @see gg.vape.utils.EntityAngleComparator
+     * @see gg.vape.utils.EntityArmorValueComparator
+     * @see gg.vape.utils.EntityEquipmentValueComparator
+     * @see gg.vape.utils.EntityHealthComparator
+     */
     private fun vapeTargetComparator(targetMode: VapeTargetMode): Comparator<LivingEntity> = when (targetMode) {
-        VapeTargetMode.DISTANCE -> TargetPriority.DISTANCE
-        VapeTargetMode.YAW -> TargetPriority.DIRECTION
-        VapeTargetMode.HEALTH -> TargetPriority.HEALTH
-        VapeTargetMode.THREAT -> compareBy { target ->
-            if (target is Player) target.mainHandItem.attackDamage else player.distanceTo(target).toDouble()
+        VapeTargetMode.DISTANCE -> compareBy { player.distanceTo(it) }
+        VapeTargetMode.YAW -> compareBy { vapeYawAngle(it) }
+        VapeTargetMode.HEALTH -> compareBy { it.health }
+        VapeTargetMode.THREAT -> Comparator { first, second ->
+            if (first is Player && second is Player) {
+                vapeThreatValue(first).compareTo(vapeThreatValue(second))
+            } else {
+                player.distanceTo(first).compareTo(player.distanceTo(second))
+            }
         }
-        VapeTargetMode.ARMOR -> compareBy { target ->
-            if (target is Player) target.armorValue else player.distanceTo(target).toInt()
+        VapeTargetMode.ARMOR -> Comparator { first, second ->
+            if (first is Player && second is Player) {
+                vapeEquipmentValue(first).compareTo(vapeEquipmentValue(second))
+            } else {
+                player.distanceTo(first).compareTo(player.distanceTo(second))
+            }
         }
+    }
+
+    /**
+     * Vape's horizontal yaw angle between the player's facing direction and the entity.
+     *
+     * @see gg.vape.utils.RotationUtil.a
+     */
+    private fun vapeYawAngle(entity: Entity): Int {
+        val dx = entity.x - player.x
+        val dz = entity.z - player.z
+        var direction = 0.0
+        when {
+            dz > 0.0 && dx > 0.0 -> direction = Math.toDegrees(-atan(dx / dz))
+            dz > 0.0 && dx < 0.0 -> direction = Math.toDegrees(-atan(dx / dz))
+            dz < 0.0 && dx > 0.0 -> direction = -90.0 + Math.toDegrees(atan(dz / dx))
+            dz < 0.0 && dx < 0.0 -> direction = 90.0 + Math.toDegrees(atan(dz / dx))
+        }
+        val difference = (abs(direction - player.yRot.toDouble()) % 360.0).toInt()
+        return if (difference > 180) 360 - difference else difference
+    }
+
+    /**
+     * Vape's held-item threat score with the Resistance multiplier.
+     *
+     * @see gg.vape.utils.EntityArmorValueComparator.calculateArmorValue
+     */
+    private fun vapeThreatValue(target: Player): Float {
+        var value = target.mainHandItem.attackDamage.toFloat()
+        val resistance = target.getEffect(MobEffects.RESISTANCE)
+        if (resistance != null && resistance.duration > 0) {
+            value *= 1.375f * resistance.amplifier
+        }
+        return value
+    }
+
+    /**
+     * Vape's equipment score: armor pieces plus the small protection enchantment bonuses.
+     *
+     * @see gg.vape.utils.EntityEquipmentValueComparator.calculateEquipmentValue
+     */
+    private fun vapeEquipmentValue(target: Player): Double {
+        var value = 0.0
+        for (stack in target.armorItems) {
+            if (stack.isEmpty) continue
+            value += stack.armorValue
+            value += stack.getEnchantment(Enchantments.FEATHER_FALLING) * 0.1
+            value += stack.getEnchantment(Enchantments.FIRE_PROTECTION) * 0.1
+            value += stack.getEnchantment(Enchantments.BLAST_PROTECTION) * 0.1
+        }
+        return value
     }
 
     private fun isValidVapeTarget(
         entity: LivingEntity,
+        targets: Set<Targets>,
         ignoreNaked: Boolean,
         ignoreInvisible: Boolean,
         ignoreBehindWalls: Boolean,
     ): Boolean {
         if (entity === player || entity.isRemoved || !entity.isAlive) return false
+        // Vape's EntityTargetFilterValue has no invisibility or sleeping filters, so both are
+        // valid targets by default. LB's Targets set requires INVISIBLE/SLEEPING to allow them,
+        // mirror Vape's defaults here while keeping the tag system (AntiBot, TargetLock, friends).
+        val effectiveTargets = if (ignoreInvisible) targets else targets + Targets.INVISIBLE + Targets.SLEEPING
+        if (!entity.shouldBeAttacked(effectiveTargets)) return false
         if (ignoreNaked && entity is Player && entity.armorValue == 0) return false
         if (ignoreInvisible && entity.isInvisible) return false
         return !ignoreBehindWalls || player.hasLineOfSight(entity)
@@ -625,6 +710,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         }
 
         return !player.isDeadOrDying && !player.isSpectator && mc.gui.screen() == null &&
+            !ModuleFreeCam.enabled &&
             (!Silent.requireMouseDown || mc.options.keyAttack.isPressedOnAny) &&
             (!Silent.limitToItems || player.mainHandItem.item in Silent.allowedItems) &&
             !shouldPauseSilentForBlockBreaking()
@@ -634,28 +720,93 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         SILENT_BASE_RANGE + Silent.extraSwingDistance.toDouble()
     )
 
-    private fun silentAimPoint(target: LivingEntity): Vec3 {
+    private data class SilentAimState(
+        val point: Vec3,
+        val distanceToTarget: Double,
+        val horizontalTargetMotion: Double,
+        val targetPitch: Float,
+    )
+
+    /** Vape's aim coordinates: entity feet (Center) or the closest hitbox point (Closest). */
+    private fun silentAimCoords(target: LivingEntity): Triple<Double, Double, Double> {
+        return when (Silent.targetArea) {
+            SilentTargetArea.CENTER -> Triple(target.x, target.y, target.z)
+            SilentTargetArea.CLOSEST -> {
+                // Vape clamps to the raw bounding box, no hitbox expansion (SilentAura.computeAimCoords).
+                val box = target.boundingBox
+                var currentX = player.x.coerceIn(box.minX, box.maxX)
+                var currentZ = player.z.coerceIn(box.minZ, box.maxZ)
+                if (currentX == player.x) currentX = player.x + 0.01
+                if (currentZ == player.z) currentZ = player.z + 0.01
+                Triple(currentX, target.y, currentZ)
+            }
+        }
+    }
+
+    /** Vape measures range to the un-jittered aim coordinates. */
+    private fun isSilentInRange(target: LivingEntity, interactionRange: Double): Boolean {
+        val (targetX, targetY, targetZ) = silentAimCoords(target)
+        return player.position().distanceTo(Vec3(targetX, targetY, targetZ)) <= interactionRange
+    }
+
+    private fun silentAimState(target: LivingEntity): SilentAimState {
         silentPitchJitter.update()
         silentXJitter.update()
         silentZJitter.update()
 
-        val box = target.boundingBox.inflate(GlobalVapeRotationSettings.hitboxExpansion())
-        val base = when (Silent.targetArea) {
-            SilentTargetArea.CENTER -> box.center
-            SilentTargetArea.CLOSEST -> box.getNearestPoint(player.eyePosition)
-        }
-        val motionScale = 1.0 + target.deltaMovement.horizontalDistance()
-        val targetY = if (player.eyeY < box.minY) {
-            box.minY + silentPitchJitter.current * 0.5
+        val (targetX, targetY, targetZ) = silentAimCoords(target)
+        val motionX = target.x - target.xo
+        val motionZ = target.z - target.zo
+        val horizontalTargetMotion = sqrt(motionX * motionX + motionZ * motionZ)
+        val distanceToTarget = player.position().distanceTo(Vec3(targetX, targetY, targetZ))
+        val jitteredTargetX = targetX + silentXJitter.current * (1.0 + horizontalTargetMotion)
+        val jitteredTargetZ = targetZ + silentZJitter.current * (1.0 + horizontalTargetMotion)
+        val playerEyeY = player.eyePosition.y
+        val targetHeight = target.boundingBox.ysize
+        val jitteredTargetY = if (playerEyeY < targetY) {
+            targetY + silentPitchJitter.current * 0.5
         } else {
-            min(player.eyeY, box.maxY) - SILENT_VERTICAL_OFFSET + silentPitchJitter.current
+            min(playerEyeY, targetY + targetHeight) - SILENT_VERTICAL_OFFSET + silentPitchJitter.current
         }
 
-        return Vec3(
-            base.x + silentXJitter.current * motionScale,
-            targetY.coerceIn(box.minY, box.maxY),
-            base.z + silentZJitter.current * motionScale,
+        // Vape's RotationUtil.h computes the pitch from the player's feet toward the raw aim
+        // coordinates with only the vertical jitter applied.
+        val targetPitch = Math.toDegrees(
+            Math.atan2(player.y - jitteredTargetY, Math.hypot(targetX - player.x, targetZ - player.z))
+        ).toFloat()
+
+        return SilentAimState(
+            point = Vec3(jitteredTargetX, jitteredTargetY, jitteredTargetZ),
+            distanceToTarget = distanceToTarget,
+            horizontalTargetMotion = horizontalTargetMotion,
+            targetPitch = targetPitch,
         )
+    }
+
+    /**
+     * Horizontal distance from the aim ray (managed yaw) at the target's distance.
+     *
+     * @see gg.vape.utils.RotationUtil.L
+     */
+    private fun lookRayProximity(target: Entity, managedYaw: Float): Double {
+        val distance = player.distanceTo(target)
+        val rad = Math.toRadians(managedYaw + 90.0)
+        val rayX = player.x + cos(rad) * distance
+        val rayZ = player.z + sin(rad) * distance
+        val dx = rayX - target.x
+        val dz = rayZ - target.z
+        return sqrt(dx * dx + dz * dz)
+    }
+
+    /** Mirrors Vape's isLookingAtTarget: the managed rotation ray has to hit the target hitbox. */
+    private fun isLookingAtSilentTarget(target: Entity): Boolean {
+        val managedRotation = RotationManager.currentRotation ?: return false
+        val eyes = player.eyePosition
+        val direction = managedRotation.directionVector
+        val reach = silentInteractionRange()
+        val hit = target.boundingBox.inflate(GlobalVapeRotationSettings.hitboxExpansion())
+            .firstHit(eyes, eyes.add(direction.scale(reach)))
+        return hit != null
     }
 
     private fun updateSilentTargetAndRotation() {
@@ -668,17 +819,18 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         val interactionRange = silentInteractionRange()
         val baseComparator = vapeTargetComparator(Silent.targetMode)
         val comparator = if (Silent.switchTargets) {
-            compareBy<LivingEntity> { it.hurtTime }.then(baseComparator)
+            // Vape re-sorts candidates by entity id when Switch is enabled.
+            compareBy<LivingEntity> { it.id }.then(baseComparator)
         } else {
             baseComparator
         }
 
         val target = ModuleRikkaKAHelper.killAuraTarget ?: world.entitiesForRendering().asSequence()
             .filterIsInstance<LivingEntity>()
-            .filter { isValidVapeTarget(it, Silent.ignoreNaked,
+            .filter { isValidVapeTarget(it, Silent.targets, Silent.ignoreNaked,
                 Silent.ignoreInvisible, Silent.ignoreBehindWalls) }
-            .filter { player.eyePosition.distanceTo(it.boundingBox.getNearestPoint(player.eyePosition)) <= interactionRange }
-            .filter { RotationUtil.crosshairAngleToEntity(it) <= Silent.maxAngle / 2f }
+            .filter { isSilentInRange(it, interactionRange) }
+            .filter { vapeYawAngle(it) <= Silent.maxAngle.toInt() / 2 }
             .sortedWith(comparator)
             .firstOrNull()
 
@@ -696,9 +848,18 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         }
 
         targetTracker.target = target
-        val aimPoint = silentAimPoint(target)
-        val rotation = Rotation.lookingAt(aimPoint, player.eyePosition)
+        val aimState = silentAimState(target)
+        // Vape uses the yaw to the jittered point but the feet-based pitch target from RotationUtil.h.
+        val rotation = Rotation(
+            yaw = Rotation.lookingAt(aimState.point, player.eyePosition).yaw,
+            pitch = aimState.targetPitch,
+        )
         silentAimRotation = rotation
+
+        SilentRotationProcessor.prepare(
+            distanceToTarget = aimState.distanceToTarget,
+            horizontalTargetMotion = aimState.horizontalTargetMotion,
+        )
 
         // SilentAura owns its complete rotation plan; LB rotation settings must not leak into it.
         RotationManager.setRotationTarget(
@@ -724,47 +885,57 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         }
 
         val target = targetTracker.target ?: return
-        val targetRotation = silentAimRotation ?: return
-        // A rotation packet may already have been sent while the per-frame target was reset.
-        // In that case the server rotation is still the authoritative silent aim state.
-        val managedRotation = RotationManager.currentRotation ?: RotationManager.serverRotation
-        val inRange = player.eyePosition.distanceTo(
-            target.boundingBox.inflate(GlobalVapeRotationSettings.hitboxExpansion())
-                .getNearestPoint(player.eyePosition)
-        ) <= silentInteractionRange()
 
-        // Jittered, packet-silent rotations need a tolerance proportional to their configured step.
-        val readyAngle = maxOf(SILENT_READY_ANGLE, Silent.aimSpeed * SILENT_READY_ANGLE)
-        if (!inRange || managedRotation.directionAngleTo(targetRotation) >= readyAngle ||
-            Silent.cooldown && player.getAttackStrengthScale(0f) < 1f ||
-            !Silent.cooldown && System.currentTimeMillis() < silentNextAttackAt
-        ) {
+        // Vape re-computes the click delay on every tick (RandomClickDelayValue.hasClickDelayElapsed).
+        val clickReady = Silent.cooldown ||
+            System.currentTimeMillis() - silentLastClickAt >= vapeClickDelay.calculateNextDelayMillis(Silent.attackRate)
+
+        // Vape only clicks once the managed (silent) yaw brings the target within reach of the aim ray.
+        val managedRotation = RotationManager.currentRotation ?: RotationManager.serverRotation
+        val readyToAttack = lookRayProximity(target, managedRotation.yaw) < SILENT_READY_ANGLE &&
+            isSilentInRange(target, silentInteractionRange())
+        if (!readyToAttack || Silent.cooldown && player.getAttackStrengthScale(0f) < 1f || !clickReady) {
             return
         }
 
         attackEntity(target, SwingMode.DO_NOT_HIDE)
         if (!Silent.cooldown) {
-            val cps = Random.nextInt(Silent.attackRate.first, Silent.attackRate.last + 1)
-            silentNextAttackAt = System.currentTimeMillis() + 1000L / cps
+            silentLastClickAt = System.currentTimeMillis()
         }
     }
 
+    /**
+     * PID-style silent aim controller ported from Vape SilentAura.updateAim.
+     *
+     * @see gg.vape.module.combat.SilentAura.updateAim
+     * @see gg.vape.module.combat.silentaura.SilentAuraRotationController
+     */
     private object SilentRotationProcessor : RotationProcessor {
         private var pitchIntegral = 0f
         private var yawIntegral = 0f
-        private var pitchScale = 1f
+        private var pitchProportionalScale = 1f
         private var pitchIntegralScale = 1f
-        private var yawScale = 1f
+        private var yawProportionalScale = 1f
         private var yawIntegralScale = 1f
         private var previousRotation: Rotation? = null
 
+        private var distanceToTarget = 0.0
+        private var horizontalTargetMotion = 0.0
+        private var onTarget = false
+
         fun randomizeGains() {
-            pitchScale = Random.nextDouble(0.85, 1.15).toFloat()
-            pitchIntegralScale = Random.nextDouble(0.85, 1.15).toFloat()
-            yawScale = Random.nextDouble(0.8, 1.2).toFloat()
-            yawIntegralScale = Random.nextDouble(0.85, 1.15).toFloat()
+            pitchProportionalScale = 0.85f + Random.nextFloat() * 0.3f
+            pitchIntegralScale = 0.85f + Random.nextFloat() * 0.3f
+            yawProportionalScale = 0.8f + Random.nextFloat() * 0.4f
+            yawIntegralScale = 0.85f + Random.nextFloat() * 0.3f
             pitchIntegral = 0f
             yawIntegral = 0f
+        }
+
+        fun prepare(distanceToTarget: Double, horizontalTargetMotion: Double) {
+            this.distanceToTarget = distanceToTarget
+            this.horizontalTargetMotion = horizontalTargetMotion
+            this.onTarget = targetTracker.target?.let(::isLookingAtSilentTarget) == true
         }
 
         fun reset() {
@@ -781,48 +952,66 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             val previous = previousRotation ?: currentRotation
             var yawError = RotationUtil.angleDifference(targetRotation.yaw, currentRotation.yaw)
             var pitchError = RotationUtil.angleDifference(targetRotation.pitch, currentRotation.pitch)
-            val previousYawStep = RotationUtil.angleDifference(currentRotation.yaw, previous.yaw)
             val previousPitchStep = RotationUtil.angleDifference(currentRotation.pitch, previous.pitch)
-            val sameYawDirection = sign(yawError) == sign(previousYawStep)
+            var previousYawStep = RotationUtil.angleDifference(currentRotation.yaw, previous.yaw)
+            val integrationStep = CONTROL_INTEGRATION_STEP
+            val yawContinuingInSameDirection = sign(yawError) == sign(previousYawStep)
+            val playerHorizontalSpeed = sqrt(player.deltaMovement.x * player.deltaMovement.x +
+                player.deltaMovement.z * player.deltaMovement.z)
 
-            var yawProportionalGain = 0.1f * yawScale
-            if (sameYawDirection && abs(yawError) < 20f) {
+            val pitchProportionalGain = 0.45f * pitchProportionalScale
+            val pitchIntegralGain = 0.91f * pitchIntegralScale
+            var yawProportionalGain = (if (onTarget) 0.05f else 0.1f) * yawProportionalScale
+            val yawIntegralGain = 0.33f * yawIntegralScale
+            val playerVerticalMotion = player.deltaMovement.y
+            if (abs(playerVerticalMotion) > 0.1) {
+                pitchError *= 1.0f + Random.nextFloat() * 0.32f
+            }
+            if (yawContinuingInSameDirection && abs(yawError) < 20f) {
                 yawProportionalGain *= 2.5f
+                previousYawStep *= (1.0f + min(horizontalTargetMotion + playerHorizontalSpeed, 0.25)).toFloat()
             }
-            if (player.distanceTo(targetTracker.target ?: player) < 0.8f) {
-                val distanceScale = player.distanceTo(targetTracker.target ?: player) / 0.8f
-                pitchError *= distanceScale * distanceScale
-                yawError *= distanceScale
+            if (distanceToTarget < 0.8) {
+                val distanceScale = distanceToTarget / 0.8
+                pitchError *= (distanceScale * distanceScale).toFloat()
+                yawError *= distanceScale.toFloat()
             }
 
-            val pitchControlError = pitchError - previousPitchStep
+            val pitchControlError = pitchError - previousPitchStep +
+                previousYawStep * integrationStep * (if (Random.nextFloat() >= 0.5f) -1f else 1f)
             val yawControlError = yawError - previousYawStep
-            pitchIntegral += pitchControlError * CONTROL_INTEGRATION_STEP
-            yawIntegral += yawControlError * CONTROL_INTEGRATION_STEP
+            pitchIntegral += pitchControlError * integrationStep
+            yawIntegral += yawControlError * integrationStep
 
-            val pitchAdjustment = 0.45f * pitchScale * pitchControlError +
-                0.91f * pitchIntegralScale * pitchIntegral
-            var yawAdjustment = yawProportionalGain * yawControlError +
-                0.33f * yawIntegralScale * yawIntegral
+            val pitchAdjustment = pitchProportionalGain * pitchControlError + pitchIntegralGain * pitchIntegral
+            var yawAdjustment = yawProportionalGain * yawControlError + yawIntegralGain * yawIntegral
             if (abs(yawError) > 120f) {
                 yawIntegral = 0f
                 yawAdjustment = 0f
             }
 
+            // Vape targets managedYaw + yawError + yawAdjustment / 3 on yaw but only
+            // managedPitch + pitchAdjustment on pitch: the error term is absent on the pitch axis.
             val controlled = Rotation(
                 targetRotation.yaw + yawAdjustment / 3f,
-                (targetRotation.pitch + pitchAdjustment).coerceIn(-90f, 90f),
+                (currentRotation.pitch + pitchAdjustment).coerceIn(-90f, 90f),
             )
+
             val gaussian = sqrt(-2.0 * ln(Random.nextDouble().coerceAtLeast(0.0001))) *
                 cos(Math.PI * 2.0 * Random.nextDouble())
             val multiplier = exp(0.65 + 0.25 * gaussian).coerceIn(1.4, 3.0)
-            val maxStep = (Silent.aimSpeed * multiplier * VAPE_ROTATION_STEP_SCALE).toFloat()
-            val result = currentRotation.towardsLinear(controlled, maxStep, maxStep)
+            // Vape accumulates ~50 controller updates per tick at speed * 0.25 per update and applies
+            // each mickey as mouseScale * 0.15 degrees; its sensitivity compensation cancels out to
+            // 1.875 * speed degrees per tick.
+            var maxStep = Silent.aimSpeed * multiplier * VAPE_ROTATION_STEP_SCALE
+            if (distanceToTarget < 0.8) {
+                maxStep *= (distanceToTarget / 0.8).toFloat()
+            }
+            val result = currentRotation.towardsLinear(controlled, maxStep.toFloat(), maxStep.toFloat())
             previousRotation = result
             return result
         }
     }
-
     /** Exact burst and delay-spike distribution from Vape's RandomClickDelayValue. */
     private class VapeClickDelay {
         private var burstActive = false
@@ -835,8 +1024,15 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
             burstProgress = 0
         }
 
-        fun nextDelay(cpsRange: IntRange): Long {
-            val cps = Random.nextInt(cpsRange.first, cpsRange.last + 1).coerceAtLeast(1)
+        /**
+         * Vape re-computes the delay on every tick via hasClickDelayElapsed(), so the burst state
+         * advances per tick rather than per click.
+         *
+         * @see gg.vape.value.RandomClickDelayValue.calculateNextDelayMillis
+         */
+        fun calculateNextDelayMillis(cpsRange: IntRange): Long {
+            // Vape always uses the maximum CPS from the range; its random pick is dead code.
+            val cps = cpsRange.last.coerceAtLeast(1)
             var delay = 1000L / cps
             if (!burstActive) {
                 when {
@@ -855,7 +1051,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
                 burstActive = false
             }
             if (Random.nextInt(48) % 10 == 0 && !burstActive) {
-                delay += Random.nextLong(25L, 70L)
+                delay += Random.nextInt(45) + 25
             }
             return delay
         }
@@ -1022,6 +1218,8 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
     private const val SILENT_READY_ANGLE = 3f
     private const val SILENT_VERTICAL_OFFSET = 0.275
     private const val CONTROL_INTEGRATION_STEP = 0.05f
-    private const val VAPE_ROTATION_STEP_SCALE = 1.875
+    // 50 controller updates per tick x 0.25 step factor x 0.15 degrees per mickey, with Vape's
+    // mouse-sensitivity compensation cancelling out: 50 * 0.25 * 0.15 = 1.875.
+    private const val VAPE_ROTATION_STEP_SCALE = 1.875f
 
 }

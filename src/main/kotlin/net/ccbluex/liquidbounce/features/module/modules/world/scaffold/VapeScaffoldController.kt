@@ -36,6 +36,7 @@ import net.minecraft.world.phys.Vec3
 import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /** Shared dispatch and activation tracking adapted from Vape Scaffold.java. */
 internal object VapeScaffoldController : MinecraftShortcuts {
@@ -376,13 +377,18 @@ internal object VapeScaffoldController : MinecraftShortcuts {
             if (direction > 4 && if (direction % 2 == 0) placement.z != playerBlock.z else placement.x != playerBlock.x) {
                 return true
             }
-            if (direction < 5 && (kotlin.math.abs(placement.x - playerBlock.x) >= 4 ||
-                    kotlin.math.abs(placement.z - playerBlock.z) >= 4)) return true
+            if ((direction < 5 && kotlin.math.abs(placement.x - playerBlock.x) >= 4) ||
+                kotlin.math.abs(placement.z - playerBlock.z) >= 4
+            ) {
+                return true
+            }
             if (placement.y != playerBlock.y) return true
 
             val origin = offset(placement, -blocksPlaced, direction)
-            return origin.distToCenterSqr(player.position()) > (ModuleScaffold.vapeActivationBlocks + 2.0) *
-                (ModuleScaffold.vapeActivationBlocks + 2.0)
+            val dx = origin.x - player.x
+            val dy = origin.y - player.y
+            val dz = origin.z - player.z
+            return sqrt(dx * dx + dy * dy + dz * dz) > ModuleScaffold.vapeActivationBlocks + 2.0
         }
 
         private companion object {
