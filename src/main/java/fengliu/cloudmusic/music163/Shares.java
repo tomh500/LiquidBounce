@@ -6,14 +6,14 @@ import net.minecraft.network.chat.Component;
  * 分享类别
  */
 public enum Shares {
-    MUSIC ("cloudmusic.shar.music", "/cloudmusic music"),
-    ALBUM ("cloudmusic.shar.album", "/cloudmusic album"),
-    ARTIST ("cloudmusic.shar.artist", "/cloudmusic artist"),
-    DJ_RADIO ("cloudmusic.shar.dj.radio", "/cloudmusic dj"),
-    DJ_MUSIC ("cloudmusic.shar.dj.music", "/cloudmusic dj music"),
-    PLAY_LIST ("cloudmusic.shar.playlist", "/cloudmusic playlist"),
-    USER ("cloudmusic.shar.user", "/cloudmusic user"),
-    STYLE ("cloudmusic.shar.style", "/cloudmusic style");
+    MUSIC ("cloudmusic.shar.music", "/rikkamusic music"),
+    ALBUM ("cloudmusic.shar.album", "/rikkamusic album"),
+    ARTIST ("cloudmusic.shar.artist", "/rikkamusic artist"),
+    DJ_RADIO ("cloudmusic.shar.dj.radio", "/rikkamusic dj"),
+    DJ_MUSIC ("cloudmusic.shar.dj.music", "/rikkamusic dj music"),
+    PLAY_LIST ("cloudmusic.shar.playlist", "/rikkamusic playlist"),
+    USER ("cloudmusic.shar.user", "/rikkamusic user"),
+    STYLE ("cloudmusic.shar.style", "/rikkamusic style");
 
     private final String translationKey;
     private final String command;

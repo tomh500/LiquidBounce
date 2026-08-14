@@ -80,7 +80,7 @@ public class Artist extends Music163Obj implements IPrint, ICanSubscribe {
                                         album.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), album.get("name").getAsString()),
-                        "/cloudmusic album " + album.get("id").getAsLong()
+                        "/rikkamusic album " + album.get("id").getAsLong()
                 );
             }
         };
@@ -103,7 +103,7 @@ public class Artist extends Music163Obj implements IPrint, ICanSubscribe {
                                         artist.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), artist.get("name").getAsString()),
-                        "/cloudmusic artist " + artist.get("id").getAsLong()
+                        "/rikkamusic artist " + artist.get("id").getAsLong()
                 );
             }
         };
@@ -147,11 +147,11 @@ public class Artist extends Music163Obj implements IPrint, ICanSubscribe {
         source.sendFeedback(Component.literal("§7" + this.briefDesc));
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("play.top50", "/cloudmusic artist top " + this.id),
-                new TextClickItem("album", "/cloudmusic artist album " + this.id),
-                new TextClickItem("similar.artist", "/cloudmusic artist similar " + this.id),
-                new TextClickItem("subscribe", "/cloudmusic artist subscribe " + this.id),
-                new TextClickItem("unsubscribe", "/cloudmusic artist unsubscribe " + this.id),
+                new TextClickItem("play.top50", "/rikkamusic artist top " + this.id),
+                new TextClickItem("album", "/rikkamusic artist album " + this.id),
+                new TextClickItem("similar.artist", "/rikkamusic artist similar " + this.id),
+                new TextClickItem("subscribe", "/rikkamusic artist subscribe " + this.id),
+                new TextClickItem("unsubscribe", "/rikkamusic artist unsubscribe " + this.id),
                 new TextClickItem("shar", Shares.ARTIST.getShar(this.id))
         ));
     }

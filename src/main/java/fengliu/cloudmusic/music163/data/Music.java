@@ -156,7 +156,7 @@ public class Music extends Music163Obj implements IMusic, ICanComment {
                                         music.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), music.get("name").getAsString()),
-                        "/cloudmusic music " + music.get("id").getAsLong()
+                        "/rikkamusic music " + music.get("id").getAsLong()
                 );
             }
         };
@@ -186,7 +186,7 @@ public class Music extends Music163Obj implements IMusic, ICanComment {
                                         playList.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), playList.get("name").getAsString()),
-                        "/cloudmusic playlist " + playList.get("id").getAsLong()
+                        "/rikkamusic playlist " + playList.get("id").getAsLong()
                 );
             }
         };
@@ -263,7 +263,7 @@ public class Music extends Music163Obj implements IMusic, ICanComment {
             artistsTexts.add(new TextClickItem(
                     Component.literal(artist.get("name").getAsString()),
                     Component.translatable(IdUtil.getShowInfo("music.artist")),
-                    "/cloudmusic artist " + artist.get("id").getAsLong()
+                    "/rikkamusic artist " + artist.get("id").getAsLong()
             ));
         }
 
@@ -275,27 +275,27 @@ public class Music extends Music163Obj implements IMusic, ICanComment {
 
         source.sendFeedback(new TextClickItem(
                 "info.music.album",
-                "/cloudmusic album " + this.album.get("id").getAsLong()
+                "/rikkamusic album " + this.album.get("id").getAsLong()
         ).append("§b§n" + this.album.get("name").getAsString()).build());
 
         source.sendFeedback(Component.translatable("cloudmusic.info.music.duration", this.getDurationToString()));
         source.sendFeedback(Component.translatable("cloudmusic.info.music.id", this.id));
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("play", "/cloudmusic music play " + this.id),
-                new TextClickItem("similar.music", "/cloudmusic music similar music " + this.id),
-                new TextClickItem("similar.playlist", "/cloudmusic music similar playlist " + this.id),
-                new TextClickItem("like", "/cloudmusic music like " + this.id),
-                new TextClickItem("unlike", "/cloudmusic music unlike " + this.id),
+                new TextClickItem("play", "/rikkamusic music play " + this.id),
+                new TextClickItem("similar.music", "/rikkamusic music similar music " + this.id),
+                new TextClickItem("similar.playlist", "/rikkamusic music similar playlist " + this.id),
+                new TextClickItem("like", "/rikkamusic music like " + this.id),
+                new TextClickItem("unlike", "/rikkamusic music unlike " + this.id),
                 new TextClickItem("shar", Shares.MUSIC.getShar(this.id))
         ));
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("send.comment", "/cloudmusic music send comment " + this.id),
-                new TextClickItem("hot.comment", "/cloudmusic music hotComment " + this.id),
-                new TextClickItem("comment", "/cloudmusic music comment " + this.id),
-                new TextClickItem("playlist.add", "/cloudmusic my playlist add " + this.id),
-                new TextClickItem("playlist.del", "/cloudmusic my playlist del " + this.id)
+                new TextClickItem("send.comment", "/rikkamusic music send comment " + this.id),
+                new TextClickItem("hot.comment", "/rikkamusic music hotComment " + this.id),
+                new TextClickItem("comment", "/rikkamusic music comment " + this.id),
+                new TextClickItem("playlist.add", "/rikkamusic my playlist add " + this.id),
+                new TextClickItem("playlist.del", "/rikkamusic my playlist del " + this.id)
         ));
     }
 }

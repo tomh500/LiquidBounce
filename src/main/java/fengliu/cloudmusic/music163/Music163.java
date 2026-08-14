@@ -197,7 +197,7 @@ public class Music163 {
                                         music.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), music.get("name").getAsString()),
-                        "/cloudmusic music " + music.get("id").getAsLong()
+                        "/rikkamusic music " + music.get("id").getAsLong()
                 );
             }
         }; 
@@ -229,7 +229,7 @@ public class Music163 {
                                         playList.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), playList.get("name").getAsString()),
-                        "/cloudmusic playlist " + playList.get("id").getAsLong()
+                        "/rikkamusic playlist " + playList.get("id").getAsLong()
                 );
             }
         }; 
@@ -261,7 +261,7 @@ public class Music163 {
                                         album.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), album.get("name").getAsString()),
-                        "/cloudmusic album " + album.get("id").getAsLong()
+                        "/rikkamusic album " + album.get("id").getAsLong()
                 );
             }
         }; 
@@ -292,7 +292,7 @@ public class Music163 {
                                         artist.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), artist.get("name").getAsString()),
-                        "/cloudmusic artist " + artist.get("id").getAsLong()
+                        "/rikkamusic artist " + artist.get("id").getAsLong()
                 );
             }
         }; 
@@ -323,7 +323,7 @@ public class Music163 {
                                         djRadios.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), djRadios.get("name").getAsString()),
-                        "/cloudmusic dj " + djRadios.get("id").getAsLong()
+                        "/rikkamusic dj " + djRadios.get("id").getAsLong()
                 );
             }
         };
@@ -350,7 +350,7 @@ public class Music163 {
                                         style.get("tagId").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page.style"), style.get("tagName").getAsString()),
-                        "/cloudmusic style " + style.get("tagId").getAsInt()
+                        "/rikkamusic style " + style.get("tagId").getAsInt()
                 );
             }
         };
@@ -369,7 +369,7 @@ public class Music163 {
                 return new TextClickItem(
                         Component.literal("§b" + tags.get("name").getAsString()),
                         Component.translatable(IdUtil.getShowInfo("page.playlist.tags"), tags.get("name").getAsString()),
-                        "/cloudmusic top playlist \"" + tags.get("name").getAsString() + "\""
+                        "/rikkamusic top playlist \"" + tags.get("name").getAsString() + "\""
                 );
             }
         };
@@ -388,7 +388,7 @@ public class Music163 {
                 return new TextClickItem(
                         Component.literal("§b" + tags.get("name").getAsString()),
                         Component.translatable(IdUtil.getShowInfo("page.playlist.tags"), tags.get("name").getAsString()),
-                        "/cloudmusic top playlist \"" + tags.get("name").getAsString() + "\""
+                        "/rikkamusic top playlist \"" + tags.get("name").getAsString() + "\""
                 );
             }
         };
@@ -407,7 +407,7 @@ public class Music163 {
                 return new TextClickItem(
                         Component.literal("§b" + tags.get("name").getAsString()),
                         Component.translatable(IdUtil.getShowInfo("page.playlist.tags"), tags.get("name").getAsString()),
-                        "/cloudmusic top playlist highquality \"" + tags.get("name").getAsString() + "\""
+                        "/rikkamusic top playlist highquality \"" + tags.get("name").getAsString() + "\""
                 );
             }
         };
@@ -455,7 +455,7 @@ public class Music163 {
                                         playList.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), playList.get("name").getAsString()),
-                        "/cloudmusic playlist " + playList.get("id").getAsLong()
+                        "/rikkamusic playlist " + playList.get("id").getAsLong()
                 );
             }
         };
@@ -492,7 +492,7 @@ public class Music163 {
                                         playList.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), playList.get("name").getAsString()),
-                        "/cloudmusic playlist " + playList.get("id").getAsLong()
+                        "/rikkamusic playlist " + playList.get("id").getAsLong()
                 );
             }
         };
@@ -517,7 +517,7 @@ public class Music163 {
                                         playList.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), playList.get("name").getAsString()),
-                        "/cloudmusic playlist " + playList.get("id").getAsLong()
+                        "/rikkamusic playlist " + playList.get("id").getAsLong()
                 );
             }
         };
@@ -547,7 +547,7 @@ public class Music163 {
                                         artist.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), artist.get("name").getAsString()),
-                        "/cloudmusic artist " + artist.get("id").getAsLong()
+                        "/rikkamusic artist " + artist.get("id").getAsLong()
                 );
             }
         };

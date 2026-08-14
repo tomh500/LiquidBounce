@@ -7,6 +7,9 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.tree.CommandNode;
+import com.mojang.brigadier.tree.ArgumentCommandNode;
+import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.mojang.brigadier.context.CommandContext;
 import fengliu.cloudmusic.config.Configs;
 import fengliu.cloudmusic.config.LyricStyle;
@@ -1858,10 +1861,11 @@ public class MusicCommand {
                             )
 
             );
+
     }
 
     /**
-     * Executes the original '/cloudmusic' command tree with the LiquidBounce command prefix.
+     * Executes the original '/rikkamusic' command tree with the LiquidBounce command prefix.
      *
      * @param rawArgs the arguments after the 'cloudmusic' literal, or an empty string
      * @param source  the command source used for chat feedback
@@ -1882,11 +1886,45 @@ public class MusicCommand {
      * Returns Brigadier suggestions for the merged command without executing it.
      */
     public static List<String> completeCommand(String rawArgs, FabricClientCommandSource source) {
-        String input = "cloudmusic " + (rawArgs == null ? "" : rawArgs);
+        String input = rawArgs == null ? "" : rawArgs;
         try {
-            return DISPATCHER.getCompletionSuggestions(DISPATCHER.parse(input, source)).join().getList().stream()
-                    .map(suggestion -> suggestion.getText())
+            // LiquidBounce has already resolved the command literal. Walk the original
+            // Brigadier literals so its tab-completion sees exactly the same command
+            // groups as the standalone /rikkamusic command.
+            String[] parts = input.split(" ", -1);
+            CommandNode<FabricClientCommandSource> node = DISPATCHER.getRoot().getChild("cloudmusic");
+            if (node == null) {
+                return Collections.emptyList();
+            }
+
+            int last = parts.length - 1;
+            for (int index = 0; index < last; index++) {
+                if (parts[index].isEmpty()) {
+                    continue;
+                }
+
+                CommandNode<FabricClientCommandSource> child = node.getChild(parts[index]);
+                if (child == null) {
+                    return Collections.emptyList();
+                }
+                node = child;
+            }
+
+            String prefix = parts[last];
+            List<String> literals = node.getChildren().stream()
+                    .filter(LiteralCommandNode.class::isInstance)
+                    .map(LiteralCommandNode.class::cast)
+                    .map(LiteralCommandNode::getLiteral)
+                    .filter(literal -> literal.regionMatches(true, 0, prefix, 0, prefix.length()))
                     .toList();
+
+            // Brigadier has no meaningful suggestions for a free-form string.
+            // Offer a harmless quoted template at its beginning, which also makes
+            // the required input position visible in LiquidBounce's Tab UI.
+            if (literals.isEmpty() && prefix.isEmpty() && node.getChildren().stream().anyMatch(ArgumentCommandNode.class::isInstance)) {
+                return List.of("\"\"");
+            }
+            return literals;
         } catch (Exception err) {
             LOGGER.debug("[CloudMusic][Cmd] Failed to provide completion suggestions", err);
             return Collections.emptyList();

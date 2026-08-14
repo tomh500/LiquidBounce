@@ -134,8 +134,8 @@
                     <KeyBinds/>
                 {:else if c.name === "ClosedCaptions"}
                     <ClosedCaptions/>
-                {:else if c.name === "CloudMusic"}
-                    <div class="native-component-label">Cloud Music</div>
+                {:else if ["CloudMusic", "MusicLyrics", "MusicActionbarLyrics", "MusicDynamicIsland"].includes(c.name)}
+                    <div class="native-component-label">{c.name === "CloudMusic" ? "Music Info" : c.name === "MusicLyrics" ? "Music Lyrics" : c.name === "MusicActionbarLyrics" ? "ActionBar Lyrics" : "Music Dynamic Island"}</div>
                 {:else if c.width !== undefined && c.height !== undefined}
                     <div></div>
                 {/if}

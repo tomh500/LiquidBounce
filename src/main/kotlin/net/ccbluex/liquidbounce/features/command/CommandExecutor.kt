@@ -198,6 +198,10 @@ object CommandExecutor : EventListener {
      */
     @Suppress("unused")
     private val chatEventHandler = handler<ChatSendEvent>(priority = EventPriorityConvention.FIRST_PRIORITY) {
+        if (it.isCancelled) {
+            return@handler
+        }
+
         if (!it.message.startsWith(CommandManager.GlobalSettings.prefix)) {
             return@handler
         }

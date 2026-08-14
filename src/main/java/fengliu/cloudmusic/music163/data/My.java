@@ -56,7 +56,7 @@ public class My extends User {
                                         playList.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), playList.get("name").getAsString()),
-                        "/cloudmusic playlist " + playList.get("id").getAsLong()
+                        "/rikkamusic playlist " + playList.get("id").getAsLong()
                 );
             }
         };
@@ -75,7 +75,7 @@ public class My extends User {
                 return new TextClickItem(
                         Component.literal("§b%s".formatted(historySongsRecent)),
                         Component.translatable(IdUtil.getShowInfo("page.history.songs.recent"), historySongsRecent),
-                        "/cloudmusic my recommend history " + historySongsRecent);
+                        "/rikkamusic my recommend history " + historySongsRecent);
             }
         };
     }
@@ -138,7 +138,7 @@ public class My extends User {
                                         playList.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page.playlist." + op), playList.get("name").getAsString(), musicId),
-                        "/cloudmusic playlist %s %s %s".formatted(op, playList.get("id").getAsLong(), musicId)
+                        "/rikkamusic playlist %s %s %s".formatted(op, playList.get("id").getAsLong(), musicId)
                 );
             }
         };
@@ -173,7 +173,7 @@ public class My extends User {
                                         album.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), album.get("name").getAsString()),
-                        "/cloudmusic album " + album.get("id").getAsLong()
+                        "/rikkamusic album " + album.get("id").getAsLong()
                 );
             }
         };
@@ -207,7 +207,7 @@ public class My extends User {
                                         artist.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), artist.get("name").getAsString()),
-                        "/cloudmusic artist " + artist.get("id").getAsLong()
+                        "/rikkamusic artist " + artist.get("id").getAsLong()
                 );
             }
         };
@@ -241,7 +241,7 @@ public class My extends User {
                                         djRadios.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), djRadios.get("name").getAsString()),
-                        "/cloudmusic dj " + djRadios.get("id").getAsLong()
+                        "/rikkamusic dj " + djRadios.get("id").getAsLong()
                 );
             }
         };
@@ -281,7 +281,7 @@ public class My extends User {
                                         style.get("tagId").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page.style"), style.get("tagName").getAsString()),
-                        "/cloudmusic style " + style.get("tagId").getAsInt()
+                        "/rikkamusic style " + style.get("tagId").getAsInt()
                 );
             }
         };
@@ -332,7 +332,7 @@ public class My extends User {
                                         playList.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), playList.get("name").getAsString()),
-                        "/cloudmusic playlist " + playList.get("id").getAsLong()
+                        "/rikkamusic playlist " + playList.get("id").getAsLong()
                 );
             }
         };
@@ -357,7 +357,7 @@ public class My extends User {
                                         album.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), album.get("name").getAsString()),
-                        "/cloudmusic album " + album.get("id").getAsLong()
+                        "/rikkamusic album " + album.get("id").getAsLong()
                 );
             }
         };
@@ -382,7 +382,7 @@ public class My extends User {
                                         djRadios.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), djRadios.get("name").getAsString()),
-                        "/cloudmusic dj " + djRadios.get("id").getAsLong()
+                        "/rikkamusic dj " + djRadios.get("id").getAsLong()
                 );
             }
         };

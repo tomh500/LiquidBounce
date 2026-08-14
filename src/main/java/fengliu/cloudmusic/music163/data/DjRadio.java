@@ -123,7 +123,7 @@ public class DjRadio extends MusicPlayer implements ICanSubscribe, IPrint, ICanC
 
         source.sendFeedback(new TextClickItem(
                 "info.dj.creator",
-                "/cloudmusic user " + this.dj.get("userId").getAsLong()
+                "/rikkamusic user " + this.dj.get("userId").getAsLong()
         ).append("§b" + this.dj.get("nickname").getAsString()).build());
 
         source.sendFeedback(Component.translatable("cloudmusic.info.dj.category", TextClickItem.combine("§f§l/",
@@ -131,12 +131,12 @@ public class DjRadio extends MusicPlayer implements ICanSubscribe, IPrint, ICanC
                 new TextClickItem(
                         Component.literal(this.category),
                         Component.translatable(IdUtil.getShowInfo("dj.category")),
-                        "/cloudmusic dj category " + this.categoryId
+                        "/rikkamusic dj category " + this.categoryId
                 ),
                 new TextClickItem(
                         Component.literal(this.secondCategory),
                         Component.translatable(IdUtil.getShowInfo("dj.category")),
-                        "/cloudmusic dj category " + this.secondCategoryId
+                        "/rikkamusic dj category " + this.secondCategoryId
                 )
         )));
 
@@ -152,12 +152,12 @@ public class DjRadio extends MusicPlayer implements ICanSubscribe, IPrint, ICanC
         }
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("play", "/cloudmusic dj play " + this.id),
-                new TextClickItem("send.comment", "/cloudmusic dj send comment " + this.id),
-                new TextClickItem("hot.comment", "/cloudmusic dj hotComment " + this.id),
-                new TextClickItem("comment", "/cloudmusic dj comment " + this.id),
-                new TextClickItem("subscribe", "/cloudmusic dj subscribe " + this.id),
-                new TextClickItem("unsubscribe", "/cloudmusic dj unsubscribe " + this.id),
+                new TextClickItem("play", "/rikkamusic dj play " + this.id),
+                new TextClickItem("send.comment", "/rikkamusic dj send comment " + this.id),
+                new TextClickItem("hot.comment", "/rikkamusic dj hotComment " + this.id),
+                new TextClickItem("comment", "/rikkamusic dj comment " + this.id),
+                new TextClickItem("subscribe", "/rikkamusic dj subscribe " + this.id),
+                new TextClickItem("unsubscribe", "/rikkamusic dj unsubscribe " + this.id),
                 new TextClickItem("shar", Shares.DJ_RADIO.getShar(this.id))
         ));
     }

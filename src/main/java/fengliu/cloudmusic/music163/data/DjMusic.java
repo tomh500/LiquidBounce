@@ -108,12 +108,12 @@ public class DjMusic extends Music163Obj implements IMusic, ICanComment {
 
         source.sendFeedback(new TextClickItem(
                 "info.dj.music.radio",
-                "/cloudmusic dj " + this.radio.get("id").getAsLong()
+                "/rikkamusic dj " + this.radio.get("id").getAsLong()
         ).append("§b" + this.radio.get("name").getAsString()).build());
 
         source.sendFeedback(new TextClickItem(
                 "info.dj.creator",
-                "/cloudmusic user " + this.dj.get("userId").getAsLong()
+                "/rikkamusic user " + this.dj.get("userId").getAsLong()
         ).append("§b" + this.dj.get("nickname").getAsString()).build());
 
         source.sendFeedback(Component.translatable("cloudmusic.info.dj.music.count", this.listenerCount, this.likedCount));
@@ -129,10 +129,10 @@ public class DjMusic extends Music163Obj implements IMusic, ICanComment {
         }
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("play", "/cloudmusic dj music play " + this.id),
-                new TextClickItem("send.comment", "/cloudmusic dj music send comment " + this.id),
-                new TextClickItem("hot.comment", "/cloudmusic dj music hotComment " + this.id),
-                new TextClickItem("comment", "/cloudmusic dj music comment " + this.id),
+                new TextClickItem("play", "/rikkamusic dj music play " + this.id),
+                new TextClickItem("send.comment", "/rikkamusic dj music send comment " + this.id),
+                new TextClickItem("hot.comment", "/rikkamusic dj music hotComment " + this.id),
+                new TextClickItem("comment", "/rikkamusic dj music comment " + this.id),
                 new TextClickItem("shar", Shares.DJ_MUSIC.getShar(this.id))
         ));
     }

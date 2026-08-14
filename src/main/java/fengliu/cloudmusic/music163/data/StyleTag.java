@@ -90,7 +90,7 @@ public class StyleTag extends Music163Obj implements IPrint {
                                         style.get("tagId").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page.style"), style.get("tagName").getAsString()),
-                        "/cloudmusic style " + style.get("tagId").getAsInt()
+                        "/rikkamusic style " + style.get("tagId").getAsInt()
                 );
             }
         };
@@ -119,7 +119,7 @@ public class StyleTag extends Music163Obj implements IPrint {
                                         music.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), music.get("name").getAsString()),
-                        "/cloudmusic music " + music.get("id").getAsLong()
+                        "/rikkamusic music " + music.get("id").getAsLong()
                 );
             }
         };
@@ -148,7 +148,7 @@ public class StyleTag extends Music163Obj implements IPrint {
                                         playList.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), playList.get("name").getAsString()),
-                        "/cloudmusic playlist " + playList.get("id").getAsLong()
+                        "/rikkamusic playlist " + playList.get("id").getAsLong()
                 );
             }
         };
@@ -176,7 +176,7 @@ public class StyleTag extends Music163Obj implements IPrint {
                                         artist.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), artist.get("name").getAsString()),
-                        "/cloudmusic artist " + artist.get("id").getAsLong()
+                        "/rikkamusic artist " + artist.get("id").getAsLong()
                 );
             }
         };
@@ -205,7 +205,7 @@ public class StyleTag extends Music163Obj implements IPrint {
                                         album.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), album.get("name").getAsString()),
-                        "/cloudmusic album " + album.get("id").getAsLong()
+                        "/rikkamusic album " + album.get("id").getAsLong()
                 );
             }
         };
@@ -262,11 +262,11 @@ public class StyleTag extends Music163Obj implements IPrint {
         }
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("style.music", "/cloudmusic style music " + this.id),
-                new TextClickItem("style.playlist", "/cloudmusic style playlist " + this.id),
-                new TextClickItem("style.artist", "/cloudmusic style artist " + this.id),
-                new TextClickItem("style.album", "/cloudmusic style album " + this.id),
-                new TextClickItem("children.style", "/cloudmusic style children " + this.id),
+                new TextClickItem("style.music", "/rikkamusic style music " + this.id),
+                new TextClickItem("style.playlist", "/rikkamusic style playlist " + this.id),
+                new TextClickItem("style.artist", "/rikkamusic style artist " + this.id),
+                new TextClickItem("style.album", "/rikkamusic style album " + this.id),
+                new TextClickItem("children.style", "/rikkamusic style children " + this.id),
                 new TextClickItem("shar", Shares.STYLE.getShar(this.id))
         ));
     }

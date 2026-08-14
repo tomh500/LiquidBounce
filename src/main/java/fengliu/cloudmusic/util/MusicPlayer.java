@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import net.minecraft.network.chat.Component;
 
 import javax.sound.sampled.*;
+import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -215,7 +216,9 @@ public void start() {
                 try {
                     audioInputStream.close();
                     audioInputStream = this.seekStream(seekTarget);
+                    play.stop();
                     play.flush();
+                    play.start();
                     this.startPlayingTime = System.currentTimeMillis() - seekTarget;
                     this.playingProgress = seekTarget;
                 } catch (Exception err) {
@@ -232,7 +235,11 @@ public void start() {
                 continue;
             }
 
-            play.write(tempBuff, 0, count);
+            int frameSize = Math.max(1, audioFormat.getFrameSize());
+            int alignedCount = count - count % frameSize;
+            if (alignedCount > 0) {
+                play.write(tempBuff, 0, alignedCount);
+            }
             this.playingProgress = System.currentTimeMillis() - this.startPlayingTime;
         }
 
@@ -281,12 +288,15 @@ public void start() {
         // 会大幅越过目标位置直接读到 EOF, 导致 seek 后当前歌曲结束/自动切歌。
         // 改为从头部读取并丢弃 PCM 字节, 精确停在目标位置。
         long bytesToSkip = (long) (targetMs / 1000.0 * bytesPerSecond);
+        int frameSize = Math.max(1, format.getFrameSize());
+        bytesToSkip -= bytesToSkip % frameSize;
         byte[] buffer = new byte[65536];
         long skipped = 0;
         while (skipped < bytesToSkip) {
             int read = stream.read(buffer, 0, (int) Math.min(buffer.length, bytesToSkip - skipped));
             if (read <= 0) {
-                break;
+                stream.close();
+                throw new EOFException("Audio stream ended before the seek target");
             }
             skipped += read;
         }
@@ -304,7 +314,10 @@ public void start() {
         }
 
         long durationMs = this.playingMusic.getDurationSecond() * 1000L;
-        this.seekTargetMs = Math.max(0, Math.min(ms, durationMs));
+        // Network metadata commonly includes encoder padding. Never seek into that
+        // undecodable tail; stopping at the last quarter second is imperceptible.
+        long safeEndMs = Math.max(0, durationMs - 250L);
+        this.seekTargetMs = Math.max(0, Math.min(ms, safeEndMs));
     }
 
     /**
@@ -570,7 +583,7 @@ public void start() {
                     return new TextClickItem(
                             Component.literal("§b%s §r§7 - %s".formatted(music.name, Music.getArtistsName(music.artists))),
                             Component.translatable(IdUtil.getShowInfo("page.player.to"), music.name),
-                            "/cloudmusic to " + (this.limit * this.pageIn + this.data.get(this.pageIn).indexOf(data) + 1)
+                            "/rikkamusic to " + (this.limit * this.pageIn + this.data.get(this.pageIn).indexOf(data) + 1)
                     );
                 }
 
@@ -578,7 +591,7 @@ public void start() {
                     return new TextClickItem(
                             Component.literal("§b%s §r§7 - %s".formatted(music.name, music.dj.get("nickname").getAsString())),
                             Component.translatable(IdUtil.getShowInfo("page.player.to"), music.name),
-                            "/cloudmusic to " + (this.limit * this.pageIn + this.data.get(this.pageIn).indexOf(data) + 1)
+                            "/rikkamusic to " + (this.limit * this.pageIn + this.data.get(this.pageIn).indexOf(data) + 1)
                     );
                 }
 

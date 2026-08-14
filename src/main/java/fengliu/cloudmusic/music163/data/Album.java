@@ -84,7 +84,7 @@ public class Album extends Music163Obj implements IMusicList, ICanSubscribe, ICa
             artistsTexts.add(new TextClickItem(
                     Component.literal(artist.get("name").getAsString()),
                     Component.translatable(IdUtil.getShowInfo("music.artist")),
-                    "/cloudmusic artist " + artist.get("id").getAsLong()
+                    "/rikkamusic artist " + artist.get("id").getAsLong()
             ));
         }
 
@@ -105,12 +105,12 @@ public class Album extends Music163Obj implements IMusicList, ICanSubscribe, ICa
         }
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("play", "/cloudmusic album play " + this.id),
-                new TextClickItem("send.comment", "/cloudmusic album send comment " + this.id),
-                new TextClickItem("hot.comment", "/cloudmusic album hotComment " + this.id),
-                new TextClickItem("comment", "/cloudmusic album comment " + this.id),
-                new TextClickItem("subscribe", "/cloudmusic album subscribe " + this.id),
-                new TextClickItem("unsubscribe", "/cloudmusic album unsubscribe " + this.id),
+                new TextClickItem("play", "/rikkamusic album play " + this.id),
+                new TextClickItem("send.comment", "/rikkamusic album send comment " + this.id),
+                new TextClickItem("hot.comment", "/rikkamusic album hotComment " + this.id),
+                new TextClickItem("comment", "/rikkamusic album comment " + this.id),
+                new TextClickItem("subscribe", "/rikkamusic album subscribe " + this.id),
+                new TextClickItem("unsubscribe", "/rikkamusic album unsubscribe " + this.id),
                 new TextClickItem("shar", Shares.ALBUM.getShar(this.id))
         ));
     }

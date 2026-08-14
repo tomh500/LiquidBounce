@@ -29,7 +29,13 @@ import net.ccbluex.liquidbounce.integration.theme.component.components.minimap.M
 
 object HudComponentManager {
 
-    val nativeComponents = listOf(MinimapHudComponent, fengliu.cloudmusic.hud.CloudMusicHudComponent)
+    val nativeComponents = listOf(
+        MinimapHudComponent,
+        fengliu.cloudmusic.hud.CloudMusicHudComponent,
+        fengliu.cloudmusic.hud.MusicLyricsHudComponent,
+        fengliu.cloudmusic.hud.MusicActionbarLyricsHudComponent,
+        fengliu.cloudmusic.hud.DynamicIslandHudComponent,
+    )
 
     val components: List<HudComponent>
         get() = nativeComponents + (ThemeManager.theme?.components ?: emptyList())

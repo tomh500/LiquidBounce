@@ -117,7 +117,7 @@ public class PlayList extends Music163Obj implements IMusicList, ICanSubscribe, 
 
         source.sendFeedback(new TextClickItem(
                 "info.playlist.creator",
-                "/cloudmusic user " + this.creator.get("userId").getAsLong()
+                "/rikkamusic user " + this.creator.get("userId").getAsLong()
         ).append("§b" + this.creator.get("nickname").getAsString()).build());
 
         if (!this.tags.isEmpty()) {
@@ -127,7 +127,7 @@ public class PlayList extends Music163Obj implements IMusicList, ICanSubscribe, 
                 tagsTexts.add(new TextClickItem(
                         Component.literal("§b§n" + tagName),
                         Component.translatable(IdUtil.getShowInfo("playlist.tag"), tagName),
-                        "/cloudmusic top playlist \"%s\"".formatted(tagName)
+                        "/rikkamusic top playlist \"%s\"".formatted(tagName)
                 ));
             }
 
@@ -148,12 +148,12 @@ public class PlayList extends Music163Obj implements IMusicList, ICanSubscribe, 
         }
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("play", "/cloudmusic playlist play " + this.id),
-                new TextClickItem("send.comment", "/cloudmusic playlist send comment " + this.id),
-                new TextClickItem("hot.comment", "/cloudmusic playlist hotComment " + this.id),
-                new TextClickItem("comment", "/cloudmusic playlist comment " + this.id),
-                new TextClickItem("subscribe", "/cloudmusic playlist subscribe " + this.id),
-                new TextClickItem("unsubscribe", "/cloudmusic playlist unsubscribe " + this.id),
+                new TextClickItem("play", "/rikkamusic playlist play " + this.id),
+                new TextClickItem("send.comment", "/rikkamusic playlist send comment " + this.id),
+                new TextClickItem("hot.comment", "/rikkamusic playlist hotComment " + this.id),
+                new TextClickItem("comment", "/rikkamusic playlist comment " + this.id),
+                new TextClickItem("subscribe", "/rikkamusic playlist subscribe " + this.id),
+                new TextClickItem("unsubscribe", "/rikkamusic playlist unsubscribe " + this.id),
                 new TextClickItem("shar", Shares.PLAY_LIST.getShar(this.id))
         ));
     }

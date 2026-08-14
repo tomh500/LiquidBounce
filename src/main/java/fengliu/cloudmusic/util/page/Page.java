@@ -86,9 +86,9 @@ public abstract class Page {
         }
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("page.prev", "/cloudmusic page prev"),
-                new TextClickItem("page.next", "/cloudmusic page next"),
-                new TextClickItem("page.to", "/cloudmusic page to")
+                new TextClickItem("page.prev", "/rikkamusic page prev"),
+                new TextClickItem("page.next", "/rikkamusic page next"),
+                new TextClickItem("page.to", "/rikkamusic page to")
         ));
     }
 
@@ -112,9 +112,9 @@ public abstract class Page {
         }
 
         client.player.sendSystemMessage(TextClickItem.combine(
-                new TextClickItem("page.prev", "/cloudmusic page prev"),
-                new TextClickItem("page.next", "/cloudmusic page next"),
-                new TextClickItem("page.to", "/cloudmusic page to")
+                new TextClickItem("page.prev", "/rikkamusic page prev"),
+                new TextClickItem("page.next", "/rikkamusic page next"),
+                new TextClickItem("page.to", "/rikkamusic page to")
         ));
     }
 

@@ -120,7 +120,7 @@ public class User extends Music163Obj implements IPrint {
                                         playList.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), playList.get("name").getAsString()),
-                        "/cloudmusic playlist " + playList.get("id").getAsLong()
+                        "/rikkamusic playlist " + playList.get("id").getAsLong()
                 );
             }
         };
@@ -152,7 +152,7 @@ public class User extends Music163Obj implements IPrint {
                                         djRadios.get("id").getAsLong())
                         ),
                         Component.translatable(IdUtil.getShowInfo("page"), djRadios.get("name").getAsString()),
-                        "/cloudmusic dj " + djRadios.get("id").getAsLong()
+                        "/rikkamusic dj " + djRadios.get("id").getAsLong()
                 );
             }
         };
@@ -217,15 +217,15 @@ public class User extends Music163Obj implements IPrint {
         source.sendFeedback(Component.literal("§7" + this.signature));
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("user.like", "/cloudmusic user like " + this.id),
-                new TextClickItem("user.playlist", "/cloudmusic user playlist " + this.id),
-                new TextClickItem("user.dj", "/cloudmusic user dj " + this.id),
+                new TextClickItem("user.like", "/rikkamusic user like " + this.id),
+                new TextClickItem("user.playlist", "/rikkamusic user playlist " + this.id),
+                new TextClickItem("user.dj", "/rikkamusic user dj " + this.id),
                 new TextClickItem("shar", Shares.USER.getShar(this.id))
         ));
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("record.all", "/cloudmusic user record all " + this.id),
-                new TextClickItem("record.week", "/cloudmusic user record week " + this.id)
+                new TextClickItem("record.all", "/rikkamusic user record all " + this.id),
+                new TextClickItem("record.week", "/rikkamusic user record week " + this.id)
         ));
     }
     

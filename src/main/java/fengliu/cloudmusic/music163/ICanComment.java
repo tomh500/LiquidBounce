@@ -52,7 +52,7 @@ public interface ICanComment {
                 return new TextClickItem(
                         Component.literal(comment.getPageItem()),
                         Component.translatable(IdUtil.getShowInfo("page.comment")),
-                        "/cloudmusic comment %s %s".formatted(comment.id, threadId)
+                        "/rikkamusic comment %s %s".formatted(comment.id, threadId)
                 );
             }
         };

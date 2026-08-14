@@ -72,7 +72,7 @@ public class Comment extends Music163Obj implements IPrint {
                 return new TextClickItem(
                         Component.literal(comment.getPageItem()),
                         Component.translatable(IdUtil.getShowInfo("page.comment")),
-                        "/cloudmusic comment %s %s".formatted(comment.id, threadId)
+                        "/rikkamusic comment %s %s".formatted(comment.id, threadId)
                 );
             }
         };
@@ -138,7 +138,7 @@ public class Comment extends Music163Obj implements IPrint {
 //            source.sendFeedback(new TextClickItem(
 //                    (MutableComponent) this.getBeContent(),
 //                    Component.translatable(IdUtil.getShowInfo("page.comment")),
-//                    "/cloudmusic comment %s %s".formatted(this.beReplied.get(0).getAsJsonObject().get("beRepliedCommentId").getAsLong(), this.threadId)
+//                    "/rikkamusic comment %s %s".formatted(this.beReplied.get(0).getAsJsonObject().get("beRepliedCommentId").getAsLong(), this.threadId)
 //            ).build());
             source.sendFeedback(this.getBeContent());
             source.sendFeedback(Component.literal("========================").withStyle(ChatFormatting.GRAY));
@@ -147,17 +147,17 @@ public class Comment extends Music163Obj implements IPrint {
         source.sendFeedback(new TextClickItem(
                 Component.literal("%s - %s: %s".formatted(this.user.get("nickname").getAsString(), this.ipLocation.get("location").getAsString(), this.content)),
                 Component.translatable(IdUtil.getShowInfo("comment.user")),
-                "/cloudmusic user " + this.user.get("userId").getAsLong()
+                "/rikkamusic user " + this.user.get("userId").getAsLong()
         ).build());
         source.sendFeedback(Component.translatable("cloudmusic.info.comment.time", this.timeStr));
         source.sendFeedback(Component.translatable("cloudmusic.page.item.comments.like", this.likedCount));
 
         source.sendFeedback(TextClickItem.combine(
-                new TextClickItem("comment.floors", "/cloudmusic comment floors %s %s".formatted(id, this.threadId)),
-                new TextClickItem("comment.reply", "/cloudmusic comment reply %s %s".formatted(id, this.threadId)),
-                new TextClickItem("comment.like", "/cloudmusic comment like %s %s".formatted(id, this.threadId)),
-                new TextClickItem("comment.unlike", "/cloudmusic comment unlike %s %s".formatted(id, this.threadId)),
-                new TextClickItem("comment.delete", "/cloudmusic comment delete %s %s".formatted(id, this.threadId))
+                new TextClickItem("comment.floors", "/rikkamusic comment floors %s %s".formatted(id, this.threadId)),
+                new TextClickItem("comment.reply", "/rikkamusic comment reply %s %s".formatted(id, this.threadId)),
+                new TextClickItem("comment.like", "/rikkamusic comment like %s %s".formatted(id, this.threadId)),
+                new TextClickItem("comment.unlike", "/rikkamusic comment unlike %s %s".formatted(id, this.threadId)),
+                new TextClickItem("comment.delete", "/rikkamusic comment delete %s %s".formatted(id, this.threadId))
         ));
     }
 }

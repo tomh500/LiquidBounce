@@ -123,6 +123,9 @@ object ModuleHud : ClientModule("HUD", ModuleCategories.RENDER, state = true, hi
     val components = tree(ValueGroup("AdditionalComponents")).apply {
         tree(MinimapHudComponent)
         tree(fengliu.cloudmusic.hud.CloudMusicHudComponent)
+        tree(fengliu.cloudmusic.hud.MusicLyricsHudComponent)
+        tree(fengliu.cloudmusic.hud.MusicActionbarLyricsHudComponent)
+        tree(fengliu.cloudmusic.hud.DynamicIslandHudComponent)
     }
 
     /**
