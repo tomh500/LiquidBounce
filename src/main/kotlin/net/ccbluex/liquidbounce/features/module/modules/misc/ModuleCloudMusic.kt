@@ -34,7 +34,7 @@ import org.lwjgl.glfw.GLFW
  *
  * Merged NetEase Cloud Music player. Toggling the module opens the in-client
  * music GUI. The original mod is not exposed as a standalone Fabric mod; the
- * `.cloudmusic` command tree and the HUD widgets are part of the client.
+ * `.rikkamusic` (or `.music`) command tree and the HUD widgets are part of the client.
  */
 object ModuleCloudMusic : ClientModule(
     "CloudMusic",

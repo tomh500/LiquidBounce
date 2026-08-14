@@ -21,10 +21,18 @@ object CloudMusicCommands {
         .begin<String>("args")
         .vararg()
         .optional()
+        .autocompletedWith { begin, args ->
+            val rawArgs = args.drop(1).joinToString(" ")
+            MusicCommand.completeCommand(
+                if (begin.isEmpty()) "$rawArgs " else rawArgs,
+                source,
+            )
+        }
         .build()
 
     private val command: Command = CommandBuilder
-        .begin("cloudmusic")
+        .begin("rikkamusic")
+        .alias("music")
         .parameter(argsParameter)
         .handler {
             val args = argsParameter.castVarargNotRequired()?.joinToString(" ") ?: ""
@@ -33,7 +41,7 @@ object CloudMusicCommands {
         .build()
 
     /**
-     * Registers `.cloudmusic` once into the client command manager.
+     * Registers `.rikkamusic` and its `.music` alias once into the client command manager.
      */
     fun register() {
         if (registered) {

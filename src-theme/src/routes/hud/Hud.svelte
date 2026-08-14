@@ -134,6 +134,8 @@
                     <KeyBinds/>
                 {:else if c.name === "ClosedCaptions"}
                     <ClosedCaptions/>
+                {:else if c.name === "CloudMusic"}
+                    <div class="native-component-label">Cloud Music</div>
                 {:else if c.width !== undefined && c.height !== undefined}
                     <div></div>
                 {/if}
@@ -146,5 +148,15 @@
   .hud {
     height: 100vh;
     width: 100vw;
+  }
+
+  .native-component-label {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    place-items: center;
+    color: var(--clickgui-text-dimmed-color);
+    font-size: 12px;
+    text-align: center;
   }
 </style>

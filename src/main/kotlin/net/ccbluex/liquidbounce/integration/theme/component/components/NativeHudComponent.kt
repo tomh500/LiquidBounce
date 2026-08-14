@@ -20,6 +20,7 @@
 package net.ccbluex.liquidbounce.integration.theme.component.components
 
 import net.ccbluex.liquidbounce.integration.theme.component.HudComponent
+import net.ccbluex.liquidbounce.integration.theme.component.HudComponentManager
 import net.ccbluex.liquidbounce.integration.theme.component.HudComponentTweak
 import net.ccbluex.liquidbounce.render.engine.type.BoundingBox2f
 import net.ccbluex.liquidbounce.utils.render.Alignment
@@ -31,6 +32,16 @@ abstract class NativeHudComponent(
     tweaks: Array<HudComponentTweak> = emptyArray(),
     description: String = "",
 ) : HudComponent(name, enabled, alignment, tweaks, description) {
+
+    override fun onEnabled() {
+        super.onEnabled()
+        HudComponentManager.updateComponents()
+    }
+
+    override fun onDisabled() {
+        super.onDisabled()
+        HudComponentManager.updateComponents()
+    }
 
     /**
      * @see com.mojang.blaze3d.platform.Window.guiScaledWidth

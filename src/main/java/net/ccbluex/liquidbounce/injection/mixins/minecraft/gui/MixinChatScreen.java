@@ -18,6 +18,7 @@
  */
 package net.ccbluex.liquidbounce.injection.mixins.minecraft.gui;
 
+import fengliu.cloudmusic.hud.CloudMusicHudComponent;
 import net.ccbluex.liquidbounce.event.EventManager;
 import net.ccbluex.liquidbounce.event.events.ChatSendEvent;
 import net.ccbluex.liquidbounce.features.module.modules.misc.betterchat.ModuleBetterChat;
@@ -50,8 +51,13 @@ public abstract class MixinChatScreen extends MixinScreen {
         }
     }
 
-    @Inject(method = "mouseClicked", at = @At("HEAD"))
+    @Inject(method = "mouseClicked", at = @At("HEAD"), cancellable = true)
     private void hookMouseClicked(MouseButtonEvent click, boolean doubled, CallbackInfoReturnable<Boolean> cir) {
+        if (CloudMusicHudComponent.INSTANCE.handleChatPointer(click.x(), click.y())) {
+            cir.setReturnValue(true);
+            return;
+        }
+
         if (!(ModuleBetterChat.INSTANCE.getRunning() && ModuleBetterChat.Copy.INSTANCE.getRunning())) {
             return;
         }

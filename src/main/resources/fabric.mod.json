@@ -17,6 +17,9 @@
   "license": "GNU General Public License v3.0",
   "icon": "resources/liquidbounce/icon_64x64.png",
   "environment": "client",
+  "provides": [
+    "malilib"
+  ],
   "entrypoints": {
     "main": [],
     "client": [
@@ -36,8 +39,8 @@
     "lambdynlights.mixins.json",
     "lambdynlights.lightsource.mixins.json",
     "liquidbounce.pathing.mixins.json",
-    "malilib.mixins.json",
-    "cloudmusic.mixins.json"
+    "liquidbounce.malilib.mixins.json",
+    "liquidbounce.cloudmusic.mixins.json"
   ],
   "depends": {
     "minecraft": ["${minecraft_version}"],
@@ -49,7 +52,8 @@
     "viafabricplus": ">=${viafabricplus_version}"
   },
   "breaks": {
-    "viafabricplus": "<${viafabricplus_version}"
+    "viafabricplus": "<${viafabricplus_version}",
+    "cloudmusic": "*"
   },
   "accessWidener": "liquidbounce.accesswidener"
 }

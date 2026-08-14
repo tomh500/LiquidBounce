@@ -1879,6 +1879,21 @@ public class MusicCommand {
     }
 
     /**
+     * Returns Brigadier suggestions for the merged command without executing it.
+     */
+    public static List<String> completeCommand(String rawArgs, FabricClientCommandSource source) {
+        String input = "cloudmusic " + (rawArgs == null ? "" : rawArgs);
+        try {
+            return DISPATCHER.getCompletionSuggestions(DISPATCHER.parse(input, source)).join().getList().stream()
+                    .map(suggestion -> suggestion.getText())
+                    .toList();
+        } catch (Exception err) {
+            LOGGER.debug("[CloudMusic][Cmd] Failed to provide completion suggestions", err);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
      * Runs a command job on a background thread using the given source.
      */
     public static void runCommand(FabricClientCommandSource source, Job job) {
