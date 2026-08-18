@@ -1,6 +1,9 @@
 package fengliu.cloudmusic.util;
 
 import fengliu.cloudmusic.config.Configs;
+import fengliu.cloudmusic.command.LbClientCommandSource;
+import fengliu.cloudmusic.command.MusicCommand;
+import net.ccbluex.liquidbounce.utils.text.RunnableClickEvent;
 import net.minecraft.network.chat.*;
 import net.minecraft.ChatFormatting;
 
@@ -53,6 +56,18 @@ public class TextClickItem {
     }
 
     public ClickEvent getAction() {
+        // This is the only generated action which intentionally lacks a required
+        // argument. It must open the local command input instead of executing an
+        // incomplete command (which would otherwise produce a Brigadier error).
+        if (this.commandSuggest.matches("(?i)^/(rikkamusic|music|cloudmusic)\\s+page\\s+to\\s*$")) {
+            String root = this.commandSuggest.toLowerCase().startsWith("/music ") ? "music" : "rikkamusic";
+            return new ClickEvent.SuggestCommand("." + root + " page to ");
+        }
+        if (this.commandSuggest.matches("(?i)^/(rikkamusic|music|cloudmusic)(?:\\s|$).*")) {
+            int commandEnd = this.commandSuggest.indexOf(' ');
+            String args = commandEnd < 0 ? "" : this.commandSuggest.substring(commandEnd + 1);
+            return new RunnableClickEvent(() -> MusicCommand.executeCommand(args, new LbClientCommandSource()));
+        }
         if (Configs.COMMAND.CLICK_RUN_COMMAND.getBooleanValue() && this.commandSuggest.startsWith("/")) {
             return new ClickEvent.RunCommand(this.commandSuggest);
         }

@@ -11,6 +11,7 @@ import com.mojang.brigadier.tree.CommandNode;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.Suggestion;
 import fengliu.cloudmusic.config.Configs;
 import fengliu.cloudmusic.config.LyricStyle;
 import fengliu.cloudmusic.music163.*;
@@ -362,7 +363,18 @@ public class MusicCommand {
             page = new Page(helpsList) {
                 @Override
                 protected TextClickItem putPageItem(Object data) {
-                    return new TextClickItem((MutableComponent) data, "");
+                    String helpText = ((Component) data).getString();
+                    int commandStart = helpText.indexOf("/cloudmusic");
+                    if (commandStart < 0) {
+                        return new TextClickItem(Component.literal(helpText), "");
+                    }
+
+                    String usage = helpText.substring(commandStart + "/cloudmusic".length())
+                            .replaceAll("\\s*\\[[^]]*]", "");
+                    return new TextClickItem(
+                            Component.literal(helpText.replace("/cloudmusic", ".rikkamusic")),
+                            ".rikkamusic" + usage
+                    );
                 }
             };
             page.setInfoText(Component.translatable("cloudmusic.info.page.help"));
@@ -1888,43 +1900,23 @@ public class MusicCommand {
     public static List<String> completeCommand(String rawArgs, FabricClientCommandSource source) {
         String input = rawArgs == null ? "" : rawArgs;
         try {
-            // LiquidBounce has already resolved the command literal. Walk the original
-            // Brigadier literals so its tab-completion sees exactly the same command
-            // groups as the standalone /rikkamusic command.
-            String[] parts = input.split(" ", -1);
-            CommandNode<FabricClientCommandSource> node = DISPATCHER.getRoot().getChild("cloudmusic");
-            if (node == null) {
-                return Collections.emptyList();
-            }
-
-            int last = parts.length - 1;
-            for (int index = 0; index < last; index++) {
-                if (parts[index].isEmpty()) {
-                    continue;
-                }
-
-                CommandNode<FabricClientCommandSource> child = node.getChild(parts[index]);
-                if (child == null) {
-                    return Collections.emptyList();
-                }
-                node = child;
-            }
-
-            String prefix = parts[last];
-            List<String> literals = node.getChildren().stream()
-                    .filter(LiteralCommandNode.class::isInstance)
-                    .map(LiteralCommandNode.class::cast)
-                    .map(LiteralCommandNode::getLiteral)
-                    .filter(literal -> literal.regionMatches(true, 0, prefix, 0, prefix.length()))
+            String brigadierInput = "cloudmusic" + (input.isBlank() ? "" : " " + input);
+            List<String> suggestions = DISPATCHER.getCompletionSuggestions(DISPATCHER.parse(brigadierInput, source))
+                    .join()
+                    .getList()
+                    .stream()
+                    .map(Suggestion::getText)
                     .toList();
+            if (!suggestions.isEmpty()) {
+                return suggestions;
+            }
 
-            // Brigadier has no meaningful suggestions for a free-form string.
-            // Offer a harmless quoted template at its beginning, which also makes
-            // the required input position visible in LiquidBounce's Tab UI.
-            if (literals.isEmpty() && prefix.isEmpty() && node.getChildren().stream().anyMatch(ArgumentCommandNode.class::isInstance)) {
+            // Brigadier intentionally does not suggest arbitrary strings. Make the
+            // final free-text slot discoverable while preserving quoted CJK input.
+            if (input.endsWith(" ") && !input.trim().endsWith("page to")) {
                 return List.of("\"\"");
             }
-            return literals;
+            return Collections.emptyList();
         } catch (Exception err) {
             LOGGER.debug("[CloudMusic][Cmd] Failed to provide completion suggestions", err);
             return Collections.emptyList();

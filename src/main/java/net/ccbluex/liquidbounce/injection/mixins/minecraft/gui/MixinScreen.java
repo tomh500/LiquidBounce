@@ -109,11 +109,8 @@ public abstract class MixinScreen implements ScreenAddition {
         }
     }
 
-    /**
-     * Allows the execution of {@link RunnableClickEvent}.
-     * (default branch in switch pattern matching)
-     */
-    @Inject(method = "defaultHandleClickEvent", at = @At(value = "INVOKE", target = "Lorg/slf4j/Logger;error(Ljava/lang/String;Ljava/lang/Object;)V", ordinal = 0, shift = At.Shift.BEFORE, remap = false), cancellable = true)
+    /** Allows client-side clickable chat actions to bypass vanilla command handling. */
+    @Inject(method = "defaultHandleClickEvent", at = @At("HEAD"), cancellable = true)
     private static void hookExecuteClickEvents(ClickEvent clickEvent, Minecraft client, Screen screenAfterRun, CallbackInfo ci) {
         if (clickEvent instanceof RunnableClickEvent runnableClickEvent) {
             runnableClickEvent.run();

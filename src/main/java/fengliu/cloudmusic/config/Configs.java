@@ -12,6 +12,7 @@ import fi.dy.masa.malilib.config.IConfigHandler;
 import fi.dy.masa.malilib.config.options.*;
 import fi.dy.masa.malilib.util.FileUtils;
 import fi.dy.masa.malilib.util.data.json.JsonUtils;
+import net.ccbluex.liquidbounce.LiquidBounce;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -318,7 +319,21 @@ public class Configs implements IConfigHandler {
 
     @Override
     public void load() {
-        Path configFile = FileUtils.getConfigDirectory().resolve(CONFIG_FILE_NAME);
+        Path configFile = getConfigFile();
+        Path legacyConfigFile = FileUtils.getConfigDirectory().resolve(CONFIG_FILE_NAME);
+
+        // CloudMusic is part of LiquidBounce, so its configuration belongs beside
+        // the client's own settings rather than in malilib's shared config folder.
+        // Move an existing standalone/previously merged file once without losing
+        // credentials, proxy settings, hotkeys, or playback preferences.
+        if (!Files.isRegularFile(configFile) && Files.isRegularFile(legacyConfigFile)) {
+            try {
+                Files.createDirectories(configFile.getParent());
+                Files.move(legacyConfigFile, configFile);
+            } catch (Exception ignored) {
+                configFile = legacyConfigFile;
+            }
+        }
         if (Files.isRegularFile(configFile)) {
             JsonElement element = JsonUtils.parseJsonFile(configFile);
             if (element == null || !element.isJsonObject()) {
@@ -332,11 +347,19 @@ public class Configs implements IConfigHandler {
 
     @Override
     public void save() {
-        Path dir = FileUtils.getConfigDirectory();
-        if (Files.isDirectory(dir) || dir.toFile().mkdirs()) {
+        Path configFile = getConfigFile();
+        Path dir = configFile.getParent();
+        try {
+            Files.createDirectories(dir);
             JsonObject root = new JsonObject();
             ConfigUtils.writeConfigBase(root, "ALLConfigs", ALL.OPTIONS);
-            JsonUtils.writeJsonToFile(root, dir.resolve(CONFIG_FILE_NAME));
+            JsonUtils.writeJsonToFile(root, configFile);
+        } catch (Exception ignored) {
+            // Configuration writes are best effort, matching malilib's behavior.
         }
+    }
+
+    private static Path getConfigFile() {
+        return CloudMusicClient.MC_PATH.resolve(LiquidBounce.CLIENT_NAME).resolve(CONFIG_FILE_NAME);
     }
 }

@@ -365,6 +365,10 @@ public void start() {
         }
 
         this.volumePercentage = volume;
+        // Persist the setting even when no track is currently playing. The
+        // settings screen changes volume before SourceDataLine exists.
+        Configs.PLAY.VOLUME.setIntegerValue(this.volumePercentage);
+        Configs.INSTANCE.save();
         if (this.play == null) {
             return;
         }
@@ -378,8 +382,6 @@ public void start() {
         float gain = maxGain - (maxGain - minGain) * (1 - t) * (1 - t);
         gainControl.setValue(gain);
 
-        Configs.PLAY.VOLUME.setIntegerValue(this.volumePercentage);
-        Configs.INSTANCE.save();
     }
 
     public void volumeAdd() {

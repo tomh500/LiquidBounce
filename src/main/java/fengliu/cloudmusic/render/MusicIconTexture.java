@@ -12,13 +12,34 @@ import net.minecraft.resources.Identifier;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.Objects;
 
 public class MusicIconTexture {
     private static final Minecraft client = Minecraft.getInstance();
     public static Identifier MUSIC_ICON_ID = Identifier.fromNamespaceAndPath(CloudMusicClient.MOD_ID, "texture/music_icon.png");
     public static Identifier MUSIC_CIRCLE_ICON_ID = Identifier.fromNamespaceAndPath(CloudMusicClient.MOD_ID, "texture/music_circle_icon.png");
+    public static Identifier LIQUID_BOUNCE_ICON_ID = Identifier.fromNamespaceAndPath(CloudMusicClient.MOD_ID, "texture/liquidbounce_icon.png");
     public static Identifier QR_CODE_ID = Identifier.fromNamespaceAndPath(CloudMusicClient.MOD_ID, "qr.code");
     private static boolean canUseIcon = false;
+    private static boolean canUseLiquidBounceIcon = false;
+
+    public static void loadLiquidBounceIcon() {
+        if (canUseLiquidBounceIcon) {
+            return;
+        }
+
+        try (var stream = MusicIconTexture.class.getResourceAsStream("/resources/liquidbounce/icon_64x64.png")) {
+            NativeImage image = NativeImage.read(Objects.requireNonNull(stream));
+            client.getTextureManager().register(LIQUID_BOUNCE_ICON_ID, new DynamicTexture(() -> "cloudmusic liquidbounce icon", image));
+            canUseLiquidBounceIcon = true;
+        } catch (Exception err) {
+            err.printStackTrace();
+        }
+    }
+
+    public static boolean canUseLiquidBounceIcon() {
+        return canUseLiquidBounceIcon;
+    }
 
     /**
      * 获取封面并注册材质
