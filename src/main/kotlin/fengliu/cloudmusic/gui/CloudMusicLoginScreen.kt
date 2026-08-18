@@ -39,6 +39,11 @@ import org.lwjgl.glfw.GLFW
  */
 class CloudMusicLoginScreen : Screen("RikkaMusic 登录".asPlainText()) {
 
+    private var windowLeft = 0f
+    private var windowTop = 0f
+    private var windowWidth = 0f
+    private var windowHeight = 0f
+
     private var started = false
     private var status = "正在获取二维码…"
     private var qrReady = false
@@ -47,6 +52,10 @@ class CloudMusicLoginScreen : Screen("RikkaMusic 登录".asPlainText()) {
 
     override fun init() {
         super.init()
+        windowWidth = minOf(620f, width * 0.58f).coerceAtLeast(360f)
+        windowHeight = minOf(560f, height * 0.72f).coerceAtLeast(280f)
+        windowLeft = (width - windowWidth) / 2f
+        windowTop = (height - windowHeight) / 2f
         if (!started) {
             started = true
             startLogin()
@@ -89,7 +98,7 @@ class CloudMusicLoginScreen : Screen("RikkaMusic 登录".asPlainText()) {
     }
 
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
-        if (click.button() == 0 && backButtonRect().contains(click.x().toFloat(), click.y().toFloat())) {
+        if (click.button() == 0 && backButtonRect().contains(localX(click.x().toFloat()), localY(click.y().toFloat()))) {
             mc.gui.setScreen(CloudMusicScreen())
             return true
         }
@@ -106,11 +115,15 @@ class CloudMusicLoginScreen : Screen("RikkaMusic 登录".asPlainText()) {
 
     override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
         with(context) {
+            drawRoundedRect(windowLeft, windowTop, windowLeft + windowWidth, windowTop + windowHeight, 8f, CloudMusicGui.BACKGROUND, outlineColor = CloudMusicGui.BORDER)
+            pose().pushMatrix()
+            pose().translate(windowLeft, windowTop)
+            pose().scale(windowWidth / width.toFloat(), windowHeight / height.toFloat())
             drawQuad(0f, 0f, width.toFloat(), height.toFloat(), CloudMusicGui.BACKGROUND)
 
             // Back button
             val back = backButtonRect()
-            val backHovered = back.contains(mouseX.toFloat(), mouseY.toFloat())
+            val backHovered = back.contains(localX(mouseX.toFloat()), localY(mouseY.toFloat()))
             drawRoundedRect(
                 back.x1, back.y1, back.x2, back.y2, 6f,
                 fillColor = if (backHovered) CloudMusicGui.HOVER else CloudMusicGui.ACTIVE,
@@ -157,8 +170,15 @@ class CloudMusicLoginScreen : Screen("RikkaMusic 登录".asPlainText()) {
                 scale = CloudMusicGui.smallScale, color = CloudMusicGui.TEXT_FAINT,
                 horizontalAnchor = HorizontalAnchor.CENTER,
             )
+            pose().popMatrix()
         }
     }
+
+    override fun extractTransparentBackground(graphics: GuiGraphicsExtractor) { }
+    override fun isPauseScreen() = false
+
+    private fun localX(x: Float) = ((x - windowLeft) / windowWidth * width).coerceIn(0f, width.toFloat())
+    private fun localY(y: Float) = ((y - windowTop) / windowHeight * height).coerceIn(0f, height.toFloat())
 
     private fun backButtonRect() = Quad(14f, 14f, 100f, 50f)
 

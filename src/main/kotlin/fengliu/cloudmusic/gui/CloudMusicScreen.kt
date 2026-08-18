@@ -139,8 +139,10 @@ class CloudMusicScreen : Screen("RikkaMusic".asPlainText()) {
     }
 
     private fun updateWindowBounds() {
-        windowWidth = minOf(960f, width * 0.92f).coerceAtLeast(520f)
-        windowHeight = minOf(640f, height * 0.88f).coerceAtLeast(380f)
+        // Match the compact ClickGUI-like footprint from the reference: the
+        // game remains visible around the application instead of being covered.
+        windowWidth = minOf(1320f, width * 0.58f).coerceAtLeast(420f)
+        windowHeight = minOf(940f, height * 0.72f).coerceAtLeast(300f)
         val savedX = fengliu.cloudmusic.config.Configs.GUI.WINDOW_X.getIntegerValue()
         val savedY = fengliu.cloudmusic.config.Configs.GUI.WINDOW_Y.getIntegerValue()
         windowLeft = if (fengliu.cloudmusic.config.Configs.GUI.DRAGGABLE_WINDOW.getBooleanValue() && savedX >= 0) savedX.toFloat() else (width - windowWidth) / 2f
@@ -1072,8 +1074,14 @@ class CloudMusicScreen : Screen("RikkaMusic".asPlainText()) {
 
     private fun IMusic.getSubtitle(): String = when (this) {
         is Music -> {
-            val albumName = album.get("name")?.asString ?: ""
-            val artists = Music.getArtistsName(artists)
+            val albumName = album.get("name")
+                ?.takeUnless { it.isJsonNull }
+                ?.takeIf { it.isJsonPrimitive }
+                ?.asString
+                .orEmpty()
+            val artists = artists
+                .filter { it.isJsonObject && it.asJsonObject.get("name")?.let { value -> !value.isJsonNull } == true }
+                .joinToString("/") { it.asJsonObject.get("name").asString }
             if (albumName.isEmpty()) artists else "$artists - $albumName"
         }
         is DjMusic -> dj.get("nickname")?.asString ?: ""

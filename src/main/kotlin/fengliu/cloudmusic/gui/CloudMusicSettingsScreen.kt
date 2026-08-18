@@ -368,8 +368,8 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
     override fun isPauseScreen() = false
 
     private fun updateWindowBounds() {
-        windowWidth = minOf(960f, width * 0.92f).coerceAtLeast(520f)
-        windowHeight = minOf(640f, height * 0.88f).coerceAtLeast(380f)
+        windowWidth = minOf(1320f, width * 0.58f).coerceAtLeast(420f)
+        windowHeight = minOf(940f, height * 0.72f).coerceAtLeast(300f)
         windowLeft = (width - windowWidth) / 2f
         windowTop = (height - windowHeight) / 2f
     }

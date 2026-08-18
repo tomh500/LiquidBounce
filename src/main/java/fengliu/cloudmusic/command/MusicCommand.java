@@ -268,7 +268,7 @@ public class MusicCommand {
      *
      * @param musics 歌曲列表
      */
-    private static void resetPlayer(List<IMusic> musics) {
+    private static synchronized void resetPlayer(List<IMusic> musics) {
         try {
             player.exit();
         } catch (Exception e) {
@@ -282,7 +282,7 @@ public class MusicCommand {
      *
      * @param newPlayer 播放器
      */
-    private static void resetPlayer(MusicPlayer newPlayer) {
+    private static synchronized void resetPlayer(MusicPlayer newPlayer) {
         try {
             player.exit();
         } catch (Exception e) {
@@ -296,7 +296,7 @@ public class MusicCommand {
      *
      * @param music 歌曲
      */
-    private static void resetPlayer(IMusic music) {
+    private static synchronized void resetPlayer(IMusic music) {
         List<IMusic> musics = new ArrayList<>();
         musics.add(music);
 

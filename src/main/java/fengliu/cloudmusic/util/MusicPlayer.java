@@ -350,6 +350,7 @@ public class MusicPlayer implements Runnable {
             this.playUrl = url;
             this.play(this.openAudioInputStream());
         } catch (Exception e) {
+            this.playbackState = PlaybackState.ERROR;
             e.printStackTrace();
         }
     }
@@ -365,6 +366,7 @@ public class MusicPlayer implements Runnable {
             this.playFile = file;
             this.play(this.openAudioInputStream());
         } catch (Exception e) {
+            this.playbackState = PlaybackState.ERROR;
             e.printStackTrace();
         }
     }
@@ -491,7 +493,14 @@ public class MusicPlayer implements Runnable {
         }
         closeOutput();
         Thread thread = this.playbackThread;
-        if (thread != null) thread.interrupt();
+        if (thread != null) {
+            thread.interrupt();
+            if (thread != Thread.currentThread()) {
+                try { thread.join(250L); } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
     }
 
     /**
