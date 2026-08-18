@@ -27,7 +27,7 @@ djl = "0.36.0"
 # https://mvnrepository.com/artifact/com.squareup.okhttp3/okhttp
 okhttp = "5.4.0"
 
-ktor = "3.5.1"
+ktor = "3.5.2"
 semver4j = "3.1.0"
 ahocorasick = "0.6.3"
 fastutil4k = "0.2.8"
@@ -61,7 +61,7 @@ netty = "4.2.15.Final"
 lwjgl = "3.4.1"
 
 # Other plugins
-detekt = "2.0.0-alpha.5"
+detekt = "2.0.0-alpha.6"
 gradleGitProperties = "4.0.1"
 dokka = "2.2.0"
 nodeGradle = "7.1.0"

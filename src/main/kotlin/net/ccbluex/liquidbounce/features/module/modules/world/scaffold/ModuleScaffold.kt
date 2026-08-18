@@ -764,7 +764,7 @@ object ModuleScaffold : ClientModule(
             && SimulatePlacementAttempts.clicker.isClickTick
         ) {
             SimulatePlacementAttempts.clicker.click {
-                doPlacement(currentCrosshairTarget!!, suitableHand!!, {
+                doPlacement(currentCrosshairTarget!!, currentRotation, suitableHand!!, {
                     commonPlaceSucceed(currentCrosshairTarget.targetBlockPos)
                     true
                 }, swingMode = swingMode)
@@ -822,7 +822,7 @@ object ModuleScaffold : ClientModule(
         // Take the fall off position before placing the block
         val previousFallOffPos = currentOptimalLine?.let(ScaffoldMovementPrediction::getFallOffPositionOnLine)
 
-        doPlacement(currentCrosshairTarget, handToInteractWith, {
+        doPlacement(currentCrosshairTarget, currentRotation, handToInteractWith, {
             commonPlaceSucceed(target.placedBlock)
             currentTarget = null
             wasSuccessful = true
@@ -846,8 +846,9 @@ object ModuleScaffold : ClientModule(
     }
 
     private fun tryVapePlacement() {
+        val rotation = RotationManager.currentRotation ?: player.rotation
         val crosshairTarget = traceFromPlayer(
-            rotation = RotationManager.currentRotation ?: player.rotation,
+            rotation = rotation,
             range = GlobalVapeRotationSettings.interactionRange(3.0),
         )
         if (!VapeScaffoldController.isValidPlacementHit(crosshairTarget)) return
@@ -860,6 +861,7 @@ object ModuleScaffold : ClientModule(
         val hand = if (hasBlockInMainHand) InteractionHand.MAIN_HAND else InteractionHand.OFF_HAND
         doPlacement(
             crosshairTarget,
+            rotation,
             hand,
             onPlacementSuccess = {
                 renderer.addBlock(crosshairTarget.targetBlockPos)
