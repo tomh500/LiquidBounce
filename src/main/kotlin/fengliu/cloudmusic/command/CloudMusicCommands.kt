@@ -79,6 +79,10 @@ object CloudMusicCommands : EventListener {
             return
         }
         registered = true
+        // The bridged command only forwards into Brigadier; it does not build
+        // the original tree itself. Without this call `.rikkamusic login qr`
+        // and every other nested command are parsed as unknown input.
+        MusicCommand.registerAll()
         net.ccbluex.liquidbounce.features.command.CommandManager.addCommand(command)
     }
 }

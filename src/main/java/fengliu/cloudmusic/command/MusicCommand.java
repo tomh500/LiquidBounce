@@ -1900,6 +1900,12 @@ public class MusicCommand {
     public static List<String> completeCommand(String rawArgs, FabricClientCommandSource source) {
         String input = rawArgs == null ? "" : rawArgs;
         try {
+            // Brigadier deliberately has no completion source for primitive
+            // numbers. Offer useful, executable volume values rather than the
+            // invalid quoted placeholder previously injected by this bridge.
+            if (input.trim().equalsIgnoreCase("volume") && input.endsWith(" ")) {
+                return List.of("0", "25", "50", "75", "100");
+            }
             String brigadierInput = "cloudmusic" + (input.isBlank() ? "" : " " + input);
             List<String> suggestions = DISPATCHER.getCompletionSuggestions(DISPATCHER.parse(brigadierInput, source))
                     .join()
@@ -1911,11 +1917,6 @@ public class MusicCommand {
                 return suggestions;
             }
 
-            // Brigadier intentionally does not suggest arbitrary strings. Make the
-            // final free-text slot discoverable while preserving quoted CJK input.
-            if (input.endsWith(" ") && !input.trim().endsWith("page to")) {
-                return List.of("\"\"");
-            }
             return Collections.emptyList();
         } catch (Exception err) {
             LOGGER.debug("[CloudMusic][Cmd] Failed to provide completion suggestions", err);

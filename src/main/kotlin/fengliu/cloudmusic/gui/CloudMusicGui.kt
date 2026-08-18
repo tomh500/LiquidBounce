@@ -22,6 +22,7 @@ import net.ccbluex.liquidbounce.render.FontManager
 import net.ccbluex.liquidbounce.render.engine.font.HorizontalAnchor
 import net.ccbluex.liquidbounce.render.engine.font.VerticalAnchor
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
+import net.ccbluex.liquidbounce.integration.theme.ThemeManager
 import net.minecraft.client.gui.GuiGraphicsExtractor
 
 /**
@@ -30,13 +31,25 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
  */
 object CloudMusicGui {
 
-    // Theme palette
-    val BACKGROUND = Color4b(0x0C, 0x0C, 0x0E, 0xFF)
-    val SIDEBAR = Color4b(0x11, 0x11, 0x14, 0xFF)
-    val PLAYER_BG = Color4b(0x16, 0x16, 0x1A, 0xFF)
-    val ACCENT = Color4b(0x46, 0x77, 0xFF, 0xFF)
-    val ACCENT_HOVER = Color4b(0x3B, 0x62, 0xD0, 0xFF)
-    val ACCENT_SUBTLE = Color4b(0x46, 0x77, 0xFF, 0x22)
+    /**
+     * The native ClickGUI exposes Accent and Tint through theme metadata. Keep
+     * this palette derived from those live values so a theme switch recolors
+     * RikkaMusic on the next frame instead of leaving it blue and black.
+     */
+    private fun themeColor(name: String, fallback: Color4b): Color4b =
+        ThemeManager.theme?.colors?.inner
+            ?.firstOrNull { it.name.equals(name, ignoreCase = true) }
+            ?.get() as? Color4b ?: fallback
+
+    private val tint get() = themeColor("Tint", Color4b.BLACK)
+    private val accent get() = themeColor("Accent", Color4b(0x46, 0x77, 0xFF))
+
+    val BACKGROUND get() = tint.with(a = 244)
+    val SIDEBAR get() = tint.with(a = 232)
+    val PLAYER_BG get() = tint.with(a = 224)
+    val ACCENT get() = accent
+    val ACCENT_HOVER get() = accent.with(a = 210)
+    val ACCENT_SUBTLE get() = accent.with(a = 42)
     val TEXT = Color4b.WHITE
     val TEXT_DIM = Color4b(0xD3, 0xD3, 0xD3, 0xFF)
     val TEXT_FAINT = Color4b(0xFF, 0xFF, 0xFF, 0x59)

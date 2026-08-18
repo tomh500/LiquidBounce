@@ -132,6 +132,9 @@ public class MusicPlayer implements Runnable {
      * 播放歌曲
      */
     protected void playMusic() {
+        if (!canContinue()) {
+            return;
+        }
         this.playbackState = PlaybackState.LOADING;
         LOGGER.info("[CloudMusic][Player] 开始播放曲目, 播放列表大小={}", this.playListSize);
         // 开始播放的时候停止所有的声音(只会停止一瞬间)
@@ -149,6 +152,12 @@ public class MusicPlayer implements Runnable {
             }
             this.stop();
             this.playbackState = PlaybackState.ERROR;
+            return;
+        }
+
+        // A queue replacement can happen while the URL request is blocked.
+        // That old worker must never acquire another SourceDataLine.
+        if (!canContinue()) {
             return;
         }
 
@@ -183,6 +192,10 @@ public class MusicPlayer implements Runnable {
                 file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile(music.getId() + "." + fileType));
             }
 
+            if (!canContinue()) {
+                return;
+            }
+
             CloudMusicClient.cacheHelper.addUseSize(file);
             Component nowPlayingMessage = Component.translatable("record.nowPlaying", music.getName());
             this.client.execute(() -> this.client.gui.hud.setOverlayMessage(nowPlayingMessage, false));
@@ -198,6 +211,10 @@ public class MusicPlayer implements Runnable {
      * 播放歌曲
      */
     private void play(AudioInputStream audioInputStream) throws IOException, InterruptedException, LineUnavailableException {
+        if (!canContinue()) {
+            audioInputStream.close();
+            return;
+        }
         this.activeStream = audioInputStream;
         AudioFormat audioFormat = audioInputStream.getFormat();
 
@@ -345,6 +362,9 @@ public class MusicPlayer implements Runnable {
      * @param url 歌曲 url
      */
     private void play(String url) {
+        if (!canContinue()) {
+            return;
+        }
         try {
             this.playFile = null;
             this.playUrl = url;
@@ -361,6 +381,9 @@ public class MusicPlayer implements Runnable {
      * @param file 文件对象
      */
     private void play(File file) {
+        if (!canContinue()) {
+            return;
+        }
         try {
             this.playUrl = null;
             this.playFile = file;
@@ -397,10 +420,13 @@ public class MusicPlayer implements Runnable {
         FloatControl gainControl = (FloatControl) this.play.getControl(FloatControl.Type.MASTER_GAIN);
         float minGain = gainControl.getMinimum();
         float maxGain = gainControl.getMaximum();
-        // 人耳对分贝是对数感知: 之前 min*(1-v/100) 是分贝线性, 50~60 音量相当于 -32~-40dB 几乎听不见。
-        // 改用平方曲线把低音量段抬高, 让音量条上的数值接近实际听感
+        // Slider percentages are perceptual volume, as in desktop music
+        // players.  SourceDataLine takes decibels, while perceived loudness is
+        // logarithmic: 50% is roughly -6 dB, not the almost-silent -40 dB
+        // produced by a linear dB interpolation.  Zero remains true mute.
         float t = volume / 100.0f;
-        float gain = maxGain - (maxGain - minGain) * (1 - t) * (1 - t);
+        float gain = t <= 0.0f ? minGain : Math.max(minGain, 20.0f * (float) Math.log10(t));
+        gain = Math.min(maxGain, gain);
         gainControl.setValue(gain);
 
     }
@@ -568,6 +594,11 @@ public class MusicPlayer implements Runnable {
         if (stream != null) {
             try { stream.close(); } catch (IOException ignored) { }
         }
+    }
+
+    /** True only while this player still owns its playback worker. */
+    private boolean canContinue() {
+        return this.notExitFlag && !Thread.currentThread().isInterrupted();
     }
 
     public PlaybackState getPlaybackState() { return playbackState; }
