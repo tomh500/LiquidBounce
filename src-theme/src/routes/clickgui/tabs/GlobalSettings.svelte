@@ -15,6 +15,9 @@
             .filter(({setting}) => setting.valueType === "CONFIGURABLE" || setting.valueType === "TOGGLEABLE") ?? []
     );
 
+    const firstColumnEntries = $derived(settingEntries.slice(0, Math.ceil(settingEntries.length / 2)));
+    const secondColumnEntries = $derived(settingEntries.slice(Math.ceil(settingEntries.length / 2)));
+
     async function fetchGlobalSettings() {
         globalSettings = await getGlobalSettings();
     }
@@ -33,22 +36,34 @@
 
 <ScaledClickGuiContent>
     <WindowPanel title={settingsText("Global Settings", $clientLanguage)} icon="client">
-        <div
-                class="settings-grid"
-                style="--setting-rows: {Math.max(1, Math.ceil(settingEntries.length / 2))}"
-        >
+        <div class="settings-grid">
             {#if globalSettings}
-                {#each settingEntries as entry (entry.setting.name)}
-                    <div class="setting-item">
-                        <ConfigurableSetting
-                                path="clickgui.global"
-                                bind:setting={globalSettings.value[entry.index]}
-                                hideExpandControl={true}
-                                localizeSettings={true}
-                                on:change={updateGlobalSettings}
-                        />
-                    </div>
-                {/each}
+                <div class="settings-column">
+                    {#each firstColumnEntries as entry (entry.setting.name)}
+                        <div class="setting-item">
+                            <ConfigurableSetting
+                                    path="clickgui.global"
+                                    bind:setting={globalSettings.value[entry.index]}
+                                    hideExpandControl={true}
+                                    localizeSettings={true}
+                                    on:change={updateGlobalSettings}
+                            />
+                        </div>
+                    {/each}
+                </div>
+                <div class="settings-column">
+                    {#each secondColumnEntries as entry (entry.setting.name)}
+                        <div class="setting-item">
+                            <ConfigurableSetting
+                                    path="clickgui.global"
+                                    bind:setting={globalSettings.value[entry.index]}
+                                    hideExpandControl={true}
+                                    localizeSettings={true}
+                                    on:change={updateGlobalSettings}
+                            />
+                        </div>
+                    {/each}
+                </div>
             {/if}
         </div>
     </WindowPanel>
@@ -59,8 +74,6 @@
     position: relative;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: repeat(var(--setting-rows), max-content);
-    grid-auto-flow: column;
     column-gap: 25px;
     overflow: visible;
     padding-bottom: 32px;
@@ -80,8 +93,6 @@
   @media (max-width: 900px) {
     .settings-grid {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: none;
-      grid-auto-flow: row;
 
       &::before {
         display: none;
