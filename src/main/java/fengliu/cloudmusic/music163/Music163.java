@@ -142,6 +142,24 @@ public class Music163 {
         return new My(this.api, this.api.POST_API("/api/v1/user/detail/" + json.getAsJsonObject("profile").get("userId").getAsLong(), null));
     }
 
+    /** Loads the optional personal cloud-disk library. Unsupported or
+     * unauthorized accounts are reported to the caller so the UI can hide it. */
+    public java.util.List<Music> cloudMusic() {
+        Map<String, Object> data = new HashMap<>();
+        data.put("limit", 100);
+        data.put("offset", 0);
+        JsonObject json = this.api.POST_API("/api/v1/cloud/get", data);
+        java.util.List<Music> result = new java.util.ArrayList<>();
+        if (!json.has("data") || !json.get("data").isJsonArray()) return result;
+        for (com.google.gson.JsonElement element : json.getAsJsonArray("data")) {
+            JsonObject item = element.getAsJsonObject();
+            JsonObject song = item.has("simpleSong") && item.get("simpleSong").isJsonObject()
+                    ? item.getAsJsonObject("simpleSong") : item;
+            if (song.has("id") && song.has("name")) result.add(new Music(this.api, song, null));
+        }
+        return result;
+    }
+
     /**
      * 获取曲风
      * @param id 曲风 id

@@ -49,7 +49,12 @@ import org.lwjgl.glfw.GLFW
  * LiquidBounce styled settings screen for the merged CloudMusic module. Shows the
  * original malilib configuration options redrawn with the client's renderer.
  */
-class CloudMusicSettingsScreen : Screen("CloudMusic Settings".asPlainText()) {
+class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
+
+    private var windowLeft = 0f
+    private var windowTop = 0f
+    private var windowWidth = 960f
+    private var windowHeight = 640f
 
     private enum class SettingsTab(val label: String) {
         ALL("全部"),
@@ -136,8 +141,8 @@ class CloudMusicSettingsScreen : Screen("CloudMusic Settings".asPlainText()) {
     // ------------------------------------------------------------------
 
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
-        val mouseX = click.x().toFloat()
-        val mouseY = click.y().toFloat()
+        val mouseX = localX(click.x().toFloat())
+        val mouseY = localY(click.y().toFloat())
         if (click.button() != 0) {
             return super.mouseClicked(click, doubled)
         }
@@ -214,7 +219,7 @@ class CloudMusicSettingsScreen : Screen("CloudMusic Settings".asPlainText()) {
             val index = options().indexOf(config)
             val slider = sliderRect(index)
             if (slider != null) {
-                updateInteger(config, click.x().toFloat(), slider)
+                updateInteger(config, localX(click.x().toFloat()), slider)
             }
             return true
         }
@@ -232,7 +237,7 @@ class CloudMusicSettingsScreen : Screen("CloudMusic Settings".asPlainText()) {
         horizontalAmount: Double,
         verticalAmount: Double,
     ): Boolean {
-        if (mouseY in listTop().toDouble()..listBottom().toDouble()) {
+        if (localY(mouseY.toFloat()) in listTop().toDouble()..listBottom().toDouble()) {
             scrollOffset = (scrollOffset - verticalAmount.toFloat() * rowHeight * 0.5f).coerceIn(0f, maxScroll())
             return true
         }
@@ -316,12 +321,17 @@ class CloudMusicSettingsScreen : Screen("CloudMusic Settings".asPlainText()) {
     // ------------------------------------------------------------------
 
     override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
+        updateWindowBounds()
         with(context) {
+            drawRoundedRect(windowLeft, windowTop, windowLeft + windowWidth, windowTop + windowHeight, 8f, CloudMusicGui.BACKGROUND, outlineColor = CloudMusicGui.BORDER)
+            pose().pushMatrix()
+            pose().translate(windowLeft, windowTop)
+            pose().scale(windowWidth / width.toFloat(), windowHeight / height.toFloat())
             drawQuad(0f, 0f, width.toFloat(), height.toFloat(), CloudMusicGui.BACKGROUND)
 
             // Header
             drawCloudMusicText(
-                "CloudMusic 设置", x = 16f, y = 14f,
+                "RikkaMusic 设置", x = 16f, y = 14f,
                 scale = CloudMusicGui.titleScale, color = CloudMusicGui.TEXT,
             )
 
@@ -350,8 +360,22 @@ class CloudMusicSettingsScreen : Screen("CloudMusic Settings".asPlainText()) {
                     drawRow(options()[index], index, rect, mouseX.toFloat(), mouseY.toFloat())
                 }
             }
+            pose().popMatrix()
         }
     }
+
+    override fun extractTransparentBackground(graphics: GuiGraphicsExtractor) { }
+    override fun isPauseScreen() = false
+
+    private fun updateWindowBounds() {
+        windowWidth = minOf(960f, width * 0.92f).coerceAtLeast(520f)
+        windowHeight = minOf(640f, height * 0.88f).coerceAtLeast(380f)
+        windowLeft = (width - windowWidth) / 2f
+        windowTop = (height - windowHeight) / 2f
+    }
+
+    private fun localX(x: Float) = ((x - windowLeft) / windowWidth * width).coerceIn(0f, width.toFloat())
+    private fun localY(y: Float) = ((y - windowTop) / windowHeight * height).coerceIn(0f, height.toFloat())
 
     private fun GuiGraphicsExtractor.drawTabs(mouseX: Float, mouseY: Float) {
         var x = contentX()

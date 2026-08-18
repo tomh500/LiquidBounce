@@ -46,7 +46,15 @@ import org.lwjgl.glfw.GLFW
 /**
  * Merged NetEase Cloud Music GUI, drawn with LiquidBounce's renderer and font.
  */
-class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
+class CloudMusicScreen : Screen("RikkaMusic".asPlainText()) {
+
+    private var windowLeft = 0f
+    private var windowTop = 0f
+    private var windowWidth = 960f
+    private var windowHeight = 640f
+    private var draggingWindow = false
+    private var dragOffsetX = 0f
+    private var dragOffsetY = 0f
 
     private data class LibraryData(
         val nickname: String,
@@ -97,6 +105,7 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
     }
 
     private var library: LibraryData? = null
+    private var cloudDiskTracks: List<IMusic> = emptyList()
     private var loggedIn = false
     private var loading = true
 
@@ -116,16 +125,33 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
 
     private var draggingProgress = false
     private var draggingVolume = false
+    private var showQueue = false
 
     private var started = false
 
     override fun init() {
         super.init()
+        updateWindowBounds()
         if (!started) {
             started = true
             loadLibrary()
         }
     }
+
+    private fun updateWindowBounds() {
+        windowWidth = minOf(960f, width * 0.92f).coerceAtLeast(520f)
+        windowHeight = minOf(640f, height * 0.88f).coerceAtLeast(380f)
+        val savedX = fengliu.cloudmusic.config.Configs.GUI.WINDOW_X.getIntegerValue()
+        val savedY = fengliu.cloudmusic.config.Configs.GUI.WINDOW_Y.getIntegerValue()
+        windowLeft = if (fengliu.cloudmusic.config.Configs.GUI.DRAGGABLE_WINDOW.getBooleanValue() && savedX >= 0) savedX.toFloat() else (width - windowWidth) / 2f
+        windowTop = if (fengliu.cloudmusic.config.Configs.GUI.DRAGGABLE_WINDOW.getBooleanValue() && savedY >= 0) savedY.toFloat() else (height - windowHeight) / 2f
+        windowLeft = windowLeft.coerceIn(0f, (width - windowWidth).coerceAtLeast(0f))
+        windowTop = windowTop.coerceIn(0f, (height - windowHeight).coerceAtLeast(0f))
+    }
+
+    private fun localX(x: Float) = ((x - windowLeft) / windowWidth * width).coerceIn(0f, width.toFloat())
+    private fun localY(y: Float) = ((y - windowTop) / windowHeight * height).coerceIn(0f, height.toFloat())
+    private fun insideWindow(x: Float, y: Float) = x in windowLeft..(windowLeft + windowWidth) && y in windowTop..(windowTop + windowHeight)
 
     // ------------------------------------------------------------------
     // Data loading
@@ -156,6 +182,7 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
                     coverUrl = data.likedCover,
                     tracks = likedMusics,
                 )
+                loadCloudDisk()
             },
             onError = {
                 loading = false
@@ -167,10 +194,22 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
         )
     }
 
+    private fun loadCloudDisk() {
+        CloudMusicAsync.run(
+            job = { MusicCommand.getMusic163().cloudMusic() },
+            onSuccess = { tracks ->
+                cloudDiskTracks = tracks
+                rebuildSidebar()
+            },
+            onError = { cloudDiskTracks = emptyList(); rebuildSidebar() },
+        )
+    }
+
     private fun rebuildSidebar() {
         val rows = mutableListOf<SidebarRow>()
         if (loggedIn) {
             rows += NavRow("我喜欢的音乐", "♥", NAV_LIKED, true)
+            if (cloudDiskTracks.isNotEmpty()) rows += NavRow("我的音乐云盘", "☁", NAV_CLOUD, true)
             rows += SectionRow("创建的歌单")
             library?.playlists?.forEachIndexed { index, playlist ->
                 rows += NavRow(playlist.name, "♪", NAV_PLAYLIST + index, true)
@@ -322,8 +361,26 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
     // ------------------------------------------------------------------
 
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
-        val mouseX = click.x().toFloat()
-        val mouseY = click.y().toFloat()
+        val rawX = click.x().toFloat()
+        val rawY = click.y().toFloat()
+        if (!insideWindow(rawX, rawY)) return true
+        if (click.button() == 0 && fengliu.cloudmusic.config.Configs.GUI.DRAGGABLE_WINDOW.getBooleanValue() && rawY <= windowTop + 30f) {
+            draggingWindow = true
+            dragOffsetX = rawX - windowLeft
+            dragOffsetY = rawY - windowTop
+            return true
+        }
+        val mouseX = localX(rawX)
+        val mouseY = localY(rawY)
+
+        if (gearButtonRect().contains(mouseX, mouseY)) {
+            mc.gui.setScreen(CloudMusicSettingsScreen())
+            return true
+        }
+        if (queueButtonRect().contains(mouseX, mouseY)) {
+            showQueue = !showQueue
+            return true
+        }
 
         if (click.button() != 0) {
             return super.mouseClicked(click, doubled)
@@ -368,6 +425,10 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
                     is NavRow -> {
                         when {
                             row.id == NAV_LIKED -> if (row.enabled) loadLiked()
+                            row.id == NAV_CLOUD -> {
+                                selectedNavId = NAV_CLOUD
+                                content = ContentView.Tracks("我的音乐云盘", "共 ${cloudDiskTracks.size} 首", null, "", cloudDiskTracks)
+                            }
                             row.id >= NAV_PLAYLIST -> {
                                 val index = row.id - NAV_PLAYLIST
                                 library?.playlists?.getOrNull(index)?.let { loadPlaylist(it) }
@@ -436,18 +497,26 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
     }
 
     override fun mouseDragged(click: MouseButtonEvent, offsetX: Double, offsetY: Double): Boolean {
+        if (draggingWindow) {
+            windowLeft = (click.x().toFloat() - dragOffsetX).coerceIn(0f, (width - windowWidth).coerceAtLeast(0f))
+            windowTop = (click.y().toFloat() - dragOffsetY).coerceIn(0f, (height - windowHeight).coerceAtLeast(0f))
+            fengliu.cloudmusic.config.Configs.GUI.WINDOW_X.setIntegerValue(windowLeft.toInt())
+            fengliu.cloudmusic.config.Configs.GUI.WINDOW_Y.setIntegerValue(windowTop.toInt())
+            return true
+        }
         if (draggingProgress) {
-            seekTo(click.x().toFloat())
+            seekTo(localX(click.x().toFloat()))
             return true
         }
         if (draggingVolume) {
-            setVolume(click.x().toFloat())
+            setVolume(localX(click.x().toFloat()))
             return true
         }
         return super.mouseDragged(click, offsetX, offsetY)
     }
 
     override fun mouseReleased(click: MouseButtonEvent): Boolean {
+        draggingWindow = false
         draggingProgress = false
         draggingVolume = false
         return super.mouseReleased(click)
@@ -459,12 +528,15 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
         horizontalAmount: Double,
         verticalAmount: Double,
     ): Boolean {
+        if (!insideWindow(mouseX.toFloat(), mouseY.toFloat())) return true
+        val localMouseX = localX(mouseX.toFloat())
+        val localMouseY = localY(mouseY.toFloat())
         val scroll = verticalAmount.toFloat()
-        if (mouseX <= SIDEBAR_WIDTH.toDouble()) {
+        if (localMouseX <= SIDEBAR_WIDTH.toDouble()) {
             sidebarScroll = (sidebarScroll - scroll * 14f).coerceIn(0f, sidebarMaxScroll())
             return true
         }
-        if (mouseY in contentTop().toDouble()..contentBottom().toDouble()) {
+        if (localMouseY in contentTop().toDouble()..contentBottom().toDouble()) {
             scrollOffset = (scrollOffset - scroll * ROW_HEIGHT * 0.6f).coerceIn(0f, maxScroll())
             return true
         }
@@ -523,17 +595,26 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
     // ------------------------------------------------------------------
 
     override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, delta: Float) {
+        context.drawRoundedRect(windowLeft, windowTop, windowLeft + windowWidth, windowTop + windowHeight, 8f, CloudMusicGui.BACKGROUND, outlineColor = CloudMusicGui.BORDER)
+        context.pose().pushMatrix()
+        context.pose().translate(windowLeft, windowTop)
+        context.pose().scale(windowWidth / width.toFloat(), windowHeight / height.toFloat())
         context.drawQuad(0f, 0f, width.toFloat(), height.toFloat(), CloudMusicGui.BACKGROUND)
-        context.drawSidebar(mouseX.toFloat(), mouseY.toFloat())
-        context.drawContent(mouseX.toFloat(), mouseY.toFloat())
-        context.drawPlayerBar(mouseX.toFloat(), mouseY.toFloat())
+        context.drawSidebar(localX(mouseX.toFloat()), localY(mouseY.toFloat()))
+        context.drawContent(localX(mouseX.toFloat()), localY(mouseY.toFloat()))
+        context.drawPlayerBar(localX(mouseX.toFloat()), localY(mouseY.toFloat()))
+        if (showQueue) context.drawQueue()
+        context.pose().popMatrix()
     }
+
+    override fun extractTransparentBackground(graphics: GuiGraphicsExtractor) { }
+    override fun isPauseScreen() = false
 
     private fun GuiGraphicsExtractor.drawSidebar(mouseX: Float, mouseY: Float) {
         drawQuad(0f, 0f, SIDEBAR_WIDTH, height.toFloat(), CloudMusicGui.SIDEBAR)
 
         drawCloudMusicText(
-            "CloudMusic", x = 16f, y = 14f,
+            "RikkaMusic", x = 16f, y = 14f,
             scale = CloudMusicGui.titleScale, color = CloudMusicGui.TEXT,
         )
         drawCloudMusicText(
@@ -618,6 +699,9 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
     }
 
     private fun GuiGraphicsExtractor.drawContent(mouseX: Float, mouseY: Float) {
+        val gear = gearButtonRect()
+        drawRoundedRect(gear.x1, gear.y1, gear.x2, gear.y2, 6f, if (gear.contains(mouseX, mouseY)) CloudMusicGui.HOVER else CloudMusicGui.ACTIVE, outlineColor = CloudMusicGui.BORDER)
+        drawCloudMusicText("G", gear.x1 + gear.width() / 2f, gear.y1 + 9f, scale = CloudMusicGui.headerScale, color = CloudMusicGui.TEXT_DIM, horizontalAnchor = HorizontalAnchor.CENTER)
         drawSearchBar(mouseX, mouseY)
 
         when (val view = content) {
@@ -814,6 +898,9 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
             accent = true,
         )
         drawPlayerControlButton(nextButtonRect(), PlayerIcon.NEXT, mouseX, mouseY)
+        val queueButton = queueButtonRect()
+        drawRoundedRect(queueButton.x1, queueButton.y1, queueButton.x2, queueButton.y2, 5f, if (showQueue) CloudMusicGui.ACCENT_SUBTLE else Color4b.TRANSPARENT, outlineColor = CloudMusicGui.BORDER)
+        drawCloudMusicText("≡", queueButton.x1 + queueButton.width() / 2f, queueButton.y1 + 7f, scale = CloudMusicGui.headerScale, color = CloudMusicGui.TEXT_DIM, horizontalAnchor = HorizontalAnchor.CENTER)
 
         val progressRect = progressBarRect()
         if (progressRect != null) {
@@ -856,6 +943,21 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
                 x = volumeRect.x2 + 4f, y = volumeRect.y1 - 14f,
                 scale = CloudMusicGui.smallScale, color = CloudMusicGui.TEXT_DIM,
             )
+        }
+    }
+
+    private fun GuiGraphicsExtractor.drawQueue() {
+        val left = width - 330f
+        val top = 58f
+        drawRoundedRect(left, top, width - 12f, height - PLAYER_HEIGHT - 12f, 8f, CloudMusicGui.SIDEBAR, outlineColor = CloudMusicGui.BORDER)
+        drawCloudMusicText("播放列表", left + 16f, top + 14f, scale = CloudMusicGui.headerScale, color = CloudMusicGui.TEXT)
+        val current = MusicCommand.getPlayer().getPlayingMusic()?.getId()
+        currentQueue.take(12).forEachIndexed { index, track ->
+            val y = top + 52f + index * 32f
+            val selected = track.getId() == current
+            if (selected) drawQuad(left + 8f, y - 4f, width - 20f, y + 24f, CloudMusicGui.ACCENT_SUBTLE)
+            drawCloudMusicText(CloudMusicGui.truncate(track.getDisplayName(), 230f), left + 16f, y, scale = CloudMusicGui.smallScale, color = if (selected) CloudMusicGui.ACCENT else CloudMusicGui.TEXT_DIM)
+            drawCloudMusicText(track.getDurationToString(), width - 22f, y, scale = CloudMusicGui.smallScale, color = CloudMusicGui.TEXT_FAINT, horizontalAnchor = HorizontalAnchor.END)
         }
     }
 
@@ -921,6 +1023,8 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
     private fun settingsButtonRect(): Quad =
         Quad(10f, height - 50f, SIDEBAR_WIDTH - 10f, height - 14f)
 
+    private fun gearButtonRect(): Quad = Quad(width - 58f, 12f, width - 18f, 48f)
+
     private fun prevButtonRect(): Quad {
         val cy = height - PLAYER_HEIGHT / 2f
         return Quad(width / 2f - 74f, cy - 14f, width / 2f - 46f, cy + 14f)
@@ -935,6 +1039,8 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
         val cy = height - PLAYER_HEIGHT / 2f
         return Quad(width / 2f + 46f, cy - 14f, width / 2f + 74f, cy + 14f)
     }
+
+    private fun queueButtonRect(): Quad = Quad(width - 112f, height - PLAYER_HEIGHT + 18f, width - 78f, height - 18f)
 
     private fun progressBarRect(): Quad? {
         if (width < 640) {
@@ -983,6 +1089,7 @@ class CloudMusicScreen : Screen("CloudMusic".asPlainText()) {
         const val SIDEBAR_HEADER_HEIGHT = 70f
         const val BOTTOM_SECTION_HEIGHT = 96f
         const val NAV_LIKED = 0
+        const val NAV_CLOUD = -1
         const val NAV_PLAYLIST = 1000
     }
 }

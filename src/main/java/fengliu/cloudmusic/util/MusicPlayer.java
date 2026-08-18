@@ -26,11 +26,15 @@ import java.util.List;
  * 歌曲播放对象
  */
 public class MusicPlayer implements Runnable {
+    public enum PlaybackState { STOPPED, LOADING, PLAYING, PAUSED, ENDED, ERROR }
     private static final Logger LOGGER = LoggerFactory.getLogger("cloudmusic");
     private final Minecraft client = Minecraft.getInstance();
     protected final List<IMusic> playList;
     private IMusic playingMusic = null;
-    private SourceDataLine play;
+    private volatile SourceDataLine play;
+    private volatile AudioInputStream activeStream;
+    private volatile Thread playbackThread;
+    private volatile PlaybackState playbackState = PlaybackState.STOPPED;
     private Lyric lyric;
     protected int playIn = 0;
     protected int playListSize;
@@ -110,11 +114,17 @@ public class MusicPlayer implements Runnable {
         this.start();
     }
 
-public void start() {
+    public synchronized void start() {
+        if (playbackThread != null && playbackThread.isAlive()) {
+            return;
+        }
+        this.notExitFlag = true;
+        this.loopPlayIn = true;
         LOGGER.info("[CloudMusic][Player] 启动播放线程");
         Thread thread = new Thread(this);
         thread.setDaemon(true);
         thread.setName("CloudMusicPlayer thread");
+        this.playbackThread = thread;
         thread.start();
     }
 
@@ -122,6 +132,7 @@ public void start() {
      * 播放歌曲
      */
     protected void playMusic() {
+        this.playbackState = PlaybackState.LOADING;
         LOGGER.info("[CloudMusic][Player] 开始播放曲目, 播放列表大小={}", this.playListSize);
         // 开始播放的时候停止所有的声音(只会停止一瞬间)
         client.getSoundManager().stop();
@@ -137,6 +148,7 @@ public void start() {
                 client.execute(() -> client.player.sendSystemMessage(Component.literal(err.getMessage())));
             }
             this.stop();
+            this.playbackState = PlaybackState.ERROR;
             return;
         }
 
@@ -186,6 +198,7 @@ public void start() {
      * 播放歌曲
      */
     private void play(AudioInputStream audioInputStream) throws IOException, InterruptedException, LineUnavailableException {
+        this.activeStream = audioInputStream;
         AudioFormat audioFormat = audioInputStream.getFormat();
 
         DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
@@ -203,6 +216,7 @@ public void start() {
         byte[] tempBuff = new byte[1024];
 
         this.load = true;
+        this.playbackState = PlaybackState.PLAYING;
         this.startPlayingTime = System.currentTimeMillis();
         while ((count = audioInputStream.read(tempBuff, 0, tempBuff.length)) != -1) {
             synchronized (this) {
@@ -244,6 +258,11 @@ public void start() {
         }
 
         this.playingProgress = 0;
+        if (this.playbackState != PlaybackState.PAUSED && this.playbackState != PlaybackState.STOPPED) {
+            this.playbackState = PlaybackState.ENDED;
+        }
+        try { audioInputStream.close(); } catch (IOException ignored) { }
+        this.activeStream = null;
         if (lyric != null) {
             this.lyric.exit();
         }
@@ -420,8 +439,7 @@ public void start() {
             return;
         }
 
-        this.play.stop();
-        this.play.close();
+        closeOutput();
     }
 
     /**
@@ -467,7 +485,13 @@ public void start() {
 
         this.loopPlayIn = false;
         this.notExitFlag = false;
-        next();
+        synchronized (this) {
+            this.load = false;
+            notifyAll();
+        }
+        closeOutput();
+        Thread thread = this.playbackThread;
+        if (thread != null) thread.interrupt();
     }
 
     /**
@@ -484,6 +508,7 @@ public void start() {
             notifyAll();
         }
         this.loopPlayIn = false;
+        this.playbackState = PlaybackState.PAUSED;
     }
 
     /**
@@ -505,6 +530,9 @@ public void start() {
      * 继续播放
      */
     public void continues() {
+        if (this.playingMusic == null || !this.notExitFlag) {
+            return;
+        }
         if (this.lyric != null) {
             this.lyric.continues();
         }
@@ -515,7 +543,25 @@ public void start() {
             notifyAll();
         }
         this.loopPlayIn = true;
+        this.playbackState = PlaybackState.PLAYING;
     }
+
+    private void closeOutput() {
+        SourceDataLine line = this.play;
+        this.play = null;
+        if (line != null) {
+            try { line.stop(); } catch (Exception ignored) { }
+            try { line.flush(); } catch (Exception ignored) { }
+            try { line.close(); } catch (Exception ignored) { }
+        }
+        AudioInputStream stream = this.activeStream;
+        this.activeStream = null;
+        if (stream != null) {
+            try { stream.close(); } catch (IOException ignored) { }
+        }
+    }
+
+    public PlaybackState getPlaybackState() { return playbackState; }
 
     /**
      * 从播放列表中删除当前播放歌曲

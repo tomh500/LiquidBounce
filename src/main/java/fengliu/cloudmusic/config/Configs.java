@@ -23,6 +23,9 @@ public class Configs implements IConfigHandler {
     private static final String CONFIG_FILE_NAME = CloudMusicClient.MOD_ID + ".json";
 
     public static class ALL {
+        public static final ConfigBoolean DRAGGABLE_WINDOW = ConfigUtil.addConfigBoolean("gui.draggable.window", false);
+        public static final ConfigInteger WINDOW_X = ConfigUtil.addConfigInteger("gui.window.x", -1, -1, 10000);
+        public static final ConfigInteger WINDOW_Y = ConfigUtil.addConfigInteger("gui.window.y", -1, -1, 10000);
         public static final ConfigInteger VOLUME = ConfigUtil.addConfigInteger("volume", 80, 0, 100);
         public static final ConfigBoolean PLAY_URL = ConfigUtil.addConfigBoolean("play.url");
         public static final ConfigBooleanHotkeyed PLAY_LOOP = ConfigUtil.addConfigBooleanHotkeyed("play.loop");
@@ -84,6 +87,9 @@ public class Configs implements IConfigHandler {
         public static final ConfigBoolean NEARBY_MONSTER_IS_SURVIVAL = ConfigUtil.addConfigBoolean("nearby.monster.is.survival", true);
 
         public static final ImmutableList<IConfigBase> OPTIONS = ImmutableList.of(
+                DRAGGABLE_WINDOW,
+                WINDOW_X,
+                WINDOW_Y,
                 VOLUME,
                 PLAY_URL,
                 PLAY_LOOP,
@@ -182,6 +188,9 @@ public class Configs implements IConfigHandler {
     }
 
     public static class GUI {
+        public static final ConfigBoolean DRAGGABLE_WINDOW = ALL.DRAGGABLE_WINDOW;
+        public static final ConfigInteger WINDOW_X = ALL.WINDOW_X;
+        public static final ConfigInteger WINDOW_Y = ALL.WINDOW_Y;
         public static final ConfigBooleanHotkeyed MUSIC_INFO = ALL.MUSIC_INFO;
         public static final ConfigOptionList LYRIC_STYLE = ALL.LYRIC_STYLE;
         public static final ConfigBoolean STOP_PLAY_SHOW_UI = ALL.STOP_PLAY_SHOW_UI;
@@ -203,6 +212,9 @@ public class Configs implements IConfigHandler {
         public static final ConfigInteger LYRIC_Y = ALL.LYRIC_Y;
 
         public static final ImmutableList<IConfigBase> OPTIONS = ImmutableList.of(
+                DRAGGABLE_WINDOW,
+                WINDOW_X,
+                WINDOW_Y,
                 MUSIC_INFO,
                 LYRIC_STYLE,
                 STOP_PLAY_SHOW_UI,

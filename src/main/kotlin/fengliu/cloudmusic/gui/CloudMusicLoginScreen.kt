@@ -37,7 +37,7 @@ import org.lwjgl.glfw.GLFW
 /**
  * QR code login screen for the merged CloudMusic module.
  */
-class CloudMusicLoginScreen : Screen("网易云音乐登录".asPlainText()) {
+class CloudMusicLoginScreen : Screen("RikkaMusic 登录".asPlainText()) {
 
     private var started = false
     private var status = "正在获取二维码…"
@@ -122,7 +122,7 @@ class CloudMusicLoginScreen : Screen("网易云音乐登录".asPlainText()) {
             )
 
             drawCloudMusicText(
-                "网易云音乐登录", x = width / 2f, y = height / 2f - 160f,
+                "RikkaMusic 登录", x = width / 2f, y = height / 2f - 160f,
                 scale = CloudMusicGui.titleScale, color = CloudMusicGui.TEXT,
                 horizontalAnchor = HorizontalAnchor.CENTER,
             )
