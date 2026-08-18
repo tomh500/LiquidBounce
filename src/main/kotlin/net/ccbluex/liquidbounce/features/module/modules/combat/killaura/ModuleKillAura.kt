@@ -102,7 +102,7 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
     val clicker = tree(KillAuraClicker).also { it.visibleWhen { isLiquidBounceMode } }
     val range = tree(KillAuraRange).also { it.visibleWhen { isLiquidBounceMode } }
     val targetTracker = tree(KillAuraTargetTracker).also {
-        it.visibleWhen { isLiquidBounceMode || modes.activeMode === Vape }
+        it.visibleWhen { isLiquidBounceMode || modes.activeMode === Vape || modes.activeMode === Silent }
     }
 
     // Rotation

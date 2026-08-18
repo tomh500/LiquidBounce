@@ -65,8 +65,9 @@
   .content {
     flex: 1 1 auto;
     min-height: 0;
+    box-sizing: border-box;
     padding: 12px 22px 18px;
-    overflow-y: auto;
+    overflow-y: scroll;
     overscroll-behavior: contain;
   }
 </style>

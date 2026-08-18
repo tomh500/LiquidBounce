@@ -14,10 +14,21 @@
 
     let errorValue: string | null = null;
     let timeoutId: ReturnType<typeof setTimeout>;
+    let confirmXuanRikka = false;
+    const isCombatTargetSelector = cSetting.name === "Combat" && path.includes("clickgui.global.Targets");
 
     const dispatch = createEventDispatcher();
 
     function handleChange(v: string) {
+        if (isCombatTargetSelector && v === "XuanRikka" && !cSetting.value.includes(v)) {
+            confirmXuanRikka = true;
+            return;
+        }
+
+        applyChange(v);
+    }
+
+    function applyChange(v: string) {
         if (cSetting.value.includes(v)) {
             const filtered = cSetting.value.filter(item => item !== v);
 
@@ -38,6 +49,11 @@
 
         setting = {...cSetting};
         dispatch("change");
+    }
+
+    function confirmXuanRikkaSelection() {
+        confirmXuanRikka = false;
+        applyChange("XuanRikka");
     }
 
     let expanded = localStorage.getItem(thisPath) === "true";
@@ -75,6 +91,19 @@
         </div>
     {/if}
 </div>
+
+{#if confirmXuanRikka}
+    <div class="confirmation-backdrop" role="presentation">
+        <div class="confirmation" role="dialog" aria-modal="true" tabindex="-1">
+            <div class="confirmation-title">Dangerous target</div>
+            <div class="confirmation-message">确认要包含轩酱吗？</div>
+            <div class="confirmation-actions">
+                <button type="button" class="cancel" on:click={() => confirmXuanRikka = false}>取消</button>
+                <button type="button" class="confirm" on:click={confirmXuanRikkaSelection}>确定</button>
+            </div>
+        </div>
+    </div>
+{/if}
 
 <style lang="scss">
 
@@ -140,5 +169,59 @@
     flex-wrap: wrap;
     gap: 7px;
     font-size: 12px;
+  }
+
+  .confirmation-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10000000000;
+    display: grid;
+    place-items: center;
+    background: rgba(35, 0, 0, 0.58);
+  }
+
+  .confirmation {
+    width: min(340px, 80vw);
+    padding: 18px;
+    border: 2px solid #d94444;
+    border-radius: 5px;
+    background: #291414;
+    color: #fff1f1;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+  }
+
+  .confirmation-title {
+    color: #ff7070;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .confirmation-message {
+    margin-top: 12px;
+    font-size: 13px;
+  }
+
+  .confirmation-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .confirmation-actions button {
+    border: 1px solid #8f3a3a;
+    border-radius: 3px;
+    padding: 6px 14px;
+    cursor: pointer;
+    color: #fff1f1;
+  }
+
+  .confirmation-actions .cancel {
+    background: #452121;
+  }
+
+  .confirmation-actions .confirm {
+    background: #b52f3b;
+    border-color: #ff7070;
   }
 </style>

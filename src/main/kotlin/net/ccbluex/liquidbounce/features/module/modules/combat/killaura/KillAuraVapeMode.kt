@@ -25,9 +25,7 @@ import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleRikkaKAHelp
 import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.features.KillAuraAutoBlock
 import net.ccbluex.liquidbounce.utils.block.SwingMode
 import net.ccbluex.liquidbounce.utils.collection.itemSortedSetOf
-import net.ccbluex.liquidbounce.utils.combat.Targets
 import net.ccbluex.liquidbounce.utils.combat.attackEntity
-import net.ccbluex.liquidbounce.utils.combat.shouldBeAttacked
 import net.ccbluex.liquidbounce.utils.entity.armorItems
 import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
 import net.ccbluex.liquidbounce.utils.item.armorValue
@@ -46,11 +44,11 @@ import kotlin.random.Random
 internal const val RANGE_INCREMENT = 0.1f
 
 /**
- * Vape Blatant KillAura mode. Settings and tick logic are isolated here so upstream
+ * PurePacket KillAura mode. Settings and tick logic are isolated here so upstream
  * KillAura changes do not collide with the Vape-compatible implementation.
  */
 @Suppress("MagicNumber")
-internal object Vape : Mode("Vape") {
+internal object Vape : Mode("PurePacket") {
     override val parent: ModeValueGroup<Mode>
         get() = ModuleKillAura.modes
 
@@ -60,7 +58,9 @@ internal object Vape : Mode("Vape") {
 
     override fun enable() = ModuleKillAura.resetAlternativeState()
 
+    val cooldown by boolean("Cooldown", false)
     val attackRate by intRange("AttacksPerSecond", 6..13, 1..20, "attacks")
+        .visibleWhen { !cooldown }
     val swingRangeValue = float("SwingRange", 4f, 0f..6f, "blocks")
     val swingRange by swingRangeValue
     val attackRangeValue = float("AttackRange", 3.5f, 0f..6f, "blocks")
@@ -71,7 +71,6 @@ internal object Vape : Mode("Vape") {
     val disableOnDeath by boolean("DisableOnDeath", false)
     val requireMouseDown by boolean("RequireMouseDown", false)
     val guiCheck by boolean("GuiCheck", true)
-    val targets by multiEnumChoice<Targets>("Targets", Targets.PLAYERS)
     val ignoreNaked by boolean("IgnoreNaked", false)
     val ignoreInvisible by boolean("IgnoreInvisible", false)
     val ignoreBehindWalls by boolean("IgnoreBehindWalls", false)
@@ -130,11 +129,11 @@ internal fun ModuleKillAura.runVapeTick() {
         return
     }
 
-    // Vape keeps its attack timing and ranges, but shares LB's Target selector for types, FOV and priority.
+    // All modes share LB's target selector for target types, FOV, priority and anti-bot filtering.
     val targets = ModuleRikkaKAHelper.killAuraTarget?.let(::listOf) ?: targetTracker.targets()
         .asSequence()
         .filter {
-            isValidVapeTarget(it, Vape.targets, Vape.ignoreNaked, Vape.ignoreInvisible, Vape.ignoreBehindWalls)
+            isValidVapeTarget(it, Vape.ignoreNaked, Vape.ignoreInvisible, Vape.ignoreBehindWalls)
         }
         .filter { player.distanceTo(it) <= Vape.attackRange }
         .filter { vapeYawAngle(it) <= Vape.maxAngle.toInt() / 2 }
@@ -143,9 +142,9 @@ internal fun ModuleKillAura.runVapeTick() {
         .toList()
 
     targetTracker.target = targets.firstOrNull()
-    val clickReady = System.currentTimeMillis() - KillAuraVapeState.lastClickAt >=
+    val clickReady = Vape.cooldown || System.currentTimeMillis() - KillAuraVapeState.lastClickAt >=
         KillAuraVapeState.clickDelay.calculateNextDelayMillis(Vape.attackRate)
-    if (targets.isEmpty() || !clickReady) {
+    if (targets.isEmpty() || !clickReady || Vape.cooldown && player.getAttackStrengthScale(0f) < 1f) {
         return
     }
 
@@ -159,7 +158,9 @@ internal fun ModuleKillAura.runVapeTick() {
         swung = true
     }
 
-    KillAuraVapeState.lastClickAt = System.currentTimeMillis()
+    if (!Vape.cooldown) {
+        KillAuraVapeState.lastClickAt = System.currentTimeMillis()
+    }
 }
 
 /**
@@ -244,17 +245,11 @@ internal fun ModuleKillAura.vapeEquipmentValue(target: Player): Double {
 
 internal fun ModuleKillAura.isValidVapeTarget(
     entity: LivingEntity,
-    targets: Set<Targets>,
     ignoreNaked: Boolean,
     ignoreInvisible: Boolean,
     ignoreBehindWalls: Boolean,
 ): Boolean {
     if (entity === player || entity.isRemoved || !entity.isAlive) return false
-    // Vape's EntityTargetFilterValue has no invisibility or sleeping filters, so both are
-    // valid targets by default. LB's Targets set requires INVISIBLE/SLEEPING to allow them,
-    // mirror Vape's defaults here while keeping the tag system (AntiBot, TargetLock, friends).
-    val effectiveTargets = if (ignoreInvisible) targets else targets + Targets.INVISIBLE + Targets.SLEEPING
-    if (!entity.shouldBeAttacked(effectiveTargets)) return false
     if (ignoreNaked && entity is Player && entity.armorValue == 0) return false
     if (ignoreInvisible && entity.isInvisible) return false
     return !ignoreBehindWalls || player.hasLineOfSight(entity)

@@ -44,6 +44,7 @@ object GlobalSettingsTarget : ValueGroup(
     val visualChoices = multiEnumChoice("Visual",
         default = enumSetOf(
             Targets.PLAYERS,
+            Targets.XUAN_RIKKA,
             Targets.HOSTILE,
             Targets.ANGERABLE,
             Targets.WATER_CREATURE,

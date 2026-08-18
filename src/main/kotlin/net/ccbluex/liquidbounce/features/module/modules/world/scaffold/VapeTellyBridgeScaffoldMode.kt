@@ -73,7 +73,7 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
             VapeScaffoldController.offset(activationAnchor, -1, direction),
             lateralOffset = 0.0,
         )
-        submitMovementTask(computeTargetPosition(movementAnchor), waitForGround = true)
+        submitMovementTask(computeTargetPosition(movementAnchor), waitForGround = false)
         manualActivationComplete = true
     }
 
@@ -209,7 +209,7 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
 
         if (bridgeLevel == 1 && consecutiveHeightIncreases >= randomHeightIncreaseThreshold()) {
             if (ModuleScaffold.vapeYIncrease == 0 && !isAxisMotionBelowThreshold()) {
-                submitMovementTask(computeMovementTarget(initialMove = false), waitForGround = true)
+                submitMovementTask(computeMovementTarget(initialMove = false), waitForGround = false)
                 repeatLastPathPosition(5)
                 wasAirborne = false
                 return
@@ -221,7 +221,7 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
                 VapeScaffoldController.offset(lastPosition, 1, direction),
                 lateralOffset = 0.0,
             )
-            submitMovementTask(computeTargetPosition(transitionTarget), waitForGround = true)
+            submitMovementTask(computeTargetPosition(transitionTarget), waitForGround = false)
             repeatLastPathPosition(1)
             updatePointAimTarget(force = true)
             return
@@ -230,11 +230,11 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
         if (bridgeLevel == 0) {
             VapeScaffoldController.resetRotationIntegrator()
             fixedRotation = computeBridgeRotation()
-            submitMovementTask(computeMovementTarget(initialMove = true), waitForGround = true)
+            submitMovementTask(computeMovementTarget(initialMove = true), waitForGround = false)
             repeatLastPathPosition(1)
             consecutiveHeightIncreases = 0
         } else {
-            submitMovementTask(computeMovementTarget(initialMove = false), waitForGround = true)
+            submitMovementTask(computeMovementTarget(initialMove = false), waitForGround = false)
             repeatLastPathPosition(4)
             consecutiveHeightIncreases++
         }

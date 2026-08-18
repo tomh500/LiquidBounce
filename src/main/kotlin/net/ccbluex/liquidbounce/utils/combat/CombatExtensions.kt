@@ -91,6 +91,7 @@ enum class EntityTargetClassification {
 enum class Targets(override val tag: String) : Tagged {
     SELF("Self"),
     PLAYERS("Players"),
+    XUAN_RIKKA("XuanRikka"),
     HOSTILE("Hostile"),
     ANGERABLE("Angerable"),
     WATER_CREATURE("WaterCreature"),
@@ -149,6 +150,7 @@ private fun Set<Targets>.isInteresting(suspect: Entity, info: EntityTargetingInf
     return when (suspect) {
         is Player -> when {
             suspect === mc.player -> false
+            suspect.name.string == "XuanRikka" -> Targets.XUAN_RIKKA in this
             // Check if enemy is sleeping (or ignore being sleeping)
             suspect.isSleeping && Targets.SLEEPING !in this -> false
             // Allow targeting friends even when Players is disabled, as long as Friends is enabled

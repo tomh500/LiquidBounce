@@ -33,9 +33,7 @@ import net.ccbluex.liquidbounce.utils.aiming.features.processors.RotationProcess
 import net.ccbluex.liquidbounce.utils.aiming.utils.RotationUtil
 import net.ccbluex.liquidbounce.utils.block.SwingMode
 import net.ccbluex.liquidbounce.utils.collection.itemSortedSetOf
-import net.ccbluex.liquidbounce.utils.combat.Targets
 import net.ccbluex.liquidbounce.utils.combat.attackEntity
-import net.ccbluex.liquidbounce.utils.combat.shouldBeAttacked
 import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.math.firstHit
@@ -95,7 +93,6 @@ internal object Silent : Mode("Silent") {
     val blockBreakItems by items("BlockBreakingItems", defaultBlockBreakItems())
         .visibleWhen { breakBlocks && breakBlocksWhitelist }
     val requireMouseDown by boolean("RequireMouseDown", false)
-    val targets by multiEnumChoice<Targets>("Targets", Targets.PLAYERS)
     val ignoreNaked by boolean("IgnoreNaked", false)
     val ignoreInvisible by boolean("IgnoreInvisible", false)
     val ignoreBehindWalls by boolean("IgnoreBehindWalls", false)
@@ -272,9 +269,8 @@ internal fun ModuleKillAura.updateSilentTargetAndRotation() {
         baseComparator
     }
 
-    val target = ModuleRikkaKAHelper.killAuraTarget ?: world.entitiesForRendering().asSequence()
-        .filterIsInstance<LivingEntity>()
-        .filter { isValidVapeTarget(it, Silent.targets, Silent.ignoreNaked,
+    val target = ModuleRikkaKAHelper.killAuraTarget ?: targetTracker.targets().asSequence()
+        .filter { isValidVapeTarget(it, Silent.ignoreNaked,
             Silent.ignoreInvisible, Silent.ignoreBehindWalls) }
         .filter { isSilentInRange(it, interactionRange) }
         .filter { vapeYawAngle(it) <= Silent.maxAngle.toInt() / 2 }
