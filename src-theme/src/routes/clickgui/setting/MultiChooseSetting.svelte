@@ -63,6 +63,12 @@
     function toggleExpanded() {
         expanded = !expanded;
     }
+
+    function formatChoice(choice: string) {
+        return choice === "XuanRikka" || !$spaceSeperatedNames
+            ? choice
+            : convertToSpacedString(choice);
+    }
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -85,7 +91,7 @@
                             handleChange(choice)
                         }}
                 >
-                    {$spaceSeperatedNames ? convertToSpacedString(choice) : choice}
+                    {formatChoice(choice)}
                 </div>
             {/each}
         </div>

@@ -50,7 +50,7 @@ object GlobalSettingsTarget : ValueGroup(
             Targets.WATER_CREATURE,
             Targets.INVISIBLE,
         ),
-        choices = enumSetAllOf(),
+        choices = enumSetAllOf<Targets>(),
     )
 
     inline val combat: EnumSet<Targets> get() = combatChoices.get() as EnumSet
