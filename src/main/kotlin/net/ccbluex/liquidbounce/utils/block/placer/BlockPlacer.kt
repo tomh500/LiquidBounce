@@ -475,5 +475,3 @@ class BlockPlacer(
         USING_ITEM("UsingItem")
     }
 }
-
-data class VapeBlockPlacerRotation(val speed: Float, val silentAim: Boolean)

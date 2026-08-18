@@ -24,12 +24,8 @@ import net.ccbluex.liquidbounce.event.EventManager
 import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.events.BlockCountChangeEvent
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
-import net.ccbluex.liquidbounce.event.events.KeybindIsPressedEvent
-import net.ccbluex.liquidbounce.event.events.MouseRotationEvent
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
-import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
-import net.ccbluex.liquidbounce.event.events.SprintEvent
 import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
@@ -85,7 +81,6 @@ import net.ccbluex.liquidbounce.utils.block.targetfinding.BlockPlacementTarget
 import net.ccbluex.liquidbounce.utils.clicking.Clicker
 import net.ccbluex.liquidbounce.utils.client.SilentHotbar
 import net.ccbluex.liquidbounce.utils.client.Timer
-import net.ccbluex.liquidbounce.utils.collection.blockSortedSetOf
 import net.ccbluex.liquidbounce.utils.entity.moving
 import net.ccbluex.liquidbounce.utils.entity.rotation
 import net.ccbluex.liquidbounce.utils.item.PreferAverageHardBlocks
@@ -110,7 +105,6 @@ import net.ccbluex.liquidbounce.utils.sorting.ComparatorChain
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.PosRot
-import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.Pose
 import net.minecraft.world.item.BlockItem
@@ -119,7 +113,6 @@ import net.minecraft.world.item.Items
 import net.minecraft.world.item.context.BlockPlaceContext
 import net.minecraft.world.item.context.UseOnContext
 import net.minecraft.world.level.block.Block
-import net.minecraft.world.level.block.Blocks
 import net.minecraft.world.phys.BlockHitResult
 import net.minecraft.world.phys.HitResult
 import kotlin.math.abs
@@ -141,84 +134,16 @@ object ModuleScaffold : ClientModule(
         .onChanged { reset() }
     internal val isLiquidBounceMode get() = mode == ScaffoldImplementation.NORMAL
     internal val isTellyBridgeMode get() = mode == ScaffoldImplementation.TELLY_BRIDGE
-    private val vapeBlockCount by boolean("BlockCount", false)
-        .visibleWhen { !isLiquidBounceMode }
-    internal val vapePitchCheck by boolean("PitchCheck", false)
-        .visibleWhen { !isLiquidBounceMode }
-    internal val vapePitch by float("Pitch", 45f, 0f..90f)
-        .visibleWhen { !isLiquidBounceMode && vapePitchCheck }
-    internal val vapeBlacklistEnabled by boolean("Blacklist", true)
-        .visibleWhen { !isLiquidBounceMode }
-    internal val vapeBlacklist by blocks(
-        "BlockBlacklist",
-        blockSortedSetOf(
-            Blocks.DISPENSER,
-            Blocks.NOTE_BLOCK,
-            Blocks.COBWEB,
-            Blocks.TNT,
-            Blocks.SPAWNER,
-            Blocks.ENCHANTING_TABLE,
-            Blocks.OAK_FENCE,
-            Blocks.JUKEBOX,
-            Blocks.MELON,
-            Blocks.COMMAND_BLOCK,
-            Blocks.ANVIL,
-            Blocks.GLASS_PANE,
-            Blocks.IRON_BARS,
-            Blocks.ICE,
-            Blocks.PACKED_ICE,
-            Blocks.REDSTONE_BLOCK,
-            Blocks.GOLD_ORE,
-            Blocks.IRON_ORE,
-            Blocks.COAL_ORE,
-            Blocks.LAPIS_ORE,
-            Blocks.REDSTONE_ORE,
-            Blocks.ACACIA_STAIRS,
-            Blocks.OAK_PRESSURE_PLATE,
-            Blocks.STONE_PRESSURE_PLATE,
-            Blocks.BEACON,
-            Blocks.OAK_SAPLING,
-            Blocks.POWERED_RAIL,
-            Blocks.DETECTOR_RAIL,
-            Blocks.SHORT_GRASS,
-            Blocks.DEAD_BUSH,
-            Blocks.DANDELION,
-            Blocks.POPPY,
-            Blocks.BROWN_MUSHROOM,
-            Blocks.RED_MUSHROOM,
-            Blocks.LADDER,
-            Blocks.RAIL,
-            Blocks.OAK_TRAPDOOR,
-            Blocks.LILY_PAD,
-            Blocks.TRIPWIRE_HOOK,
-            Blocks.SNOW,
-            Blocks.TRAPPED_CHEST,
-            Blocks.DAYLIGHT_DETECTOR,
-            Blocks.HOPPER,
-            Blocks.CHEST,
-            Blocks.TORCH,
-            Blocks.LEVER,
-            Blocks.REDSTONE_TORCH,
-            Blocks.STONE_BUTTON,
-            Blocks.OAK_BUTTON,
-            Blocks.CACTUS,
-        )
-            .apply {
-                addAll(Blocks.STAINED_GLASS_PANE.asList())
-                addAll(Blocks.CARPET.asList())
-            }
-    )
-        .visibleWhen { !isLiquidBounceMode && vapeBlacklistEnabled }
-    internal val vapeWhitelistEnabled by boolean("Whitelist", false)
-        .visibleWhen { !isLiquidBounceMode }
-    internal val vapeWhitelist by blocks("BlockWhitelist", blockSortedSetOf())
-        .visibleWhen { !isLiquidBounceMode && vapeWhitelistEnabled }
-    internal val vapeActivationBlocks by int("ActivationBlocks", 2, 1..4)
-        .visibleWhen { !isLiquidBounceMode }
-    internal val vapeRequireRightClick by boolean("RequireRightClick", true)
-        .visibleWhen { isTellyBridgeMode }
-    internal val vapeYIncrease by int("YIncrease", 1, 0..3)
-        .visibleWhen { isTellyBridgeMode }
+    private val vapeBlockCount by vapeBlockCountSetting()
+    internal val vapePitchCheck by vapePitchCheckSetting()
+    internal val vapePitch by vapePitchSetting()
+    internal val vapeBlacklistEnabled by vapeBlacklistEnabledSetting()
+    internal val vapeBlacklist by vapeBlacklistSetting()
+    internal val vapeWhitelistEnabled by vapeWhitelistEnabledSetting()
+    internal val vapeWhitelist by vapeWhitelistSetting()
+    internal val vapeActivationBlocks by vapeActivationBlocksSetting()
+    internal val vapeRequireRightClick by vapeRequireRightClickSetting()
+    internal val vapeYIncrease by vapeYIncreaseSetting()
 
     private val delay by intRange("Delay", 0..0, 0..40, "ticks")
         .visibleWhen { isLiquidBounceMode }
@@ -363,7 +288,7 @@ object ModuleScaffold : ClientModule(
 
     }
 
-    private var currentTarget: BlockPlacementTarget? = null
+    internal var currentTarget: BlockPlacementTarget? = null
     private val effectiveRotationTiming get() = if (isLiquidBounceMode) rotationTiming else NORMAL
 
     private val swingMode by enumChoice("Swing", SwingMode.DO_NOT_HIDE)
@@ -403,7 +328,7 @@ object ModuleScaffold : ClientModule(
     private var startY = 0
     private var jumps = 0
 
-    private var nextBlock: Block? = null
+    internal var nextBlock: Block? = null
 
     val blockCount: Int
         get() {
@@ -496,14 +421,12 @@ object ModuleScaffold : ClientModule(
 
     @Suppress("unused")
     private val rotationUpdateHandler = handler<RotationUpdateEvent> {
-        if (!isLiquidBounceMode && !VapeScaffoldController.canRotate()) {
-            currentTarget = null
+        if (!isLiquidBounceMode) {
+            handleVapeRotationUpdate()
             return@handler
         }
 
-        if (isLiquidBounceMode) {
-            NoFallBlink.waitUntilGround = true
-        }
+        NoFallBlink.waitUntilGround = true
 
         val blockInHotbar = findBestValidHotbarSlotForTarget()
 
@@ -514,32 +437,6 @@ object ModuleScaffold : ClientModule(
             player.inventory.getItem(blockInHotbar).also {
                 nextBlock = it.getBlock()
             }
-        }
-
-        if (!isLiquidBounceMode) {
-            currentTarget = null
-            val rotation = VapeScaffoldController.rotationFor(null)
-            if (rotation == null) {
-                VapeScaffoldController.onRotationReleased()
-                return@handler
-            }
-
-            val rotationTarget = GlobalVapeRotationSettings.rotationTarget(
-                rotation,
-                speed = { VapeScaffoldController.rotationSpeed(rotation) },
-                silentAim = false,
-                scaleAxesProportionally = VapeScaffoldController.scaleAxesProportionally,
-                emulateMouseController = true,
-                mouseRotationState = VapeScaffoldController.mouseRotationState,
-                tolerance = VapeScaffoldController.rotationTolerance,
-            )
-            RotationManager.setRotationTarget(
-                rotationTarget,
-                priority = Priority.IMPORTANT_FOR_PLAYER_LIFE,
-                provider = this@ModuleScaffold,
-            )
-            VapeScaffoldController.onRotationSubmitted(rotationTarget)
-            return@handler
         }
 
         val optimalLine = this.currentOptimalLine
@@ -618,7 +515,7 @@ object ModuleScaffold : ClientModule(
         priority = EventPriorityConvention.SAFETY_FEATURE
     ) { event ->
         if (!isLiquidBounceMode) {
-            VapeScaffoldController.handleMovement(event)
+            handleVapeMovement(event)
             return@handler
         }
 
@@ -660,37 +557,16 @@ object ModuleScaffold : ClientModule(
     }
 
     @Suppress("unused")
-    private val vapeActivationHandler = handler<PacketEvent> { event ->
-        val packet = event.packet as? ServerboundUseItemOnPacket ?: return@handler
-        if (isLiquidBounceMode || event.isCancelled) return@handler
-
-        VapeScaffoldController.onManualPlacementRequest(packet)
-    }
+    private val vapeActivationHandler = vapeActivationHandler()
 
     @Suppress("unused")
-    private val vapeMouseRotationHandler = handler<MouseRotationEvent> { event ->
-        if (!isLiquidBounceMode && !event.isCancelled) {
-            VapeScaffoldController.onMouseRotation(event.cursorDeltaX, event.cursorDeltaY)
-        }
-    }
+    private val vapeMouseRotationHandler = vapeMouseRotationHandler()
 
     @Suppress("unused")
-    private val vapeUseKeyHandler = handler<KeybindIsPressedEvent>(
-        priority = EventPriorityConvention.SAFETY_FEATURE,
-    ) { event ->
-        if (!isLiquidBounceMode && VapeScaffoldController.isAutomated && event.keyBinding == mc.options.keyUse) {
-            event.isPressed = false
-        }
-    }
+    private val vapeUseKeyHandler = vapeUseKeyHandler()
 
     @Suppress("unused")
-    private val vapeSprintHandler = handler<SprintEvent>(priority = EventPriorityConvention.SAFETY_FEATURE) { event ->
-        if (!isLiquidBounceMode && VapeScaffoldController.shouldSprint &&
-            (event.source == SprintEvent.Source.INPUT || event.source == SprintEvent.Source.MOVEMENT_TICK)
-        ) {
-            event.sprint = true
-        }
-    }
+    private val vapeSprintHandler = vapeSprintHandler()
 
     @Suppress("unused")
     private val timerHandler = handler<GameTickEvent> {
@@ -887,7 +763,7 @@ object ModuleScaffold : ClientModule(
         stack.getBlock() != null && VapeScaffoldController.isAllowedBlock(stack)
     }
 
-    private fun findBestValidHotbarSlotForTarget(): Int? {
+    internal fun findBestValidHotbarSlotForTarget(): Int? {
         val placeableSlots = findPlaceableSlots()
         if (!isLiquidBounceMode) return placeableSlots.firstOrNull()?.index
 

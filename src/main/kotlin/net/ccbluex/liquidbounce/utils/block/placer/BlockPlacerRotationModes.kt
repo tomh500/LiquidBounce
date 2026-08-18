@@ -21,7 +21,6 @@ package net.ccbluex.liquidbounce.utils.block.placer
 import net.ccbluex.liquidbounce.config.types.group.Mode
 import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.features.module.MinecraftShortcuts
-import net.ccbluex.liquidbounce.features.global.GlobalVapeRotationSettings
 import net.ccbluex.liquidbounce.utils.aiming.PostRotationExecutor
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsValueGroup
@@ -96,17 +95,7 @@ class NormalRotationMode(modeValueGroup: ModeValueGroup<BlockPlacerRotationMode>
                 whenReached = whenReached,
             )
         } else {
-            RotationManager.setRotationTarget(
-                GlobalVapeRotationSettings.rotationTarget(
-                    placementTarget.rotation,
-                    speed = { placer.vapeRotationSpeed?.invoke(pos, placementTarget) ?: vapeRotation.speed },
-                    silentAim = vapeRotation.silentAim,
-                    considerInventory = !placer.ignoreOpenInventory,
-                    whenReached = whenReached,
-                ),
-                priority = placer.priority,
-                provider = placer.module,
-            )
+            placer.setVapeRotationTarget(vapeRotation, pos, placementTarget, whenReached)
         }
 
         return true
