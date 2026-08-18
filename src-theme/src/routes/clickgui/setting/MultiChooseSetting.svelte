@@ -15,7 +15,8 @@
     let errorValue: string | null = null;
     let timeoutId: ReturnType<typeof setTimeout>;
     let confirmXuanRikka = false;
-    const isCombatTargetSelector = cSetting.name === "Combat" && path.includes("clickgui.global.Targets");
+    const isCombatTargetSelector = (path.endsWith(".Targets") || path.endsWith(".目标")) &&
+        (cSetting.name === "Combat" || cSetting.name === "战斗目标");
 
     const dispatch = createEventDispatcher();
 

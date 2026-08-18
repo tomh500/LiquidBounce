@@ -63,11 +63,12 @@
   }
 
   .content {
-    flex: 1 1 auto;
+    flex: 1 1 0;
+    height: 0;
     min-height: 0;
     box-sizing: border-box;
-    padding: 12px 22px 18px;
-    overflow-y: scroll;
+    padding: 12px 22px 240px;
+    overflow-y: auto;
     overscroll-behavior: contain;
   }
 </style>

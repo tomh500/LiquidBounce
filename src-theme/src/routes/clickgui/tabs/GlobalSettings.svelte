@@ -76,13 +76,13 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 25px;
     overflow: visible;
-    padding-bottom: 32px;
+    padding-bottom: 240px;
 
     &::before {
       content: "";
       position: absolute;
       top: 0;
-      bottom: 32px;
+      bottom: 240px;
       left: 50%;
       width: 1px;
       background-color: var(--clickgui-global-settings-divider-color);
