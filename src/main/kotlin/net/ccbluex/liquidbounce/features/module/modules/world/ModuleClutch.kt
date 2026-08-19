@@ -251,13 +251,17 @@ object ModuleClutch : ClientModule(
                 addCatchTargets(result, x, y, z)
             }
         }
+
+        // A predicted impact can still be out of reach or lack a usable face on this tick.
+        // Keep the immediate under-foot candidate that Vape's placement path search uses as
+        // its fallback; the ordered set retains the predicted impact as the first preference.
+        addCatchTargets(result, player.x, player.boundingBox.minY, player.z)
         val replaceable = result.filter { world.getBlockState(it).canBeReplaced() }
             .sortedWith(
                 compareByDescending<BlockPos> { it.hasAnySolidPlacementNeighbor() }
                     .thenBy { it.distToCenterSqr(player.position()) }
             )
-        val placementLimit = if (limitBlocks) maxBlocks else 1
-        return replaceable.take(placementLimit)
+        return if (limitBlocks) replaceable.take(maxBlocks) else replaceable
     }
 
     private fun addCatchTargets(result: MutableSet<BlockPos>, x: Double, feetY: Double, z: Double) {

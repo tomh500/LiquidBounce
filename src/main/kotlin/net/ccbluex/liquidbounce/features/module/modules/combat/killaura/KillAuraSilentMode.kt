@@ -153,7 +153,7 @@ private fun ModuleKillAura.canRunSilent(): Boolean {
         return false
     }
 
-    return !player.isDeadOrDying && !player.isSpectator && mc.gui.screen() == null &&
+    return !player.isDeadOrDying && !player.isSpectator && requirementsMet && mc.gui.screen() == null &&
         !ModuleFreeCam.enabled &&
         (!Silent.requireMouseDown || mc.options.keyAttack.isPressedOnAny) &&
         (!Silent.limitToItems || player.mainHandItem.item in Silent.allowedItems) &&
@@ -342,7 +342,7 @@ internal fun ModuleKillAura.runSilentTick() {
         return
     }
 
-    attackEntity(target, SwingMode.DO_NOT_HIDE)
+    attackEntity(target, SwingMode.DO_NOT_HIDE, keepSprint && !shouldBlockSprinting)
     if (!Silent.cooldown) {
         KillAuraSilentState.lastClickAt = System.currentTimeMillis()
     }

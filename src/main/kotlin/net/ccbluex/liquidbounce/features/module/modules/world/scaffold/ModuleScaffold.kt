@@ -144,6 +144,8 @@ object ModuleScaffold : ClientModule(
     internal val vapeActivationBlocks by vapeActivationBlocksSetting()
     internal val vapeRequireRightClick by vapeRequireRightClickSetting()
     internal val vapeYIncrease by vapeYIncreaseSetting()
+    internal val vapeAllowSprint by vapeAllowSprintSetting()
+    internal val vapeForceSprint by vapeForceSprintSetting()
 
     private val delay by intRange("Delay", 0..0, 0..40, "ticks")
         .visibleWhen { isLiquidBounceMode }

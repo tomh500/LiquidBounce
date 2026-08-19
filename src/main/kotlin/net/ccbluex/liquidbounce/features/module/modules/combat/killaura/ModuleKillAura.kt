@@ -113,19 +113,16 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
         it.visibleWhen { isLiquidBounceMode }
     }
 
-    private val requires by multiEnumChoice<KillAuraRequirements>("Requires")
-        .visibleWhen { isLiquidBounceMode }
+    internal val requires by multiEnumChoice<KillAuraRequirements>("Requires")
 
-    private val requirementsMet
+    internal val requirementsMet
         get() = requires.all { it.asBoolean }
 
     // Bypass techniques
     internal val raycast by enumChoice("Raycast", TRACE_ALL)
         .visibleWhen { isLiquidBounceMode }
     private val criticalsSelectionMode by enumChoice("Criticals", CriticalsSelectionMode.SMART)
-        .visibleWhen { isLiquidBounceMode }
-    private val keepSprint by boolean("KeepSprint", true)
-        .visibleWhen { isLiquidBounceMode }
+    internal val keepSprint by boolean("KeepSprint", true)
 
     // Inventory Handling
     internal val ignoreOpenInventory by boolean("IgnoreOpenInventory", true)
@@ -290,10 +287,6 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
     @Suppress("unused")
     private val sprintHandler = handler<SprintEvent> { event ->
-        if (!isLiquidBounceMode) {
-            return@handler
-        }
-
         if (shouldBlockSprinting && (event.source == SprintEvent.Source.MOVEMENT_TICK ||
                 event.source == SprintEvent.Source.INPUT)) {
             event.sprint = false

@@ -38,8 +38,11 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
     private var manualActivationComplete = false
     private var consecutiveHeightIncreases = 0
     private var fixedRotation: Rotation? = null
+    private var fixedRotationSpeed: Float? = null
     private var pointAimTarget: Vec3? = null
     private var pointAimDirty = true
+    private var pointRotationSpeed: Float? = null
+    private var pointSpeedInitialized = false
     private var lastUpdateTick = Int.MIN_VALUE
 
     override val readyToPlace: Boolean
@@ -59,8 +62,11 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
         manualActivationComplete = false
         consecutiveHeightIncreases = 0
         fixedRotation = null
+        fixedRotationSpeed = null
         pointAimTarget = null
         pointAimDirty = true
+        pointRotationSpeed = null
+        pointSpeedInitialized = false
         lastUpdateTick = Int.MIN_VALUE
     }
 
@@ -97,6 +103,7 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
         if (!player.onGround()) {
             if (fixedRotation != null) {
                 fixedRotation = null
+                fixedRotationSpeed = null
                 VapeScaffoldController.resetRotationIntegrator()
             }
             updatePointAimTarget()
@@ -124,7 +131,10 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
 
         event.jump = false
         val pathPosition = bridgePath.lastOrNull() ?: return
-        if (player.onGround() && (bridgeLevel != 0 || player.isSprinting) && hasReachedPathEdge(pathPosition)) {
+        // Vape presses sprint before evaluating this edge.  The player entity's
+        // sprint flag is updated later in the tick, so checking it here skips
+        // the first jump and sends the player straight off the bridge.
+        if (player.onGround() && (bridgeLevel != 0 || bridgingActive) && hasReachedPathEdge(pathPosition)) {
             event.jump = true
         }
     }
@@ -144,10 +154,15 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
         return Rotation(yaw, desired.pitch)
     }
 
-    override fun rotationSpeed(rotation: Rotation): Float = if (fixedRotation != null && player.onGround()) {
-        VapeScaffoldController.defaultRotationSpeed(rotation)
-    } else {
-        VapeScaffoldController.directionRotationSpeed(direction)
+    override fun rotationSpeed(rotation: Rotation): Float {
+        if (fixedRotation != null && player.onGround()) {
+            return fixedRotationSpeed ?: VapeScaffoldController.defaultRotationSpeed(rotation)
+        }
+        if (canUpdatePointYaw() && !pointSpeedInitialized) {
+            pointRotationSpeed = VapeScaffoldController.directionRotationSpeed(direction)
+            pointSpeedInitialized = true
+        }
+        return pointRotationSpeed ?: VapeScaffoldController.directionRotationSpeed(direction)
     }
 
     override fun isValidPlacementHit(hitResult: BlockHitResult): Boolean {
@@ -205,6 +220,7 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
         bridgeLevel = if (manualActivationComplete || !hasAxisMotion() && hasPassedPathEdge()) 0 else 1
         manualActivationComplete = false
         fixedRotation = null
+        fixedRotationSpeed = null
         pointAimDirty = true
 
         if (bridgeLevel == 1 && consecutiveHeightIncreases >= randomHeightIncreaseThreshold()) {
@@ -229,7 +245,9 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
 
         if (bridgeLevel == 0) {
             VapeScaffoldController.resetRotationIntegrator()
-            fixedRotation = computeBridgeRotation()
+            fixedRotation = computeBridgeRotation().also {
+                fixedRotationSpeed = VapeScaffoldController.defaultRotationSpeed(it)
+            }
             submitMovementTask(computeMovementTarget(initialMove = true), waitForGround = false)
             repeatLastPathPosition(1)
             consecutiveHeightIncreases = 0
@@ -308,6 +326,8 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
         ) {
             pointAimTarget = candidate
             pointAimDirty = false
+            pointRotationSpeed = VapeScaffoldController.directionRotationSpeed(direction)
+            pointSpeedInitialized = false
         }
     }
 
