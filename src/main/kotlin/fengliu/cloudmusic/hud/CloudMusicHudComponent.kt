@@ -308,7 +308,7 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     val samplesPerPixel = 4f
     val rows = kotlin.math.ceil(height * samplesPerPixel).toInt().coerceAtLeast(2)
     val maxBottomInset = 30f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 2f)
-    val curveStart = 2f.coerceAtMost(height * .18f)
+    val curveStart = 6f.coerceAtMost(height * .18f)
     val flatStart = (height - 4f).coerceAtLeast(curveStart)
     drawCustomElement(
         pipeline = RenderPipelines.GUI,
@@ -321,8 +321,9 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
                 0f
             } else {
                 val progress = ((nextY - curveStart) / (flatStart - curveStart).coerceAtLeast(1f)).coerceIn(0f, 1f)
-                val eased = progress * progress * (3f - 2f * progress)
-                maxBottomInset * eased
+                // In screen space this is the inverse of y = a * x^2,
+                // producing an upward-opening parabolic bottom edge.
+                maxBottomInset * kotlin.math.sqrt(progress)
             }
             val inset = bottomInset
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + y).setColor(color.argb)
