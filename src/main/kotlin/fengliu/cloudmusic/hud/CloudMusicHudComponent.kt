@@ -247,7 +247,16 @@ private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriority
                 
                 lyric?.let {
                     val primaryY = if (translation == null) bounds.yMin + 5f else bounds.yMin + 2f
-                    drawCloudMusicText(it, textX + textWidth / 2f, primaryY, CloudMusicGui.bodyScale, lyricColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
+                    val lyricProgress = player.lyricProgress()
+                    drawAnimatedLyric(
+                        it,
+                        textX + textWidth / 2f,
+                        primaryY,
+                        CloudMusicGui.bodyScale,
+                        lyricColor.fade(contentAlpha),
+                        lyricColor.with(r = 145, g = 145, b = 152).fade(contentAlpha),
+                        lyricProgress,
+                    )
                 }
                 translation?.let {
                     drawCloudMusicText(it, textX + textWidth / 2f, bounds.yMin + 16f, CloudMusicGui.smallScale, translationColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
@@ -342,14 +351,15 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
 private fun dynamicIslandInset(y: Float, height: Float, shoulderInset: Float, bottomRadius: Float): Float {
     val shoulderHeight = 10f.coerceAtMost(height * 0.3f)
     
-    // 1. 顶部平滑凹弧（y=0 时 inset=0 水平切线，向下平滑弯入主体的竖直边）
+    // 1. 顶部平滑凹弧
     if (y <= shoulderHeight) {
         val t = (y / shoulderHeight).coerceIn(0f, 1f)
         val concaveArc = kotlin.math.sqrt((1f - (1f - t) * (1f - t)).toDouble()).toFloat()
-        return shoulderInset * concaveArc
+        // 限制最小内缩量（例如 3.5f），直接切掉 y=0 附近过于向外扩展的尖角
+        return (shoulderInset * concaveArc).coerceAtLeast(3.5f)
     }
 
-    // 2. 底部平滑凸圆角（从竖直边平滑收缩至底部的水平切线）
+    // 2. 底部平滑凸圆角
     val realBottomRadius = bottomRadius.coerceAtMost(height - shoulderHeight)
     val bottomStart = height - realBottomRadius
     if (y >= bottomStart) {
@@ -391,15 +401,52 @@ private enum class LyricFont(override val tag: String) : Tagged {
 private data class CurrentLyrics(val original: String?, val translation: String?)
 
 private fun fengliu.cloudmusic.util.MusicPlayer.lyricLines(): CurrentLyrics {
-    val lines = getLyric().filter { it.isNotBlank() }
-    if (lines.isNotEmpty()) return CurrentLyrics(lines.getOrNull(0), lines.getOrNull(1))
-    // During a timestamp gap the lyric worker can briefly expose an empty snapshot.
-    // Resolve the active timed line instead of leaving the HUD blank.
-    // The lyric worker can be briefly empty when a track starts. Resolve the
-    // active first timed line directly; offset 1 would incorrectly skip it.
-    val upcoming = getLyricWindow(0, 0, 0).filter { it.isNotBlank() }
-    val upcomingTranslation = getLyricTranslationWindow(0, 0, 0).filter { it.isNotBlank() }
-    return CurrentLyrics(upcoming.getOrNull(0), upcomingTranslation.getOrNull(0))
+    // Read the timestamped window directly. The lyric worker's getLyric()
+    // snapshot can be empty for a few frames after a seek.
+    val current = getLyricWindow(0, 0, 0).getOrNull(0)?.takeIf { it.isNotBlank() }
+    val translation = getLyricTranslationWindow(0, 0, 0).getOrNull(0)?.takeIf { it.isNotBlank() }
+    return CurrentLyrics(current, translation)
+}
+
+private fun fengliu.cloudmusic.util.MusicPlayer.lyricProgress(): Float {
+    val times = getLyricWindowTimes(0, 1)
+    val start = times.getOrNull(0)?.takeIf { it >= 0L } ?: return 0f
+    val end = times.getOrNull(1)?.takeIf { it > start } ?: (start + 3000L)
+    return ((playingProgress - start).toFloat() / (end - start).toFloat()).coerceIn(0f, 1f)
+}
+
+private fun blendColor(from: Color4b, to: Color4b, amount: Float): Color4b {
+    val t = amount.coerceIn(0f, 1f)
+    return Color4b(
+        (from.r + (to.r - from.r) * t).toInt(),
+        (from.g + (to.g - from.g) * t).toInt(),
+        (from.b + (to.b - from.b) * t).toInt(),
+        (from.a + (to.a - from.a) * t).toInt(),
+    )
+}
+
+private context(ctx: net.minecraft.client.gui.GuiGraphicsExtractor)
+fun drawAnimatedLyric(
+    text: String,
+    centerX: Float,
+    y: Float,
+    scale: Float,
+    playedColor: Color4b,
+    pendingColor: Color4b,
+    progress: Float,
+) {
+    if (text.isEmpty()) return
+    val widths = text.map { CloudMusicGui.textWidth(it.toString(), scale) }
+    val totalWidth = widths.sum()
+    var x = centerX - totalWidth / 2f
+    val boundary = progress.coerceIn(0f, 1f) * text.length
+    text.forEachIndexed { index, character ->
+        val distance = boundary - index
+        val amount = distance.coerceIn(0f, 1f)
+        val color = blendColor(pendingColor, playedColor, amount)
+        drawCloudMusicText(character.toString(), x + widths[index] / 2f, y, scale, color, horizontalAnchor = HorizontalAnchor.CENTER)
+        x += widths[index]
+    }
 }
 
 private fun fengliu.cloudmusic.util.MusicPlayer.scrollProgress(): Float? {
