@@ -20,6 +20,7 @@
     import type {ThemeColorChangeEvent} from "./integration/events";
     import Menu from "./routes/menu/common/Menu.svelte";
     import MenuContent from "./routes/menu/common/MenuContent.svelte";
+    import RikkaMusic from "./routes/rikkamusic/RikkaMusic.svelte";
 
     const menuRoutes = {
         "/title": Title,
@@ -36,6 +37,7 @@
         "/none": None,
         "/disconnected": Disconnected,
         "/browser": Browser
+        ,"/rikkamusic": RikkaMusic
     };
 
     const SURFACE_TINT_MIX = 18;

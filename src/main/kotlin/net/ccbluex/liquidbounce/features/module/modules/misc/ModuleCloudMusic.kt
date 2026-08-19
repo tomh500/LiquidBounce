@@ -19,13 +19,13 @@
 package net.ccbluex.liquidbounce.features.module.modules.misc
 
 import fengliu.cloudmusic.command.CloudMusicCommands
-import fengliu.cloudmusic.gui.CloudMusicScreen
 import net.ccbluex.liquidbounce.LiquidBounce
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.ModuleOrigin
 import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.mc
+import net.ccbluex.liquidbounce.integration.screen.CustomScreenType
 import org.lwjgl.glfw.GLFW
 
 /**
@@ -53,7 +53,7 @@ object ModuleCloudMusic : ClientModule(
         }
 
         mc.execute {
-            mc.gui.setScreen(CloudMusicScreen())
+            CustomScreenType.RIKKAMUSIC.open()
         }
         super.onEnabled()
     }
