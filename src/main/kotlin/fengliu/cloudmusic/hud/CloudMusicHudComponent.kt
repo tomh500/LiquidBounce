@@ -317,14 +317,36 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
             val y = row / samplesPerPixel
             val nextY = ((row + 1f) / samplesPerPixel).coerceAtMost(height)
             val progress = (nextY / height).coerceIn(0f, 1f)
-            // A quadratic profile keeps the arc bowed outward longer before
-            // it reaches the shallow bottom section.
-            val convexProgress = progress * progress
-            val inset = -topOutset + (topOutset + maxBottomInset) * convexProgress
+            val inset = dynamicIslandInset(progress, topOutset, maxBottomInset)
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + y).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + nextY).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMax - inset, bounds.yMin + nextY).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMax - inset, bounds.yMin + y).setColor(color.argb)
+        }
+    }
+}
+
+private fun dynamicIslandInset(progress: Float, topOutset: Float, bottomInset: Float): Float {
+    val firstEnd = .22f
+    val secondEnd = .78f
+    val firstInset = -topOutset
+    // Keep the initial shoulder shallow, then use the main curve for most of
+    // the side before rounding into a nearly level bottom edge.
+    val shoulderInset = firstInset + (topOutset + bottomInset) * .14f
+    val nearBottomInset = bottomInset - 2f.coerceAtMost(bottomInset * .12f)
+    fun smooth(value: Float) = value * value * (3f - 2f * value)
+    return when {
+        progress <= firstEnd -> {
+            val t = smooth((progress / firstEnd).coerceIn(0f, 1f))
+            firstInset + (shoulderInset - firstInset) * t
+        }
+        progress <= secondEnd -> {
+            val t = smooth(((progress - firstEnd) / (secondEnd - firstEnd)).coerceIn(0f, 1f))
+            shoulderInset + (nearBottomInset - shoulderInset) * t
+        }
+        else -> {
+            val t = smooth(((progress - secondEnd) / (1f - secondEnd)).coerceIn(0f, 1f))
+            nearBottomInset + (bottomInset - nearBottomInset) * t
         }
     }
 }
