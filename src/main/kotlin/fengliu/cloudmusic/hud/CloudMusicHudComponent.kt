@@ -304,11 +304,13 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     height: Float,
     color: Color4b,
 ) {
-    // Supersample the curved silhouette to avoid visible stair-stepping at small HUD scales.
-    val samplesPerPixel = 8f
+    val samplesPerPixel = 4f
     val rows = kotlin.math.ceil(height * samplesPerPixel).toInt().coerceAtLeast(2)
-    val shoulderInset = 18f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 8f)
-    val cornerRadius = 42f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 3f)
+    
+    // 控制肩部（顶部反角）与底部圆角的合理尺寸
+    val shoulderInset = 12f.coerceAtMost((bounds.xMax - bounds.xMin) / 6f)
+    val bottomRadius = 16f.coerceAtMost((bounds.xMax - bounds.xMin) / 4f)
+
     drawCustomElement(
         pipeline = RenderPipelines.GUI,
         bounds = getBounds(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax),
@@ -316,8 +318,10 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
         for (row in 0 until rows) {
             val y = row / samplesPerPixel
             val nextY = ((row + 1f) / samplesPerPixel).coerceAtMost(height)
-            val progress = (nextY / height).coerceIn(0f, 1f)
-            val inset = dynamicIslandInset(progress, shoulderInset, cornerRadius, height)
+            
+            // 使用当前 y 坐标计算该行的左右内缩量
+            val inset = dynamicIslandInset(y, height, shoulderInset, bottomRadius)
+            
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + y).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + nextY).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMax - inset, bounds.yMin + nextY).setColor(color.argb)
@@ -326,28 +330,27 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     }
 }
 
-private fun dynamicIslandInset(progress: Float, shoulderInset: Float, radius: Float, height: Float): Float {
-    val shoulderEnd = .30f
-    val curveHeight = (radius * .24f).coerceAtMost(height * .45f)
-    val curveStart = (height - curveHeight) / height
-    fun smooth(value: Float) = value * value * (3f - 2f * value)
-    if (progress <= shoulderEnd) {
-        return shoulderInset * smooth((progress / shoulderEnd).coerceIn(0f, 1f))
+private fun dynamicIslandInset(y: Float, height: Float, shoulderInset: Float, bottomRadius: Float): Float {
+    // 1. 顶部反向凹弧过渡区 (Y: 0 ~ 10px)
+    val shoulderHeight = 10f.coerceAtMost(height * 0.3f)
+    if (y <= shoulderHeight) {
+        val t = (y / shoulderHeight).coerceIn(0f, 1f)
+        // 平滑缓入 cubic ease-out：从 0 (最宽) 过渡到 shoulderInset
+        val smooth = 1f - (1f - t) * (1f - t)
+        return shoulderInset * smooth
     }
-    if (progress < curveStart) return shoulderInset
 
-    // P0=(0,0), P1=(0,0), P2=(.35R,1), P3=(R,1),
-    // the cubic specified by the reference. Invert its monotonic y(t).
-    val y = ((progress - curveStart) / (1f - curveStart)).coerceIn(0f, 1f)
-    var low = 0f
-    var high = 1f
-    repeat(8) {
-        val t = (low + high) * .5f
-        val cubicY = 3f * (1f - t) * t * t + t * t * t
-        if (cubicY < y) low = t else high = t
+    // 2. 底部凸向圆角过渡区 (Y: height - bottomRadius ~ height)
+    val bottomStart = (height - bottomRadius).coerceAtLeast(shoulderHeight)
+    if (y >= bottomStart) {
+        val t = ((y - bottomStart) / (height - bottomStart)).coerceIn(0f, 1f)
+        // 圆弧/超椭圆缓出：从 shoulderInset 继续向内收缩 bottomRadius
+        val circleInset = 1f - kotlin.math.sqrt((1f - t * t).toDouble()).toFloat()
+        return shoulderInset + bottomRadius * circleInset
     }
-    val t = (low + high) * .5f
-    return shoulderInset + radius * (3f * (1f - t) * t * t * .35f + t * t * t)
+
+    // 3. 中间直壁区
+    return shoulderInset
 }
 
 private object CloudMusicHudRender {
