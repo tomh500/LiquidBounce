@@ -307,9 +307,8 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     // Supersample the curved silhouette to avoid visible stair-stepping at small HUD scales.
     val samplesPerPixel = 8f
     val rows = kotlin.math.ceil(height * samplesPerPixel).toInt().coerceAtLeast(2)
-    val topOutset = 24f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 4f)
-    val peakInset = 45f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 2f)
-    val bottomInset = 15f.coerceAtMost(peakInset)
+    val shoulderInset = 18f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 8f)
+    val cornerRadius = 42f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 3f)
     drawCustomElement(
         pipeline = RenderPipelines.GUI,
         bounds = getBounds(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax),
@@ -318,7 +317,7 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
             val y = row / samplesPerPixel
             val nextY = ((row + 1f) / samplesPerPixel).coerceAtMost(height)
             val progress = (nextY / height).coerceIn(0f, 1f)
-            val inset = dynamicIslandInset(progress, topOutset, peakInset, bottomInset)
+            val inset = dynamicIslandInset(progress, shoulderInset, cornerRadius, height)
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + y).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + nextY).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMax - inset, bounds.yMin + nextY).setColor(color.argb)
@@ -327,33 +326,28 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     }
 }
 
-private fun dynamicIslandInset(progress: Float, topOutset: Float, peakInset: Float, bottomInset: Float): Float {
-    val firstEnd = .22f
-    val secondEnd = .78f
-    val firstInset = -topOutset
-    // The shoulder is the end of the small quarter-round. From there the
-    // boundary must bow outward immediately, then flatten into the bottom.
-    val shoulderInset = peakInset
-    val nearBottomInset = bottomInset - 2f.coerceAtMost(bottomInset * .12f)
+private fun dynamicIslandInset(progress: Float, shoulderInset: Float, radius: Float, height: Float): Float {
+    val shoulderEnd = .30f
+    val curveHeight = (radius * .24f).coerceAtMost(height * .45f)
+    val curveStart = (height - curveHeight) / height
     fun smooth(value: Float) = value * value * (3f - 2f * value)
-    return when {
-        progress <= firstEnd -> {
-            val t = smooth((progress / firstEnd).coerceIn(0f, 1f))
-            firstInset + (shoulderInset - firstInset) * t
-        }
-        progress <= secondEnd -> {
-            val t = ((progress - firstEnd) / (secondEnd - firstEnd)).coerceIn(0f, 1f)
-            // Quarter-ellipse easing: steep at the shoulder, flat at the
-            // bottom, which produces the outward convex return requested by
-            // the guide curve instead of an inward-converging parabola.
-            val curvedT = kotlin.math.sqrt((1f - (1f - t) * (1f - t)).coerceAtLeast(0f))
-            shoulderInset + (nearBottomInset - shoulderInset) * curvedT
-        }
-        else -> {
-            val t = smooth(((progress - secondEnd) / (1f - secondEnd)).coerceIn(0f, 1f))
-            nearBottomInset + (bottomInset - nearBottomInset) * t
-        }
+    if (progress <= shoulderEnd) {
+        return shoulderInset * smooth((progress / shoulderEnd).coerceIn(0f, 1f))
     }
+    if (progress < curveStart) return shoulderInset
+
+    // P0=(0,0), P1=(0,0), P2=(.35R,1), P3=(R,1),
+    // the cubic specified by the reference. Invert its monotonic y(t).
+    val y = ((progress - curveStart) / (1f - curveStart)).coerceIn(0f, 1f)
+    var low = 0f
+    var high = 1f
+    repeat(8) {
+        val t = (low + high) * .5f
+        val cubicY = 3f * (1f - t) * t * t + t * t * t
+        if (cubicY < y) low = t else high = t
+    }
+    val t = (low + high) * .5f
+    return shoulderInset + radius * (3f * (1f - t) * t * t * .35f + t * t * t)
 }
 
 private object CloudMusicHudRender {
