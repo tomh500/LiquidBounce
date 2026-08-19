@@ -306,8 +306,9 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     // Supersample the curved silhouette to avoid visible stair-stepping at small HUD scales.
     val samplesPerPixel = 4f
     val rows = kotlin.math.ceil(height * samplesPerPixel).toInt().coerceAtLeast(2)
-    val topRadius = 15f.coerceAtMost(height / 2f)
-    val bottomRadius = 28f.coerceAtMost(height / 2f)
+    val maxBottomInset = 30f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 2f)
+    val curveStart = 2f.coerceAtMost(height * .18f)
+    val flatStart = (height - 4f).coerceAtLeast(curveStart)
     drawCustomElement(
         pipeline = RenderPipelines.GUI,
         bounds = getBounds(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax),
@@ -315,14 +316,14 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
         for (row in 0 until rows) {
             val y = row / samplesPerPixel
             val nextY = ((row + 1f) / samplesPerPixel).coerceAtMost(height)
-            val topInset = if (y < topRadius) {
-                topRadius - kotlin.math.sqrt((topRadius * topRadius - (topRadius - y) * (topRadius - y)).coerceAtLeast(0f))
-            } else 0f
-            val bottomInset = if (nextY > height - bottomRadius) {
-                val distance = height - nextY
-                bottomRadius - kotlin.math.sqrt((bottomRadius * bottomRadius - (bottomRadius - distance) * (bottomRadius - distance)).coerceAtLeast(0f))
-            } else 0f
-            val inset = maxOf(topInset, bottomInset)
+            val bottomInset = if (nextY <= curveStart) {
+                0f
+            } else {
+                val progress = ((nextY - curveStart) / (flatStart - curveStart).coerceAtLeast(1f)).coerceIn(0f, 1f)
+                val eased = progress * progress * (3f - 2f * progress)
+                maxBottomInset * eased
+            }
+            val inset = bottomInset
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + y).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + nextY).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMax - inset, bounds.yMin + nextY).setColor(color.argb)
