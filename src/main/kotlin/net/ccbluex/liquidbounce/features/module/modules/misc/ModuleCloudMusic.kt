@@ -19,7 +19,6 @@
 package net.ccbluex.liquidbounce.features.module.modules.misc
 
 import fengliu.cloudmusic.command.CloudMusicCommands
-import fengliu.cloudmusic.config.Configs
 import fengliu.cloudmusic.gui.CloudMusicScreen
 import net.ccbluex.liquidbounce.LiquidBounce
 import net.ccbluex.liquidbounce.features.module.ClientModule
@@ -30,14 +29,14 @@ import net.ccbluex.liquidbounce.utils.client.mc
 import org.lwjgl.glfw.GLFW
 
 /**
- * CloudMusic module
+ * RikkaMusic module
  *
  * Merged NetEase Cloud Music player. Toggling the module opens the in-client
  * music GUI. The original mod is not exposed as a standalone Fabric mod; the
  * `.rikkamusic` (or `.music`) command tree and the HUD widgets are part of the client.
  */
 object ModuleCloudMusic : ClientModule(
-    "CloudMusic",
+    "RikkaMusic",
     ModuleCategories.MISC,
     bind = GLFW.GLFW_KEY_UNKNOWN,
     disableActivation = true,
@@ -46,16 +45,6 @@ object ModuleCloudMusic : ClientModule(
 
     override fun onRegistration() {
         CloudMusicCommands.register()
-    }
-
-    /**
-     * Volume slider bridges into the original malilib configuration so the
-     * settings screen and the module stay in sync.
-     */
-    @Suppress("UnusedPrivateProperty")
-    private val volume by int("Volume", Configs.PLAY.VOLUME.getIntegerValue(), 0..100).onChange {
-        Configs.PLAY.VOLUME.setIntegerValue(it)
-        it
     }
 
     override fun onEnabled() {

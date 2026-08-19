@@ -8,8 +8,8 @@ import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.tree.CommandNode;
-import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import com.mojang.brigadier.context.SuggestionContext;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestion;
 import fengliu.cloudmusic.config.Configs;
@@ -21,8 +21,10 @@ import fengliu.cloudmusic.util.TextClickItem;
 import fengliu.cloudmusic.util.page.ApiPage;
 import fengliu.cloudmusic.util.page.Page;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +44,7 @@ public class MusicCommand {
     private static Page page = null;
     private static Object data = null;
     private static My my = null;
-    public static boolean loadQRCode = false;
+    public static volatile boolean loadQRCode = false;
     private static final Component[] helps = {
             Component.translatable("cloudmusic.help.music"),
             Component.translatable("cloudmusic.help.music.play"),
@@ -187,7 +189,8 @@ public class MusicCommand {
      * Fabric's '/' client commands.
      */
     public static final CommandDispatcher<FabricClientCommandSource> DISPATCHER = new CommandDispatcher<>();
-    private static final com.mojang.brigadier.exceptions.CommandSyntaxException[] LAST_EXCEPTION = new com.mojang.brigadier.exceptions.CommandSyntaxException[1];
+    private static boolean registered;
+    private static boolean nativeRegistrationCallbackRegistered;
 
     public static MusicPlayer getPlayer() {
         return player;
@@ -341,7 +344,10 @@ public class MusicCommand {
         commandThread.start();
     }
 
-    public static void registerAll() {
+    public static synchronized void registerAll() {
+        if (registered) {
+            return;
+        }
         LiteralArgumentBuilder<FabricClientCommandSource> CloudMusic = literal("cloudmusic");
         LiteralArgumentBuilder<FabricClientCommandSource> Music = literal("music");
         LiteralArgumentBuilder<FabricClientCommandSource> PlayList = literal("playlist");
@@ -488,7 +494,7 @@ public class MusicCommand {
         // cloudmusic music send comment id content
         CloudMusic.then(Music.then(literal("send").then(literal("comment").then(
                 argument("id", LongArgumentType.longArg()).then(
-                        argument("content", StringArgumentType.string()).executes(contextData -> {
+                        argument("content", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                             runCommand(contextData, context -> {
                                 Music music = music163.music(LongArgumentType.getLong(context, "id"));
                                 music.send(StringArgumentType.getString(context, "content"));
@@ -525,7 +531,7 @@ public class MusicCommand {
         // cloudmusic playlist send comment id content
         CloudMusic.then(PlayList.then(literal("send").then(literal("comment").then(
                 argument("id", LongArgumentType.longArg()).then(
-                        argument("content", StringArgumentType.string()).executes(contextData -> {
+                        argument("content", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                             runCommand(contextData, context -> {
                                 PlayList playlist = music163.playlist(LongArgumentType.getLong(context, "id"));
                                 playlist.send(StringArgumentType.getString(context, "content"));
@@ -728,7 +734,7 @@ public class MusicCommand {
         // cloudmusic album send comment id content
         CloudMusic.then(Album.then(literal("send").then(literal("comment").then(
                 argument("id", LongArgumentType.longArg()).then(
-                        argument("content", StringArgumentType.string()).executes(contextData -> {
+                        argument("content", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                             runCommand(contextData, context -> {
                                 Album album = music163.album(LongArgumentType.getLong(context, "id"));
                                 album.send(StringArgumentType.getString(context, "content"));
@@ -816,7 +822,7 @@ public class MusicCommand {
         // cloudmusic dj send comment id content
         CloudMusic.then(Dj.then(literal("send").then(literal("comment").then(
                 argument("id", LongArgumentType.longArg()).then(
-                        argument("content", StringArgumentType.string()).executes(contextData -> {
+                        argument("content", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                             runCommand(contextData, context -> {
                                 DjRadio djRadio = music163.djRadio(LongArgumentType.getLong(context, "id"));
                                 djRadio.send(StringArgumentType.getString(context, "content"));
@@ -882,7 +888,7 @@ public class MusicCommand {
         // cloudmusic dj music send comment id content
         CloudMusic.then(Dj.then(DjMusic.then(literal("send").then(literal("comment").then(
                 argument("id", LongArgumentType.longArg()).then(
-                        argument("content", StringArgumentType.string()).executes(contextData -> {
+                        argument("content", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                             runCommand(contextData, context -> {
                                 DjMusic music = music163.djMusic(LongArgumentType.getLong(context, "id"));
                                 music.send(StringArgumentType.getString(context, "content"));
@@ -1378,7 +1384,7 @@ public class MusicCommand {
 
         // cloudmusic top playlist highquality tag
         CloudMusic.then(Top.then(TopPlayList.then(HighQuality.then(
-                argument("tag", StringArgumentType.string()).executes(contextData -> {
+                argument("tag", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                     runCommand(contextData, context -> {
                         String tag = StringArgumentType.getString(context, "tag");
                         page = music163.topPlayListHighQuality(tag);
@@ -1427,7 +1433,7 @@ public class MusicCommand {
 
         // cloudmusic top playlist tag
         CloudMusic.then(Top.then(TopPlayList.then(
-                argument("tag", StringArgumentType.string()).executes(contextData -> {
+                argument("tag", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                     runCommand(contextData, context -> {
                         String tag = StringArgumentType.getString(context, "tag");
                         page = music163.topPlayList(tag);
@@ -1440,7 +1446,7 @@ public class MusicCommand {
 
         // cloudmusic search music
         CloudMusic.then(Search.then(literal("music").then(
-                argument("key", StringArgumentType.string()).executes(contextData -> {
+                argument("key", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                     runCommand(contextData, context -> {
                         String key = StringArgumentType.getString(context, "key");
                         page = music163.searchMusic(key);
@@ -1453,7 +1459,7 @@ public class MusicCommand {
 
         // cloudmusic search album
         CloudMusic.then(Search.then(literal("album").then(
-                argument("key", StringArgumentType.string()).executes(contextData -> {
+                argument("key", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                     runCommand(contextData, context -> {
                         String key = StringArgumentType.getString(context, "key");
                         page = music163.searchAlbum(key);
@@ -1466,7 +1472,7 @@ public class MusicCommand {
 
         // cloudmusic search artist
         CloudMusic.then(Search.then(literal("artist").then(
-                argument("key", StringArgumentType.string()).executes(contextData -> {
+                argument("key", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                     runCommand(contextData, context -> {
                         String key = StringArgumentType.getString(context, "key");
                         page = music163.searchArtist(key);
@@ -1479,7 +1485,7 @@ public class MusicCommand {
 
         // cloudmusic search playlist
         CloudMusic.then(Search.then(literal("playlist").then(
-                argument("key", StringArgumentType.string()).executes(contextData -> {
+                argument("key", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                     runCommand(contextData, context -> {
                         String key = StringArgumentType.getString(context, "key");
                         page = music163.searchPlayList(key);
@@ -1492,7 +1498,7 @@ public class MusicCommand {
 
         // cloudmusic search dj
         CloudMusic.then(Search.then(literal("dj").then(
-                argument("key", StringArgumentType.string()).executes(contextData -> {
+                argument("key", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                     runCommand(contextData, context -> {
                         String key = StringArgumentType.getString(context, "key");
                         page = music163.searchDjRadio(key);
@@ -1600,7 +1606,7 @@ public class MusicCommand {
         // cloudmusic comment reply id threadId content
         CloudMusic.then(Comment.then(literal("reply").then(argument("id", LongArgumentType.longArg()).then(
                 argument("threadId", StringArgumentType.string()).then(
-                        argument("content", StringArgumentType.string()).executes(contextData -> {
+                        argument("content", FlexibleStringArgumentType.greedy()).executes(contextData -> {
                             long id = LongArgumentType.getLong(contextData, "id");
                             JsonObject json = page.getJsonItem(jsonObject -> jsonObject.get("commentId").getAsLong() == id);
                             if (json == null) {
@@ -1730,7 +1736,7 @@ public class MusicCommand {
 
         // cloudmusic login email email password
         CloudMusic.then(Login.then(literal("email").then(
-                argument("email", StringArgumentType.string()).then(
+                argument("email", FlexibleStringArgumentType.word()).then(
                         argument("password", StringArgumentType.greedyString()).executes(contextData -> {
                             runCommand(contextData, context -> {
                                 resetCookie(loginMusic163.email(StringArgumentType.getString(context, "email"), StringArgumentType.getString(context, "password")));
@@ -1874,6 +1880,47 @@ public class MusicCommand {
 
             );
 
+        registered = true;
+        verifyExecutablePath("my", "like");
+        verifyExecutablePath("login", "phone", "phone", "password");
+        registerNativeCommandCallback();
+
+    }
+
+    private static void registerNativeCommandCallback() {
+        if (nativeRegistrationCallbackRegistered) {
+            return;
+        }
+        nativeRegistrationCallbackRegistered = true;
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, buildContext) -> {
+            CommandNode<FabricClientCommandSource> originalRoot = DISPATCHER.getRoot().getChild("cloudmusic");
+            if (originalRoot == null) {
+                throw new IllegalStateException("RikkaMusic command tree has not been initialized");
+            }
+
+            LiteralArgumentBuilder<FabricClientCommandSource> nativeRoot = literal("rikkamusic")
+                    .requires(originalRoot.getRequirement());
+            if (originalRoot.getCommand() != null) {
+                nativeRoot.executes(originalRoot.getCommand());
+            }
+            for (CommandNode<FabricClientCommandSource> child : originalRoot.getChildren()) {
+                nativeRoot.then(child);
+            }
+            dispatcher.register(nativeRoot);
+        });
+    }
+
+    private static void verifyExecutablePath(String... path) {
+        CommandNode<FabricClientCommandSource> node = DISPATCHER.getRoot().getChild("cloudmusic");
+        for (String name : path) {
+            if (node == null) {
+                throw new IllegalStateException("RikkaMusic command path is missing: " + String.join(" ", path));
+            }
+            node = node.getChild(name);
+        }
+        if (node == null || node.getCommand() == null) {
+            throw new IllegalStateException("RikkaMusic command path is not executable: " + String.join(" ", path));
+        }
     }
 
     /**
@@ -1888,10 +1935,81 @@ public class MusicCommand {
             DISPATCHER.execute(input, source);
         } catch (com.mojang.brigadier.exceptions.CommandSyntaxException err) {
             source.sendError(Component.literal(err.getMessage()));
+            sendUsage(rawArgs, source);
         } catch (Exception err) {
             LOGGER.error("[CloudMusic][Cmd] 执行异常", err);
             source.sendError(Component.literal(err.getMessage()));
         }
+    }
+
+    private static void sendUsage(String rawArgs, FabricClientCommandSource source) {
+        String args = rawArgs == null ? "" : rawArgs.trim();
+        List<String> usages = matchingUsages(args, source);
+        if (usages.isEmpty()) {
+            return;
+        }
+        source.sendFeedback(Component.literal("用法:").withStyle(ChatFormatting.RED));
+        for (String usage : usages) {
+            MutableComponent line = Component.literal("  .rikkamusic " + usage).withStyle(ChatFormatting.GRAY);
+            String hint = argumentFormatHint(usage);
+            if (!hint.isEmpty()) {
+                line.append(Component.literal("  " + hint).withStyle(ChatFormatting.YELLOW));
+            }
+            source.sendFeedback(line);
+        }
+    }
+
+    private static List<String> matchingUsages(String rawArgs, FabricClientCommandSource source) {
+        CommandNode<FabricClientCommandSource> root = DISPATCHER.getRoot().getChild("cloudmusic");
+        if (root == null) {
+            return Collections.emptyList();
+        }
+        String[] input = rawArgs.isBlank() ? new String[0] : rawArgs.split("\\s+");
+        List<String> best = new ArrayList<>();
+        int bestScore = Integer.MIN_VALUE;
+        for (String usage : DISPATCHER.getAllUsage(root, source, false)) {
+            String[] expected = usage.split("\\s+");
+            int matched = 0;
+            int literals = 0;
+            boolean mismatch = false;
+            for (int i = 0; i < Math.min(input.length, expected.length); i++) {
+                String token = expected[i];
+                if (token.startsWith("<") || token.startsWith("[")) {
+                    matched++;
+                } else if (token.equalsIgnoreCase(input[i])) {
+                    matched++;
+                    literals++;
+                } else {
+                    mismatch = true;
+                    break;
+                }
+            }
+            if (mismatch || matched < Math.min(input.length, expected.length)) {
+                continue;
+            }
+            int score = literals * 100 + matched * 10 - Math.abs(expected.length - input.length);
+            if (score > bestScore) {
+                bestScore = score;
+                best.clear();
+                best.add(usage);
+            } else if (score == bestScore) {
+                best.add(usage);
+            }
+        }
+        return best.stream().distinct().limit(6).toList();
+    }
+
+    private static String argumentFormatHint(String usage) {
+        if (usage.contains("<password>")) {
+            return "password 读取至命令末尾，不需要双引号";
+        }
+        if (usage.contains("<email>")) {
+            return "email 可直接输入，不需要双引号";
+        }
+        if (usage.contains("<key>") || usage.contains("<content>") || usage.contains("<tag>")) {
+            return "可直接输入中文和空格，双引号可选";
+        }
+        return "";
     }
 
     /**
@@ -1900,13 +2018,18 @@ public class MusicCommand {
     public static List<String> completeCommand(String rawArgs, FabricClientCommandSource source) {
         String input = rawArgs == null ? "" : rawArgs;
         try {
+            if (input.isEmpty() || input.equals(" ")) {
+                return List.of("music", "playlist", "artist", "album", "dj", "comment", "user", "my", "style", "top", "search", "login", "volume", "lyric", "musicinfo", "page", "playing", "stop", "continue", "prev", "next", "to", "del", "trash", "random", "exit");
+            }
             // Brigadier deliberately has no completion source for primitive
             // numbers. Offer useful, executable volume values rather than the
             // invalid quoted placeholder previously injected by this bridge.
             if (input.trim().equalsIgnoreCase("volume") && input.endsWith(" ")) {
                 return List.of("0", "25", "50", "75", "100");
             }
-            String brigadierInput = "cloudmusic" + (input.isBlank() ? "" : " " + input);
+            // Preserve a trailing space: Brigadier uses it to enter the next
+            // argument and return the child literal suggestions.
+            String brigadierInput = "cloudmusic" + (input.isEmpty() ? "" : " " + input);
             List<String> suggestions = DISPATCHER.getCompletionSuggestions(DISPATCHER.parse(brigadierInput, source))
                     .join()
                     .getList()
@@ -1922,6 +2045,29 @@ public class MusicCommand {
             LOGGER.debug("[CloudMusic][Cmd] Failed to provide completion suggestions", err);
             return Collections.emptyList();
         }
+    }
+
+    /** Returns Brigadier's native argument usage lines without making them Tab suggestions. */
+    public static List<String> usageHints(String rawArgs, FabricClientCommandSource source) {
+        String input = rawArgs == null ? "" : rawArgs;
+        String brigadierInput = "cloudmusic" + (input.isEmpty() ? "" : " " + input);
+        try {
+            var parse = DISPATCHER.parse(brigadierInput, source);
+            SuggestionContext<FabricClientCommandSource> context = parse.getContext()
+                    .findSuggestionContext(brigadierInput.length());
+            return DISPATCHER.getSmartUsage(context.parent, source).entrySet().stream()
+                    .filter(entry -> !(entry.getKey() instanceof LiteralCommandNode<?>))
+                    .map(java.util.Map.Entry::getValue)
+                    .map(MusicCommand::describeUsage)
+                    .toList();
+        } catch (Exception err) {
+            return Collections.emptyList();
+        }
+    }
+
+    private static String describeUsage(String usage) {
+        String hint = argumentFormatHint(usage);
+        return hint.isEmpty() ? usage : usage + "  " + hint;
     }
 
     /**

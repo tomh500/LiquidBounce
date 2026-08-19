@@ -150,12 +150,24 @@ public class Music163 {
         data.put("offset", 0);
         JsonObject json = this.api.POST_API("/api/v1/cloud/get", data);
         java.util.List<Music> result = new java.util.ArrayList<>();
+        JsonArray ids = new JsonArray();
         if (!json.has("data") || !json.get("data").isJsonArray()) return result;
         for (com.google.gson.JsonElement element : json.getAsJsonArray("data")) {
             JsonObject item = element.getAsJsonObject();
             JsonObject song = item.has("simpleSong") && item.get("simpleSong").isJsonObject()
                     ? item.getAsJsonObject("simpleSong") : item;
-            if (song.has("id") && song.has("name")) result.add(new Music(this.api, song, null));
+            if (song.has("id") && song.has("name")) {
+                JsonObject id = new JsonObject();
+                id.add("id", song.get("id"));
+                ids.add(id);
+            }
+        }
+        if (ids.isEmpty()) return result;
+        Map<String, Object> detail = new HashMap<>();
+        detail.put("c", ids.toString());
+        JsonArray fullSongs = this.api.POST_API("/api/v3/song/detail", detail).getAsJsonArray("songs");
+        for (com.google.gson.JsonElement element : fullSongs) {
+            if (element.isJsonObject()) result.add(new Music(this.api, element.getAsJsonObject(), null));
         }
         return result;
     }

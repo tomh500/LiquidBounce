@@ -459,6 +459,36 @@ public class MusicPlayer implements Runnable {
         return lyric.getToLyric();
     }
 
+    /** A centered lyric snapshot for the in-game music window. */
+    public String[] getLyricWindow(int before, int after) {
+        return getLyricWindow(0, before, after);
+    }
+
+    public String[] getLyricWindow(int lineOffset, int before, int after) {
+        if (lyric == null) {
+            return new String[]{};
+        }
+        return lyric.getWindow(getPlayingProgress(), before, after, lineOffset);
+    }
+
+    public long[] getLyricWindowTimes(int before, int after) {
+        return getLyricWindowTimes(0, before, after);
+    }
+
+    public long[] getLyricWindowTimes(int lineOffset, int before, int after) {
+        if (lyric == null) return new long[0];
+        return lyric.getWindowTimes(getPlayingProgress(), before, after, lineOffset);
+    }
+
+    public String[] getLyricTranslationWindow(int before, int after) {
+        return getLyricTranslationWindow(0, before, after);
+    }
+
+    public String[] getLyricTranslationWindow(int lineOffset, int before, int after) {
+        if (lyric == null) return new String[0];
+        return lyric.getTranslationWindow(getPlayingProgress(), before, after, lineOffset);
+    }
+
     /**
      * 播放下一首
      */

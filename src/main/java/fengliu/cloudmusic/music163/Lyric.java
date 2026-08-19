@@ -186,6 +186,80 @@ public class Lyric implements Runnable{
     }
 
     /**
+     * Returns a fixed-size lyric window centered on the line active at {@code progressMs}.
+     * The music screen uses this snapshot instead of guessing a lyric line from wall-clock time.
+     */
+    public String[] getWindow(long progressMs, int before, int after) {
+        return getWindow(progressMs, before, after, 0);
+    }
+
+    public String[] getWindow(long progressMs, int before, int after, int lineOffset) {
+        if (lyric.isEmpty()) {
+            return new String[0];
+        }
+
+        List<Map.Entry<Long, String>> entries = new ArrayList<>(lyric.entrySet());
+        int current = currentIndex(entries, progressMs) + lineOffset;
+
+        String[] window = new String[before + after + 1];
+        for (int offset = -before; offset <= after; offset++) {
+            int index = current + offset;
+            if (index >= 0 && index < entries.size()) {
+                window[offset + before] = entries.get(index).getValue();
+            } else {
+                window[offset + before] = "";
+            }
+        }
+        return window;
+    }
+
+    public long[] getWindowTimes(long progressMs, int before, int after) {
+        return getWindowTimes(progressMs, before, after, 0);
+    }
+
+    public long[] getWindowTimes(long progressMs, int before, int after, int lineOffset) {
+        if (lyric.isEmpty()) return new long[0];
+        List<Map.Entry<Long, String>> entries = new ArrayList<>(lyric.entrySet());
+        int current = currentIndex(entries, progressMs) + lineOffset;
+        long[] window = new long[before + after + 1];
+        for (int offset = -before; offset <= after; offset++) {
+            int index = current + offset;
+            window[offset + before] = index >= 0 && index < entries.size() ? entries.get(index).getKey() : -1L;
+        }
+        return window;
+    }
+
+    public String[] getTranslationWindow(long progressMs, int before, int after) {
+        return getTranslationWindow(progressMs, before, after, 0);
+    }
+
+    public String[] getTranslationWindow(long progressMs, int before, int after, int lineOffset) {
+        if (lyric.isEmpty()) return new String[0];
+        List<Map.Entry<Long, String>> entries = new ArrayList<>(lyric.entrySet());
+        int current = currentIndex(entries, progressMs) + lineOffset;
+        String[] window = new String[before + after + 1];
+        for (int offset = -before; offset <= after; offset++) {
+            int index = current + offset;
+            if (index < 0 || index >= entries.size()) {
+                window[offset + before] = "";
+            } else {
+                String translation = tlyric.get(entries.get(index).getKey());
+                window[offset + before] = translation == null ? "" : translation;
+            }
+        }
+        return window;
+    }
+
+    private static int currentIndex(List<Map.Entry<Long, String>> entries, long progressMs) {
+        int current = 0;
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries.get(i).getKey() > progressMs) break;
+            current = i;
+        }
+        return current;
+    }
+
+    /**
      * 开始歌词滚动
      */
     public void start(){

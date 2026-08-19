@@ -33,7 +33,7 @@ import kotlin.math.roundToLong
 
 /** Original CloudMusic information panel, adapted to the LiquidBounce font. */
 object CloudMusicHudComponent : NativeHudComponent(
-    "CloudMusic",
+    "RikkaMusic",
     enabled = true,
     alignment = Alignment(Alignment.ScreenAxisX.CENTER_TRANSLATED, 0, Alignment.ScreenAxisY.TOP, 10),
     description = "Shows current music information.",
@@ -72,6 +72,18 @@ object CloudMusicHudComponent : NativeHudComponent(
     private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriorityConvention.MODEL_STATE) { event ->
         if (!HideAppearance.isHidingNow && enabled) render(event)
     }
+    private val qrRenderHandler = handler<OverlayRenderEvent> { event ->
+        if (!MusicCommand.loadQRCode) return@handler
+        val texture = mc.textureManager.getTexture(MusicIconTexture.QR_CODE_ID) ?: return@handler
+        val size = 128f
+        val x = mc.window.guiScaledWidth - size - 12f
+        val y = mc.window.guiScaledHeight - size - 28f
+        with(event.context) {
+            drawRoundedRect(x - 4f, y - 4f, x + size + 4f, y + size + 24f, 4f, Color4b(255, 255, 255, 235), CloudMusicGui.BORDER)
+            drawTexQuad(texture.textureSetup, x, y, x + size, y + size)
+            drawCloudMusicText("RikkaMusic QR", x, y + size + 6f, CloudMusicGui.smallScale, CloudMusicGui.TEXT)
+        }
+    }
     private val releaseHandler = handler<MouseButtonEvent> { if (it.button == GLFW.GLFW_MOUSE_BUTTON_LEFT && it.action == GLFW.GLFW_RELEASE) seeking = false }
     private val dragHandler = handler<MouseCursorEvent> { event ->
         if (seeking && mc.gui.screen() is ChatScreen) handleChatPointer(event.x * mc.window.guiScaledWidth / mc.window.screenWidth, event.y * mc.window.guiScaledHeight / mc.window.screenHeight)
@@ -108,6 +120,7 @@ object CloudMusicHudComponent : NativeHudComponent(
         }
     }
 }
+
 
 /** The original "default" lyric mode as a movable, standalone HUD component. */
 object MusicLyricsHudComponent : NativeHudComponent(

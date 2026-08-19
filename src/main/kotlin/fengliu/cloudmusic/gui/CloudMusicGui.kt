@@ -18,6 +18,7 @@
  */
 package fengliu.cloudmusic.gui
 
+import fengliu.cloudmusic.config.Configs
 import net.ccbluex.liquidbounce.render.FontManager
 import net.ccbluex.liquidbounce.render.engine.font.HorizontalAnchor
 import net.ccbluex.liquidbounce.render.engine.font.VerticalAnchor
@@ -32,6 +33,14 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 object CloudMusicGui {
 
     /**
+     * RikkaMusic has a small local palette switch in addition to the global
+     * ClickGUI theme. Keep this helper here so every CloudMusic screen uses the
+     * same foreground/background contrast when the switch is changed.
+     */
+    val isLightPalette: Boolean
+        get() = Configs.GUI.GUI_THEME.getStringValue().equals("Light", ignoreCase = true)
+
+    /**
      * The native ClickGUI exposes Accent and Tint through theme metadata. Keep
      * this palette derived from those live values so a theme switch recolors
      * RikkaMusic on the next frame instead of leaving it blue and black.
@@ -44,19 +53,32 @@ object CloudMusicGui {
     private val tint get() = themeColor("Tint", Color4b.BLACK)
     private val accent get() = themeColor("Accent", Color4b(0x46, 0x77, 0xFF))
 
-    val BACKGROUND get() = tint.with(a = 244)
-    val SIDEBAR get() = tint.with(a = 232)
-    val PLAYER_BG get() = tint.with(a = 224)
-    val ACCENT get() = accent
-    val ACCENT_HOVER get() = accent.with(a = 210)
-    val ACCENT_SUBTLE get() = accent.with(a = 42)
-    val TEXT = Color4b.WHITE
-    val TEXT_DIM = Color4b(0xD3, 0xD3, 0xD3, 0xFF)
-    val TEXT_FAINT = Color4b(0xFF, 0xFF, 0xFF, 0x59)
-    val HOVER = Color4b(0xFF, 0xFF, 0xFF, 0x0F)
-    val ACTIVE = Color4b(0xFF, 0xFF, 0xFF, 0x14)
-    val BORDER = Color4b(0xFF, 0xFF, 0xFF, 0x1A)
-    val PROGRESS_BG = Color4b(0xFF, 0xFF, 0xFF, 0x26)
+    val BACKGROUND
+        get() = if (isLightPalette) Color4b(248, 249, 251, 255) else tint.with(a = 244)
+    val SIDEBAR
+        get() = if (isLightPalette) Color4b(241, 244, 248, 255) else tint.with(a = 232)
+    val PLAYER_BG
+        get() = if (isLightPalette) Color4b(255, 255, 255, 245) else tint.with(a = 224)
+    val ACCENT
+        get() = if (isLightPalette) Color4b(255, 61, 88, 255) else accent
+    val ACCENT_HOVER
+        get() = ACCENT.with(a = 210)
+    val ACCENT_SUBTLE
+        get() = ACCENT.with(a = if (isLightPalette) 28 else 42)
+    val TEXT
+        get() = if (isLightPalette) Color4b(28, 43, 66, 255) else Color4b.WHITE
+    val TEXT_DIM
+        get() = if (isLightPalette) Color4b(93, 105, 124, 255) else Color4b(0xD3, 0xD3, 0xD3, 0xFF)
+    val TEXT_FAINT
+        get() = if (isLightPalette) Color4b(93, 105, 124, 150) else Color4b(0xFF, 0xFF, 0xFF, 0x59)
+    val HOVER
+        get() = if (isLightPalette) Color4b(28, 43, 66, 16) else Color4b(0xFF, 0xFF, 0xFF, 0x0F)
+    val ACTIVE
+        get() = if (isLightPalette) Color4b(28, 43, 66, 20) else Color4b(0xFF, 0xFF, 0xFF, 0x14)
+    val BORDER
+        get() = if (isLightPalette) Color4b(28, 43, 66, 32) else Color4b(0xFF, 0xFF, 0xFF, 0x1A)
+    val PROGRESS_BG
+        get() = if (isLightPalette) Color4b(28, 43, 66, 38) else Color4b(0xFF, 0xFF, 0xFF, 0x26)
     val ERROR = Color4b(0xFC, 0x41, 0x30, 0xFF)
     val SUCCESS = Color4b(0x4D, 0xAC, 0x68, 0xFF)
 
@@ -69,10 +91,10 @@ object CloudMusicGui {
     val fontScale
         get() = fontRenderer.scaleToVanillaFont
 
-    val titleScale = fontScale * 2.1f
-    val headerScale = fontScale * 1.4f
-    val bodyScale = fontScale * 1.25f
-    val smallScale = fontScale * 1.05f
+    val titleScale get() = fontScale * 2.1f
+    val headerScale get() = fontScale * 1.4f
+    val bodyScale get() = fontScale * 1.25f
+    val smallScale get() = fontScale * 1.05f
 
     fun textWidth(text: String, scale: Float = bodyScale, shadow: Boolean = false): Float =
         fontRenderer.getStringWidth(fontRenderer.process(text), shadow) * scale

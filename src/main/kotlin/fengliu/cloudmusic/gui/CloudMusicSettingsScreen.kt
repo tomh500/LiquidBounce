@@ -51,6 +51,13 @@ import org.lwjgl.glfw.GLFW
  */
 class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
 
+    private companion object {
+        const val DESIGN_WIDTH = 440f
+        const val DESIGN_HEIGHT = 313f
+        const val WIDTH_RATIO = 1320f / 2560f
+        const val HEIGHT_RATIO = 940f / 1440f
+    }
+
     private var windowLeft = 0f
     private var windowTop = 0f
     private var windowWidth = 960f
@@ -93,24 +100,43 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
         SettingsTab.HOTKEY -> Configs.HOTKEY.HOTKEY_LIST.map { it as IConfigBase }
     }
 
-    private fun displayName(config: IConfigBase): String =
-        config.getCleanName()
-            .split('_')
-            .filter { it.isNotEmpty() }
-            .joinToString(" ") { part ->
-                part.replaceFirstChar { it.uppercaseChar() }
-            }
+    private fun displayName(config: IConfigBase): String = when (config.name) {
+        "gui.draggable.window" -> "允许拖动窗口"
+        "gui.window.x" -> "窗口横坐标"
+        "gui.window.y" -> "窗口纵坐标"
+        "gui.theme" -> "界面配色"
+        "volume" -> "音量"
+        "play.url" -> "在线播放"
+        "play.loop" -> "循环播放"
+        "play.auto.random" -> "随机播放"
+        "play.quality" -> "播放音质"
+        "lyric.style" -> "歌词样式"
+        "lyric.color" -> "歌词颜色"
+        "lyric.scale" -> "歌词大小"
+        "page.limit" -> "每页歌曲数"
+        "login.cookie" -> "登录 Cookie"
+        "play.not.game.music" -> "停止游戏音乐"
+        "exit.game.stop.music" -> "退出游戏时停止音乐"
+        "stop.play.show.ui" -> "停止播放时关闭界面"
+        "cache.path" -> "缓存路径"
+        "cache.max.mb" -> "缓存上限"
+        "cache.delete.mb" -> "缓存清理阈值"
+        "music.info" -> "显示播放信息"
+        else -> config.getCleanName().split('_').filter { it.isNotEmpty() }.joinToString(" ") { part ->
+            part.replaceFirstChar { it.uppercaseChar() }
+        }
+    }
 
     // ------------------------------------------------------------------
     // Layout
     // ------------------------------------------------------------------
 
     private fun contentX() = 16f
-    private fun contentRight() = width - 16f
+    private fun contentRight() = DESIGN_WIDTH - 16f
     private fun contentWidth() = contentRight() - contentX()
     private fun tabBarY() = 52f
     private fun listTop() = tabBarY() + 46f
-    private fun listBottom() = height - 16f
+    private fun listBottom() = DESIGN_HEIGHT - 16f
     private val rowHeight = 36f
 
     private fun maxScroll(): Float {
@@ -324,10 +350,12 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
         updateWindowBounds()
         with(context) {
             drawRoundedRect(windowLeft, windowTop, windowLeft + windowWidth, windowTop + windowHeight, 8f, CloudMusicGui.BACKGROUND, outlineColor = CloudMusicGui.BORDER)
+            val localMouseX = localX(mouseX.toFloat())
+            val localMouseY = localY(mouseY.toFloat())
             pose().pushMatrix()
             pose().translate(windowLeft, windowTop)
-            pose().scale(windowWidth / width.toFloat(), windowHeight / height.toFloat())
-            drawQuad(0f, 0f, width.toFloat(), height.toFloat(), CloudMusicGui.BACKGROUND)
+            pose().scale(windowWidth / DESIGN_WIDTH, windowHeight / DESIGN_HEIGHT)
+            drawQuad(0f, 0f, DESIGN_WIDTH, DESIGN_HEIGHT, CloudMusicGui.BACKGROUND)
 
             // Header
             drawCloudMusicText(
@@ -348,7 +376,7 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
             )
 
             // Tabs
-            drawTabs(mouseX.toFloat(), mouseY.toFloat())
+            drawTabs(localMouseX, localMouseY)
 
             // Options
             scissorStack.withPush(getBounds(contentX(), listTop(), contentRight(), listBottom())) {
@@ -357,7 +385,7 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
                     if (rect.y2 < listTop() || rect.y1 > listBottom()) {
                         continue
                     }
-                    drawRow(options()[index], index, rect, mouseX.toFloat(), mouseY.toFloat())
+                    drawRow(options()[index], index, rect, localMouseX, localMouseY)
                 }
             }
             pose().popMatrix()
@@ -368,14 +396,15 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
     override fun isPauseScreen() = false
 
     private fun updateWindowBounds() {
-        windowWidth = minOf(1320f, width * 0.58f).coerceAtLeast(420f)
-        windowHeight = minOf(940f, height * 0.72f).coerceAtLeast(300f)
+        val scale = minOf(width * WIDTH_RATIO / DESIGN_WIDTH, height * HEIGHT_RATIO / DESIGN_HEIGHT)
+        windowWidth = DESIGN_WIDTH * scale
+        windowHeight = DESIGN_HEIGHT * scale
         windowLeft = (width - windowWidth) / 2f
         windowTop = (height - windowHeight) / 2f
     }
 
-    private fun localX(x: Float) = ((x - windowLeft) / windowWidth * width).coerceIn(0f, width.toFloat())
-    private fun localY(y: Float) = ((y - windowTop) / windowHeight * height).coerceIn(0f, height.toFloat())
+    private fun localX(x: Float) = ((x - windowLeft) / windowWidth * DESIGN_WIDTH).coerceIn(0f, DESIGN_WIDTH)
+    private fun localY(y: Float) = ((y - windowTop) / windowHeight * DESIGN_HEIGHT).coerceIn(0f, DESIGN_HEIGHT)
 
     private fun GuiGraphicsExtractor.drawTabs(mouseX: Float, mouseY: Float) {
         var x = contentX()
@@ -547,7 +576,7 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
     }
 
     private fun sliderRect(index: Int): Quad? {
-        if (width < 520) {
+        if (DESIGN_WIDTH < 300) {
             return null
         }
         val rect = rowRect(index)
