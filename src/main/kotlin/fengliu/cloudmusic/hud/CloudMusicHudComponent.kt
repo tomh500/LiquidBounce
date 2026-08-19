@@ -308,7 +308,7 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     val samplesPerPixel = 8f
     val rows = kotlin.math.ceil(height * samplesPerPixel).toInt().coerceAtLeast(2)
     val topOutset = 24f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 4f)
-    val maxBottomInset = 30f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 2f)
+    val maxBottomInset = 45f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 2f)
     drawCustomElement(
         pipeline = RenderPipelines.GUI,
         bounds = getBounds(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax),
@@ -341,8 +341,9 @@ private fun dynamicIslandInset(progress: Float, topOutset: Float, bottomInset: F
             firstInset + (shoulderInset - firstInset) * t
         }
         progress <= secondEnd -> {
-            val t = smooth(((progress - firstEnd) / (secondEnd - firstEnd)).coerceIn(0f, 1f))
-            shoulderInset + (nearBottomInset - shoulderInset) * t
+            val t = ((progress - firstEnd) / (secondEnd - firstEnd)).coerceIn(0f, 1f)
+            val curvedT = t * t
+            shoulderInset + (nearBottomInset - shoulderInset) * curvedT
         }
         else -> {
             val t = smooth(((progress - secondEnd) / (1f - secondEnd)).coerceIn(0f, 1f))
