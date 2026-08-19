@@ -236,7 +236,6 @@ class CefBrowser(
     }
 
     override fun mouseReleased(mouseX: Double, mouseY: Double, mouseButton: Int) {
-        browserApi.setFocus(true)
         val (scaledX, scaledY) = viewport.transformMouse(mouseX, mouseY, GlobalBrowserSettings.quality)
         browserApi.sendMouseRelease(scaledX, scaledY, mouseButton)
     }
@@ -252,8 +251,6 @@ class CefBrowser(
     }
 
     override fun keyPressed(keyCode: Int, scanCode: Int, modifiers: Int) {
-        browserApi.setFocus(true)
-
         if (InputQuirks.REPLACE_CTRL_KEY_WITH_CMD_KEY && handleMacClipboardShortcut(keyCode, modifiers)) {
             return
         }
@@ -262,12 +259,10 @@ class CefBrowser(
     }
 
     override fun keyReleased(keyCode: Int, scanCode: Int, modifiers: Int) {
-        browserApi.setFocus(true)
         browserApi.sendKeyRelease(keyCode, scanCode.toLong(), modifiers)
     }
 
     override fun charTyped(codepoint: Int) {
-        browserApi.setFocus(true)
         browserApi.sendKeyTyped(codepoint.toChar(), 0) // TODO: GLFW update removed modifiers here
     }
 

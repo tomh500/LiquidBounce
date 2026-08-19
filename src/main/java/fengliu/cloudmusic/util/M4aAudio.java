@@ -1,7 +1,11 @@
 package fengliu.cloudmusic.util;
 
 import net.sourceforge.jaad.SampleBuffer;
+import net.sourceforge.jaad.aac.AudioDecoderInfo;
+import net.sourceforge.jaad.aac.ChannelConfiguration;
 import net.sourceforge.jaad.aac.Decoder;
+import net.sourceforge.jaad.aac.Profile;
+import net.sourceforge.jaad.aac.SampleFrequency;
 import net.sourceforge.jaad.mp4.MP4Container;
 import net.sourceforge.jaad.mp4.MP4InputStream;
 import net.sourceforge.jaad.mp4.api.AudioTrack;
@@ -17,13 +21,38 @@ import java.io.InputStream;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /** Decodes AAC audio stored in an MP4/M4A container into the Java Sound PCM stream used by the player. */
 public final class M4aAudio {
+    private static final Logger LOGGER = LoggerFactory.getLogger("cloudmusic");
+
     private M4aAudio() { }
 
     public static AudioInputStream open(File file) throws IOException {
-        DecoderInputStream input = new DecoderInputStream(file);
-        return new AudioInputStream(input, input.format(), AudioSystem.NOT_SPECIFIED);
+        DecoderInputStream input = null;
+        try {
+            input = new DecoderInputStream(file, false);
+            AudioFormat format = input.format();
+            input.prime();
+            return new AudioInputStream(input, format, AudioSystem.NOT_SPECIFIED);
+        } catch (IOException | RuntimeException directFailure) {
+            if (input != null) input.close();
+            LOGGER.debug("[CloudMusic][Player] AAC metadata decoder failed for {}, retrying with MP4 track metadata", file.getName(), directFailure);
+            try {
+                input = new DecoderInputStream(file, true);
+                AudioFormat format = input.format();
+                input.prime();
+                LOGGER.info("[CloudMusic][Player] AAC compatibility decoder selected for {}: {}", file.getName(), format);
+                return new AudioInputStream(input, format, AudioSystem.NOT_SPECIFIED);
+            } catch (IOException | RuntimeException compatibilityFailure) {
+                if (input != null) input.close();
+                compatibilityFailure.addSuppressed(directFailure);
+                if (compatibilityFailure instanceof IOException ioException) throw ioException;
+                throw (RuntimeException) compatibilityFailure;
+            }
+        }
     }
 
     public static long durationMs(File file) throws IOException {
@@ -53,7 +82,7 @@ public final class M4aAudio {
         private byte[] decoded = new byte[0];
         private int position;
 
-        private DecoderInputStream(File file) throws IOException {
+        private DecoderInputStream(File file, boolean useTrackMetadata) throws IOException {
             this.input = MP4InputStream.open(new RandomAccessFile(file, "r"));
             MP4Container container = new MP4Container(input);
             Movie movie = container.getMovie();
@@ -62,11 +91,19 @@ public final class M4aAudio {
                     .map(AudioTrack.class::cast)
                     .findFirst()
                     .orElseThrow(() -> new IOException("M4A file has no AAC audio track"));
-            this.decoder = Decoder.create(track.getDecoderSpecificInfo().getData());
+            if (useTrackMetadata) {
+                this.decoder = Decoder.create(new TrackAudioDecoderInfo(track));
+            } else {
+                this.decoder = Decoder.create(track.getDecoderSpecificInfo().getData());
+            }
         }
 
         private AudioFormat format() {
             return decoder.getAudioFormat();
+        }
+
+        private void prime() throws IOException {
+            decodeNextFrame();
         }
 
         @Override
@@ -102,6 +139,27 @@ public final class M4aAudio {
         @Override
         public void close() throws IOException {
             input.close();
+        }
+    }
+
+    /**
+     * Some CDN M4A files omit a usable AudioSpecificConfig. Their MP4 audio
+     * track still contains enough information for regular AAC-LC playback.
+     */
+    private record TrackAudioDecoderInfo(AudioTrack track) implements AudioDecoderInfo {
+        @Override
+        public Profile getProfile() {
+            return Profile.AAC_LC;
+        }
+
+        @Override
+        public SampleFrequency getSampleFrequency() {
+            return SampleFrequency.nominalFrequency(track.getSampleRate());
+        }
+
+        @Override
+        public ChannelConfiguration getChannelConfiguration() {
+            return ChannelConfiguration.forChannelCount(track.getChannelCount());
         }
     }
 }

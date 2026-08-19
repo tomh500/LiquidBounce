@@ -347,9 +347,26 @@ public class MusicPlayer implements Runnable {
     private AudioInputStream openAudioInputStream() throws Exception {
         AudioInputStream stream;
         if (this.playFile != null) {
-            stream = M4aAudio.isM4a(this.playFile)
-                    ? M4aAudio.open(this.playFile)
-                    : AudioSystem.getAudioInputStream(this.playFile);
+            if (M4aAudio.isM4a(this.playFile)) {
+                try {
+                    stream = M4aAudio.open(this.playFile);
+                } catch (Exception m4aFailure) {
+                    // JAAD and Java Sound use separate container entry points.
+                    // Keep the file available for the provider fallback rather
+                    // than treating one malformed AAC metadata block as fatal.
+                    LOGGER.debug("[CloudMusic][Player] M4A decoder failed for {}, trying Java Sound provider", this.playFile.getName(), m4aFailure);
+                    try {
+                        stream = AudioSystem.getAudioInputStream(this.playFile);
+                        LOGGER.info("[CloudMusic][Player] Java Sound M4A compatibility decoder selected for {}: {}",
+                                this.playFile.getName(), stream.getFormat());
+                    } catch (Exception javaSoundFailure) {
+                        javaSoundFailure.addSuppressed(m4aFailure);
+                        throw javaSoundFailure;
+                    }
+                }
+            } else {
+                stream = AudioSystem.getAudioInputStream(this.playFile);
+            }
         } else if (this.playUrl != null) {
             stream = AudioSystem.getAudioInputStream(new URL(this.playUrl));
         } else {

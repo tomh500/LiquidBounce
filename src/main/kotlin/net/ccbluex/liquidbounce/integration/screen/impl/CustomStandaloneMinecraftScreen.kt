@@ -21,6 +21,7 @@ package net.ccbluex.liquidbounce.integration.screen.impl
 
 import net.ccbluex.liquidbounce.additions.setPosition
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHud
+import net.ccbluex.liquidbounce.features.module.modules.movement.inventorymove.ModuleInventoryMove
 import net.ccbluex.liquidbounce.integration.screen.CustomScreenType
 import net.ccbluex.liquidbounce.integration.screen.ScreenManager
 import net.ccbluex.liquidbounce.integration.theme.ThemeManager
@@ -28,6 +29,8 @@ import net.ccbluex.liquidbounce.utils.text.asPlainText
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
+import net.minecraft.client.KeyMapping
+import com.mojang.blaze3d.platform.InputConstants
 import net.minecraft.client.input.CharacterEvent
 import net.minecraft.client.input.KeyEvent
 import org.lwjgl.glfw.GLFW
@@ -98,15 +101,27 @@ class CustomStandaloneMinecraftScreen(
         if (event.key() == GLFW.GLFW_KEY_ESCAPE) {
             mc.gui.setScreen(null)
         }
+        syncInventoryMoveKey(event, true)
         return true
     }
 
-    override fun keyReleased(event: KeyEvent) = true
+    override fun keyReleased(event: KeyEvent): Boolean {
+        syncInventoryMoveKey(event, false)
+        return true
+    }
 
     override fun charTyped(event: CharacterEvent) = true
 
     override fun close() {
         browser.close()
+    }
+
+    private fun syncInventoryMoveKey(event: KeyEvent, pressed: Boolean) {
+        if (screenType != CustomScreenType.RIKKAMUSIC || !ModuleInventoryMove.shouldHandleInputs(event)) {
+            return
+        }
+
+        KeyMapping.set(InputConstants.getKey(event), pressed)
     }
 
 }
