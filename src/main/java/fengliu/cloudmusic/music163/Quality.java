@@ -48,7 +48,9 @@ public enum Quality implements IConfigOptionListEntry {
     @Override
     public IConfigOptionListEntry fromString(String value) {
         for (Quality mode : Quality.values()) {
-            if (!mode.getDisplayName().equals(value)) {
+            // ConfigOptionList persists getStringValue() (for example
+            // "lossless"), while older files may contain the localized label.
+            if (!mode.getStringValue().equals(value) && !mode.getDisplayName().equals(value)) {
                 continue;
             }
 

@@ -307,7 +307,7 @@ private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriority
             lyrics.original?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.bodyScale * .92f) } ?: 0f,
             if (showTranslation) lyrics.translation?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.smallScale * .92f) } ?: 0f else 0f,
         )
-        val expandedTarget = (textWidth + 76f).coerceAtLeast(minimumWidth)
+        val expandedTarget = (textWidth + 94f).coerceAtLeast(minimumWidth)
         val widthTarget = if (collapsePending || (lyricTransitionStarted != 0L && !lyricContentVisible)) minimumWidth else expandedTarget
         displayedWidth += (widthTarget - displayedWidth) * (1f - kotlin.math.exp((-elapsed * 16f).toDouble()).toFloat())
         
