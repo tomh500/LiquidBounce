@@ -30,6 +30,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.CharacterEvent
 import net.minecraft.client.input.KeyEvent
+import org.lwjgl.glfw.GLFW
 
 class CustomStandaloneMinecraftScreen(
     val screenType: CustomScreenType
@@ -69,6 +70,14 @@ class CustomStandaloneMinecraftScreen(
         super.onClose()
     }
 
+    override fun removed() {
+        // Gui#setScreen invokes removed() when this screen is replaced. Keep
+        // the browser overlay lifecycle tied to the Minecraft screen lifecycle
+        // instead of relying only on Escape/onClose paths.
+        browser.visible = false
+        super.removed()
+    }
+
     /**
      * Disable [Screen.extractBlurredBackground]
      */
@@ -85,7 +94,12 @@ class CustomStandaloneMinecraftScreen(
     // The browser's InputListener receives these events first. Consuming them
     // here keeps Minecraft's screen/keybinding handling from stealing IME
     // composition while a web input (such as the music search field) is focused.
-    override fun keyPressed(event: KeyEvent) = true
+    override fun keyPressed(event: KeyEvent): Boolean {
+        if (event.key() == GLFW.GLFW_KEY_ESCAPE) {
+            mc.gui.setScreen(null)
+        }
+        return true
+    }
 
     override fun keyReleased(event: KeyEvent) = true
 

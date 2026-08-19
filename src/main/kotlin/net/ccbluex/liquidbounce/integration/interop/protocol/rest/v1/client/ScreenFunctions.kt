@@ -32,6 +32,7 @@ import net.ccbluex.liquidbounce.integration.interop.forbidden
 import net.ccbluex.liquidbounce.integration.screen.CustomScreenType
 import net.ccbluex.liquidbounce.integration.screen.ScreenManager
 import net.ccbluex.liquidbounce.integration.screen.impl.CustomSharedMinecraftScreen
+import net.ccbluex.liquidbounce.integration.screen.impl.CustomStandaloneMinecraftScreen
 import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.client.gui.screens.LoadingOverlay
@@ -94,6 +95,18 @@ private fun Route.deleteScreen() = delete {
     if (screen is CustomSharedMinecraftScreen && screen.parentScreen != null) {
         mc.execute {
             mc.gui.setScreen(screen.parentScreen)
+        }
+        call.respond(io.ktor.http.HttpStatusCode.NoContent)
+        return@delete
+    }
+
+    if (screen is CustomStandaloneMinecraftScreen) {
+        mc.execute {
+            // Standalone browsers are rendered independently from Minecraft's
+            // Screen draw pass. Hide the browser before replacing the screen
+            // so a cached instance cannot leave its last frame on screen.
+            screen.browser.visible = false
+            mc.gui.setScreen(if (inGame) null else TitleScreen())
         }
         call.respond(io.ktor.http.HttpStatusCode.NoContent)
         return@delete
