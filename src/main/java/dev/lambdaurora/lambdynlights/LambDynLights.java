@@ -662,7 +662,8 @@ public class LambDynLights implements DynamicLightsContext {
 		boolean submergedInFluid = isEyeSubmergedInFluid(entity);
 		int luminance = 0;
 
-		for (var equipmentSlot : EquipmentSlot.VALUES) {
+		// Check every slot so light sources work in hand-held and worn items, including helmets.
+		for (var equipmentSlot : EquipmentSlot.values()) {
 			var equipped = entity.getItemBySlot(equipmentSlot);
 
 			if (!equipped.isEmpty()) {
