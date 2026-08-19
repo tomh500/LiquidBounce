@@ -363,9 +363,11 @@ private fun fengliu.cloudmusic.util.MusicPlayer.lyricLines(): CurrentLyrics {
     val lines = getLyric().filter { it.isNotBlank() }
     if (lines.isNotEmpty()) return CurrentLyrics(lines.getOrNull(0), lines.getOrNull(1))
     // During a timestamp gap the lyric worker can briefly expose an empty snapshot.
-    // Keep the next timed line visible instead of leaving the HUD blank.
-    val upcoming = getLyricWindow(1, 0, 0).filter { it.isNotBlank() }
-    val upcomingTranslation = getLyricTranslationWindow(1, 0, 0).filter { it.isNotBlank() }
+    // Resolve the active timed line instead of leaving the HUD blank.
+    // The lyric worker can be briefly empty when a track starts. Resolve the
+    // active first timed line directly; offset 1 would incorrectly skip it.
+    val upcoming = getLyricWindow(0, 0, 0).filter { it.isNotBlank() }
+    val upcomingTranslation = getLyricTranslationWindow(0, 0, 0).filter { it.isNotBlank() }
     return CurrentLyrics(upcoming.getOrNull(0), upcomingTranslation.getOrNull(0))
 }
 
