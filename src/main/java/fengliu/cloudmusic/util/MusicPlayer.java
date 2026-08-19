@@ -6,6 +6,7 @@ import fengliu.cloudmusic.music163.ActionException;
 import fengliu.cloudmusic.music163.IMusic;
 import fengliu.cloudmusic.music163.Lyric;
 import fengliu.cloudmusic.music163.data.DjMusic;
+import fengliu.cloudmusic.music163.data.LocalMusic;
 import fengliu.cloudmusic.music163.data.Music;
 import fengliu.cloudmusic.render.MusicIconTexture;
 import fengliu.cloudmusic.util.page.Page;
@@ -168,12 +169,17 @@ public class MusicPlayer implements Runnable {
             }
         }
 
-        MusicIconTexture.getMusicIcon(music);
-        if (music instanceof Music) {
+        if (music instanceof LocalMusic localMusic) {
+            Music matched = localMusic.resolveNetEaseMatch(fengliu.cloudmusic.command.MusicCommand.getMusic163());
+            Lyric onlineLyrics = matched == null ? null : matched.lyric();
+            this.lyric = onlineLyrics != null && onlineLyrics.hasLyrics()
+                    ? onlineLyrics : Lyric.fromLrc(localMusic.getEmbeddedLyrics());
+        } else if (music instanceof Music) {
             this.lyric = ((Music) music).lyric();
         } else {
             this.lyric = null;
         }
+        MusicIconTexture.getMusicIcon(music);
 
         this.playingMusic = music;
         if (!Configs.PLAY.PLAY_URL.getBooleanValue()) {
@@ -188,10 +194,12 @@ public class MusicPlayer implements Runnable {
             String fileType = fileExtension(musicUrl);
 
             File file;
+            String quality = music instanceof Music cloudMusic ? cloudMusic.getResolvedQuality()
+                    : music instanceof DjMusic djMusic ? djMusic.getResolvedQuality() : Configs.PLAY.PLAY_QUALITY.getStringValue();
             if (music instanceof DjMusic) {
-                file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile("djmusic_" + music.getId() + "." + fileType));
+                file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile("djmusic_" + music.getId() + "_" + quality + "." + fileType));
             } else {
-                file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile(music.getId() + "." + fileType));
+                file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile(music.getId() + "_" + quality + "." + fileType));
             }
 
             if (!canContinue()) {
@@ -310,7 +318,9 @@ public class MusicPlayer implements Runnable {
     private AudioInputStream openAudioInputStream() throws Exception {
         AudioInputStream stream;
         if (this.playFile != null) {
-            stream = AudioSystem.getAudioInputStream(this.playFile);
+            stream = M4aAudio.isM4a(this.playFile)
+                    ? M4aAudio.open(this.playFile)
+                    : AudioSystem.getAudioInputStream(this.playFile);
         } else if (this.playUrl != null) {
             stream = AudioSystem.getAudioInputStream(new URL(this.playUrl));
         } else {
@@ -322,12 +332,17 @@ public class MusicPlayer implements Runnable {
         if (!AudioFormat.Encoding.PCM_SIGNED.equals(sourceFormat.getEncoding())) {
             float sampleRate = sourceFormat.getSampleRate() > 0 ? sourceFormat.getSampleRate() : 44_100f;
             int channels = sourceFormat.getChannels() > 0 ? sourceFormat.getChannels() : 2;
+            int sampleSize = sourceFormat.getSampleSizeInBits();
+            // Hi-Res FLAC is commonly 24-bit. JFLAC decodes it at its native
+            // depth but rejects a lossy 24-bit to 16-bit conversion request.
+            if (sampleSize <= 0 || sampleSize > 32) sampleSize = 16;
+            int frameSize = channels * ((sampleSize + 7) / 8);
             AudioFormat pcmFormat = new AudioFormat(
                     AudioFormat.Encoding.PCM_SIGNED,
                     sampleRate,
-                    16,
+                    sampleSize,
                     channels,
-                    channels * 2,
+                    frameSize,
                     sampleRate,
                     false
             );
@@ -345,7 +360,8 @@ public class MusicPlayer implements Runnable {
         AudioFormat format = stream.getFormat();
         long bytesPerSecond = (long) (format.getFrameRate() * format.getFrameSize());
         if (bytesPerSecond <= 0) {
-            return stream;
+            this.activeStream = stream;
+            return 0L;
         }
 
         // 不能用 skip(): mp3spi 等解码后的转换流上 skip() 按压缩源字节跳过,
@@ -356,14 +372,19 @@ public class MusicPlayer implements Runnable {
         bytesToSkip -= bytesToSkip % frameSize;
         byte[] buffer = new byte[65536];
         long skipped = 0;
+        int emptyReads = 0;
         while (skipped < bytesToSkip) {
             int read = stream.read(buffer, 0, (int) Math.min(buffer.length, bytesToSkip - skipped));
             if (read < 0) {
                 break;
             }
             if (read == 0) {
+                if (++emptyReads >= 100) {
+                    break;
+                }
                 continue;
             }
+            emptyReads = 0;
             skipped += read;
         }
         this.activeStream = stream;

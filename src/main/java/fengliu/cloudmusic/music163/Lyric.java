@@ -92,7 +92,11 @@ public class Lyric implements Runnable{
     }
 
     public Lyric(JsonObject data){
-        String lyric = data.getAsJsonObject("lrc").get("lyric").getAsString();
+        String lyric = "";
+        if (data != null && data.has("lrc") && data.get("lrc").isJsonObject()) {
+            JsonObject lrc = data.getAsJsonObject("lrc");
+            if (lrc.has("lyric") && !lrc.get("lyric").isJsonNull()) lyric = lrc.get("lyric").getAsString();
+        }
         if(lyric.equals("")){
             this.lyric = new LinkedHashMap<>();
             this.tlyric = this.lyric;
@@ -100,18 +104,32 @@ public class Lyric implements Runnable{
         }
 
         this.lyric = lyricToMap(lyric);
-        if(!data.has("tlyric")){
+        if(!data.has("tlyric") || !data.get("tlyric").isJsonObject()){
             this.tlyric = new LinkedHashMap<>();
             return;
         }
 
-        String tlyric = data.getAsJsonObject("tlyric").get("lyric").getAsString();
+        JsonObject translation = data.getAsJsonObject("tlyric");
+        String tlyric = translation.has("lyric") && !translation.get("lyric").isJsonNull()
+                ? translation.get("lyric").getAsString() : "";
         if(tlyric.equals("")){
             this.tlyric = new LinkedHashMap<>();
             return;
         }
 
-        this.tlyric = lyricToMap(data.getAsJsonObject("tlyric").get("lyric").getAsString());
+        this.tlyric = lyricToMap(tlyric);
+    }
+
+    public static Lyric fromLrc(String lyric) {
+        JsonObject data = new JsonObject();
+        JsonObject lrc = new JsonObject();
+        lrc.addProperty("lyric", lyric == null ? "" : lyric);
+        data.add("lrc", lrc);
+        return new Lyric(data);
+    }
+
+    public boolean hasLyrics() {
+        return !this.lyric.isEmpty();
     }
 
     @Override

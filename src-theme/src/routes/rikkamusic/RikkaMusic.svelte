@@ -200,6 +200,14 @@
     .notice { color: #9dc0ff; background: rgba(70, 119, 255, .12); border-color: rgba(70, 119, 255, .36); }
     .rikkamusic-scale { position: relative; flex: none; }
     .rikkamusic-shell { width: 1320px; height: 960px; min-height: 0; transform-origin: top left; font-size: 16px; }
+    .rikkamusic-shell { font-size: 17px; }
+    .btn { min-height: 38px; padding: 8px 18px; font-size: 15px; }
+    .search-pages { gap: 16px; min-height: 38px; margin: 0 0 18px; font-size: 15px; }
+    .search-pages button { min-width: 78px; min-height: 34px; padding: 7px 12px; border-radius: 6px; font-size: 14px; }
+    .search-pages span { min-width: 118px; }
+    .quality-tag { min-width: 54px; min-height: 30px; padding: 5px 8px; color: #c8d8ff; border-color: #6f98ff; border-radius: 5px; background: rgba(70, 119, 255, .16); font-size: 13px; font-weight: 700; line-height: 1; }
+    .quality-tag:hover { color: #fff; border-color: #9db8ff; background: rgba(70, 119, 255, .34); }
+    .volume-container input { width: 96px; }
     .setting-item { min-height: 46px; }
     .setting-item small, .settings-note, .menu-title, .track-text small, .progress-container { font-size: 12px; }
     .tab { cursor: pointer; }

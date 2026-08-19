@@ -136,8 +136,12 @@ dependencies {
     // can decode catalog tracks and private uploads.
     implementation("com.googlecode.soundlibs:vorbisspi:1.0.3.3")
     jij("com.googlecode.soundlibs:vorbisspi:1.0.3.3")
+    implementation("com.googlecode.soundlibs:jorbis:0.0.17.4")
+    jij("com.googlecode.soundlibs:jorbis:0.0.17.4")
     implementation("com.tianscar.javasound:jaad:0.9.4")
     jij("com.tianscar.javasound:jaad:0.9.4")
+    implementation("org:jaudiotagger:2.0.3")
+    jij("org:jaudiotagger:2.0.3")
     implementation("org.jflac:jflac-codec:1.5.2")
     jij("org.jflac:jflac-codec:1.5.2")
 

@@ -281,8 +281,8 @@ object DynamicIslandHudComponent : NativeHudComponent(
 private object CloudMusicHudRender {
     fun fraction(player: fengliu.cloudmusic.util.MusicPlayer, music: IMusic) = (player.playingProgress.toFloat() / (music.durationSecond * 1000L).coerceAtLeast(1L)).coerceIn(0f, 1f)
     fun subtitle(music: IMusic): String = when (music) {
-        is Music -> Music.getArtistsName(music.artists).ifBlank { music.album.get("name")?.asString.orEmpty() }
-        is DjMusic -> music.dj.get("nickname")?.asString.orEmpty()
+        is Music -> Music.getArtistsName(music.artists).ifBlank { music.album.get("name")?.takeUnless { it.isJsonNull }?.asString.orEmpty() }
+        is DjMusic -> music.dj.get("nickname")?.takeUnless { it.isJsonNull }?.asString.orEmpty()
         else -> ""
     }
     fun drawCover(context: net.minecraft.client.gui.GuiGraphicsExtractor, x: Float, y: Float, size: Float, rounded: Boolean) {

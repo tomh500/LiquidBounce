@@ -262,14 +262,13 @@ private fun Route.updateMusicSettings() = post("/settings") {
         is ConfigString -> config.setStringValue(value)
         is ConfigOptionList -> {
             var option = config.optionListValue
-            if (option.stringValue == value) {
+            var found = option.stringValue == value
+            for (ignored in 0 until 31) {
+                if (found) break
                 option = option.cycle(true)
-            } else {
-                for (ignored in 0 until 32) {
-                    if (option.stringValue == value) break
-                    option = option.cycle(true)
-                }
+                found = option.stringValue == value
             }
+            if (!found) call.badRequest("Unknown music option value")
             config.setOptionListValue(option)
         }
         is ConfigHotkey -> config.setValueFromString(value)
