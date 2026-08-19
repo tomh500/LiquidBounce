@@ -225,23 +225,20 @@ private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriority
         
         with(event.context) {
             drawDynamicIslandShape(bounds, islandHeight, backgroundColor.with(r = 0, g = 0, b = 0, a = 173).fade(visibility))
+            // The logo and cover are the collapsed minimum unit; they remain
+            // visible while lyric text fades out between timestamped lines.
+            val sidePadding = 22f
+            val logoSize = 14f
+            val iconY = bounds.yMin + (islandHeight - logoSize) / 2f
+            MusicIconTexture.loadLiquidBounceIcon()
+            if (MusicIconTexture.canUseLiquidBounceIcon()) mc.textureManager.getTexture(MusicIconTexture.LIQUID_BOUNCE_ICON_ID)?.let {
+                drawTexQuad(it.textureSetup, bounds.xMin + sidePadding, iconY, bounds.xMin + sidePadding + logoSize, iconY + logoSize)
+            }
+            val coverSize = 20f
+            CloudMusicHudRender.drawCover(this, bounds.xMax - sidePadding - coverSize, bounds.yMin + (islandHeight - coverSize) / 2f, coverSize, rounded = true)
+            val textX = bounds.xMin + sidePadding + logoSize + 8f
+            val textWidth = (bounds.xMax - sidePadding - coverSize - 8f - textX).coerceAtLeast(1f)
             if (contentAlpha > 0f) {
-                // 加大边距（22f），避开两侧弧线内缩区域
-                val sidePadding = 22f
-                val logoSize = 14f
-                val iconY = bounds.yMin + (islandHeight - logoSize) / 2f
-                
-                MusicIconTexture.loadLiquidBounceIcon()
-                if (MusicIconTexture.canUseLiquidBounceIcon()) mc.textureManager.getTexture(MusicIconTexture.LIQUID_BOUNCE_ICON_ID)?.let {
-                    drawTexQuad(it.textureSetup, bounds.xMin + sidePadding, iconY, bounds.xMin + sidePadding + logoSize, iconY + logoSize)
-                }
-                
-                val coverSize = 20f
-                CloudMusicHudRender.drawCover(this, bounds.xMax - sidePadding - coverSize, bounds.yMin + (islandHeight - coverSize) / 2f, coverSize, rounded = true)
-                
-                // 重新计算文本安全区域
-                val textX = bounds.xMin + sidePadding + logoSize + 8f
-                val textWidth = (bounds.xMax - sidePadding - coverSize - 8f - textX).coerceAtLeast(1f)
                 val lyric = lyrics.original?.takeIf { it.isNotBlank() }
                 val translation = lyrics.translation?.takeIf { showTranslation && it.isNotBlank() }
                 
@@ -261,8 +258,8 @@ private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriority
                 translation?.let {
                     drawCloudMusicText(it, textX + textWidth / 2f, bounds.yMin + 16f, CloudMusicGui.smallScale, translationColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
                 }
-                pinBounds = bounds
-            } else pinBounds = null
+            }
+            pinBounds = bounds
         }
     }
 
@@ -294,6 +291,11 @@ private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriority
                 lyricTransitionStarted = now
                 lyricContentVisible = false
             }
+        }
+        if (!lyricContentVisible && lyricTransitionStarted != 0L && now - lyricTransitionStarted >= collapseDurationMs * 1_000_000L) {
+            lyricContentVisible = true
+            lyricTransitionStarted = 0L
+            collapsePending = false
         }
         
         val textWidth = maxOf(
