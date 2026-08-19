@@ -1,6 +1,7 @@
 package fengliu.cloudmusic.music163;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import fengliu.cloudmusic.music163.data.*;
 import fengliu.cloudmusic.util.HttpClient;
@@ -145,31 +146,105 @@ public class Music163 {
     /** Loads the optional personal cloud-disk library. Unsupported or
      * unauthorized accounts are reported to the caller so the UI can hide it. */
     public java.util.List<Music> cloudMusic() {
-        Map<String, Object> data = new HashMap<>();
-        data.put("limit", 100);
-        data.put("offset", 0);
-        JsonObject json = this.api.POST_API("/api/v1/cloud/get", data);
         java.util.List<Music> result = new java.util.ArrayList<>();
         JsonArray ids = new JsonArray();
-        if (!json.has("data") || !json.get("data").isJsonArray()) return result;
-        for (com.google.gson.JsonElement element : json.getAsJsonArray("data")) {
-            JsonObject item = element.getAsJsonObject();
-            JsonObject song = item.has("simpleSong") && item.get("simpleSong").isJsonObject()
-                    ? item.getAsJsonObject("simpleSong") : item;
-            if (song.has("id") && song.has("name")) {
-                JsonObject id = new JsonObject();
-                id.add("id", song.get("id"));
-                ids.add(id);
+        int offset = 0;
+        while (true) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("limit", 100);
+            data.put("offset", offset);
+            JsonObject json;
+            try {
+                json = this.api.POST_API("/api/v1/cloud/get", data);
+            } catch (RuntimeException first) {
+                json = this.api.POST_API("/api/cloud/get", data);
+            }
+            JsonArray entries = cloudEntries(json);
+            if (entries.isEmpty()) break;
+            int before = ids.size();
+            for (JsonElement element : entries) {
+                if (!element.isJsonObject()) continue;
+                JsonObject item = element.getAsJsonObject();
+                JsonObject song = item.has("simpleSong") && item.get("simpleSong").isJsonObject()
+                        ? item.getAsJsonObject("simpleSong") : item;
+                // This is the format used by the working historical client:
+                // cloud/get already returns enough metadata in simpleSong.
+                if (song.has("id") && song.has("name")) {
+                    try {
+                        result.add(new Music(this.api, normalizeCloudSong(song), null));
+                    } catch (RuntimeException ignored) {
+                        // Some uploads omit optional album metadata. They can
+                        // still be recovered through the detail fallback below.
+                    }
+                }
+                JsonElement id = song.has("id") ? song.get("id") : item.get("songId");
+                if (id != null && !id.isJsonNull()) {
+                    JsonObject value = new JsonObject();
+                    value.add("id", id);
+                    ids.add(value);
+                }
+            }
+            if (ids.size() == before || entries.size() < 100) break;
+            offset += entries.size();
+        }
+        if (!result.isEmpty()) return result;
+        for (int start = 0; start < ids.size(); start += 100) {
+            JsonArray batch = new JsonArray();
+            for (int i = start; i < Math.min(start + 100, ids.size()); i++) batch.add(ids.get(i));
+            Map<String, Object> detail = new HashMap<>();
+            detail.put("c", batch.toString());
+            JsonObject detailJson = this.api.POST_API("/api/v3/song/detail", detail);
+            if (!detailJson.has("songs") || !detailJson.get("songs").isJsonArray()) continue;
+            for (JsonElement element : detailJson.getAsJsonArray("songs")) {
+                if (element.isJsonObject()) result.add(new Music(this.api, normalizeCloudSong(element.getAsJsonObject()), null));
             }
         }
-        if (ids.isEmpty()) return result;
-        Map<String, Object> detail = new HashMap<>();
-        detail.put("c", ids.toString());
-        JsonArray fullSongs = this.api.POST_API("/api/v3/song/detail", detail).getAsJsonArray("songs");
-        for (com.google.gson.JsonElement element : fullSongs) {
-            if (element.isJsonObject()) result.add(new Music(this.api, element.getAsJsonObject(), null));
-        }
         return result;
+    }
+
+    private static JsonArray cloudEntries(JsonObject json) {
+        for (String key : new String[]{"data", "songs", "cloudSongs", "cloudSongList"}) {
+            if (!json.has(key) || json.get(key).isJsonNull()) continue;
+            JsonElement value = json.get(key);
+            if (value.isJsonArray()) return value.getAsJsonArray();
+            if (value.isJsonObject()) {
+                JsonObject object = value.getAsJsonObject();
+                for (String nested : new String[]{"data", "songs", "cloudSongs", "cloudSongList"}) {
+                    if (object.has(nested) && object.get(nested).isJsonArray()) return object.getAsJsonArray(nested);
+                }
+            }
+        }
+        return new JsonArray();
+    }
+
+    private static JsonObject normalizeCloudSong(JsonObject source) {
+        JsonObject song = source.deepCopy();
+        if (!song.has("alia") || song.get("alia").isJsonNull()) song.add("alia", new JsonArray());
+        if (!song.has("alias") || song.get("alias").isJsonNull()) song.add("alias", new JsonArray());
+        if (!song.has("ar") || song.get("ar").isJsonNull()) song.add("ar", new JsonArray());
+        if (!song.has("artists") || song.get("artists").isJsonNull()) song.add("artists", song.get("ar"));
+        if (!song.has("al") || song.get("al").isJsonNull()) {
+            JsonObject album = new JsonObject();
+            album.addProperty("name", "");
+            song.add("al", album);
+        }
+        if (song.getAsJsonObject("al").has("picUrl") && song.getAsJsonObject("al").get("picUrl").isJsonNull()) {
+            song.getAsJsonObject("al").remove("picUrl");
+        }
+        if (!song.has("album") || song.get("album").isJsonNull()) song.add("album", song.get("al"));
+        if ((!song.has("dt") || song.get("dt").isJsonNull()) && (!song.has("duration") || song.get("duration").isJsonNull())) song.addProperty("dt", 0L);
+        return song;
+    }
+
+    /** Raw paged search response used by the browser UI. */
+    public JsonObject search(String key, int type, int page, int limit) {
+        Map<String, Object> data = new HashMap<>();
+        data.put("s", key);
+        data.put("type", type);
+        data.put("limit", limit);
+        data.put("offset", Math.max(0, page - 1) * limit);
+        data.put("total", true);
+        return this.api.POST_API("/api/cloudsearch/pc", data);
     }
 
     /**

@@ -50,6 +50,7 @@ export interface RikkaMusicPlaylist {
     cover: string;
     count: number;
     songs?: RikkaMusicSong[];
+    artist?: string;
 }
 
 export interface RikkaMusicLibrary {
@@ -66,6 +67,20 @@ export interface RikkaMusicState {
     volume: number;
     song: RikkaMusicSong | null;
     theme: string;
+    quality: string;
+}
+
+export interface RikkaMusicSearchResult {
+    type: "song" | "playlist" | "artist";
+    page: number;
+    pageCount: number;
+    total: number;
+    items: RikkaMusicSong[] | RikkaMusicPlaylist[];
+}
+
+export interface RikkaMusicLocalLibrary {
+    path: string;
+    songs: RikkaMusicSong[];
 }
 
 export interface RikkaMusicLoginStatus {
@@ -134,16 +149,28 @@ export async function getRikkaMusicCloud(): Promise<RikkaMusicSong[]> {
     return await readMusicJson(response);
 }
 
-export async function searchRikkaMusic(query: string): Promise<RikkaMusicSong[]> {
-    const response = await fetch(`${API_BASE}/client/music/search?q=${encodeURIComponent(query)}`);
+export async function searchRikkaMusic(query: string, type: "song" | "playlist" | "artist" = "song", page = 1): Promise<RikkaMusicSearchResult> {
+    const response = await fetch(`${API_BASE}/client/music/search?q=${encodeURIComponent(query)}&type=${type}&page=${page}`);
     return await readMusicJson(response);
 }
 
-export async function controlRikkaMusic(action: string, value?: number, playlistId?: number, index?: number, query?: string) {
+export async function getRikkaMusicLocal(): Promise<RikkaMusicLocalLibrary> {
+    const response = await fetch(`${API_BASE}/client/music/local`);
+    return await readMusicJson(response);
+}
+
+export async function mountRikkaMusicLocal(path: string): Promise<RikkaMusicLocalLibrary> {
+    const response = await fetch(`${API_BASE}/client/music/local/mount`, {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({path})
+    });
+    return await readMusicJson(response);
+}
+
+export async function controlRikkaMusic(action: string, value?: number, playlistId?: number, index?: number, query?: string, page?: number) {
     const response = await fetch(`${API_BASE}/client/music/control`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({action, value, playlistId, index, query})
+        body: JSON.stringify({action, value, playlistId, index, query, page})
     });
     if (!response.ok) await readMusicJson(response);
 }

@@ -32,6 +32,7 @@ import kotlinx.coroutines.withContext
 import net.ccbluex.liquidbounce.integration.interop.badRequest
 import net.ccbluex.liquidbounce.utils.kotlin.Minecraft
 import java.io.File
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.Locale
@@ -77,6 +78,23 @@ private object RikkaMusicLogin {
     fun qrCodeFile(): File = CloudMusicClient.MC_PATH.resolve("cloud_music_qrcode.png").toFile()
 }
 
+private object RikkaMusicLocal {
+    private val directory = AtomicReference<File?>(null)
+
+    fun setDirectory(path: String?) {
+        directory.set(path?.let(::File)?.takeIf { it.isDirectory })
+    }
+
+    fun path(): String = directory.get()?.absolutePath ?: ""
+
+    fun songs(): List<fengliu.cloudmusic.music163.data.LocalMusic> = directory.get()
+        ?.walkTopDown()
+        ?.filter { it.isFile && it.extension.lowercase(Locale.ROOT) in setOf("mp3", "wav", "ogg", "flac", "m4a") }
+        ?.map { fengliu.cloudmusic.music163.data.LocalMusic(it) }
+        ?.toList()
+        ?: emptyList()
+}
+
 private fun musicJson(music: IMusic): JsonObject {
     val result = JsonObject()
     result.addProperty("id", music.id)
@@ -86,7 +104,8 @@ private fun musicJson(music: IMusic): JsonObject {
     result.addProperty("artist", if (music is Music && music.artists != null) {
         runCatching { Music.getArtistsName(music.artists) }.getOrDefault("")
     } else "")
-    result.addProperty("album", if (music is Music && music.album?.has("name") == true) {
+    result.addProperty("album", if (music is Music && music.album?.has("name") == true
+        && !music.album.get("name").isJsonNull) {
         music.album.get("name").asString
     } else "")
     return result
@@ -293,11 +312,66 @@ private fun Route.getMusicCloud() = get("/cloud") {
     call.respond(JsonArray().apply { songs.forEach { add(musicJson(it)) } })
 }
 
+private fun Route.getMusicLocal() = get("/local") {
+    call.respond(JsonObject().apply {
+        addProperty("path", RikkaMusicLocal.path())
+        add("songs", JsonArray().apply { RikkaMusicLocal.songs().forEach { add(musicJson(it)) } })
+    })
+}
+
+private data class LocalMountRequest(val path: String? = null)
+
+private fun Route.mountMusicLocal() = post("/local/mount") {
+    val request = call.receive<LocalMountRequest>()
+    RikkaMusicLocal.setDirectory(request.path)
+    call.respond(getLocalJson())
+}
+
+private fun getLocalJson(): JsonObject = JsonObject().apply {
+    addProperty("path", RikkaMusicLocal.path())
+    add("songs", JsonArray().apply { RikkaMusicLocal.songs().forEach { add(musicJson(it)) } })
+}
+
 private fun Route.searchMusic() = get("/search") {
     val query = call.request.queryParameters["q"]?.trim().orEmpty()
     if (query.isBlank()) call.badRequest("Missing search query")
-    val songs = withContext(Dispatchers.IO) { MusicCommand.searchMusics(query) }
-    call.respond(JsonArray().apply { songs.forEach { add(musicJson(it)) } })
+    val type = call.request.queryParameters["type"]?.lowercase(Locale.ROOT)?.takeIf { it in setOf("song", "playlist", "artist") } ?: "song"
+    val page = call.request.queryParameters["page"]?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+    val limit = 8
+    val apiType = when (type) { "playlist" -> 1000; "artist" -> 100; else -> 1 }
+    val result = withContext(Dispatchers.IO) { MusicCommand.getMusic163().search(query, apiType, page, limit) }
+    val resultObject = result.getAsJsonObject("result") ?: JsonObject()
+    val key = when (type) { "playlist" -> "playlists"; "artist" -> "artists"; else -> "songs" }
+    val items = resultObject.getAsJsonArray(key) ?: JsonArray()
+    val countKey = when (type) { "playlist" -> "playlistCount"; "artist" -> "artistCount"; else -> "songCount" }
+    val total = resultObject.get(countKey)?.asInt ?: items.size()
+    call.respond(JsonObject().apply {
+        addProperty("type", type)
+        addProperty("page", page)
+        addProperty("pageCount", (total + limit - 1) / limit)
+        addProperty("total", total)
+        add("items", JsonArray().apply {
+            items.forEach { element ->
+                val item = element.asJsonObject
+                if (type == "song") add(musicJson(Music(MusicCommand.getMusic163().httpClient, item, null)))
+                else add(JsonObject().apply {
+                    addProperty("id", item.get("id").asLong)
+                    addProperty("name", item.get("name").asString)
+                    addProperty("cover", item.stringOrEmpty("coverImgUrl").ifEmpty { item.stringOrEmpty("picUrl") })
+                    addProperty("count", item.get("trackCount")?.asInt ?: 0)
+                    addProperty("artist", item.getAsJsonObject("creator")?.stringOrEmpty("nickname") ?: "")
+                })
+            }
+        })
+    })
+}
+
+private fun JsonObject.stringOrEmpty(key: String): String = get(key)?.takeUnless { it.isJsonNull }?.asString ?: ""
+
+private fun searchSongs(query: String, page: Int): List<IMusic> {
+    val result = MusicCommand.getMusic163().search(query, 1, page, 8)
+    val songs = result.getAsJsonObject("result")?.getAsJsonArray("songs") ?: JsonArray()
+    return songs.mapNotNull { item -> runCatching { Music(MusicCommand.getMusic163().httpClient, item.asJsonObject, null) }.getOrNull() }
 }
 
 private fun Route.getMusicState() = get("/state") {
@@ -308,6 +382,7 @@ private fun Route.getMusicState() = get("/state") {
             addProperty("playing", player.isPlaying)
             addProperty("progress", player.playingProgress)
             addProperty("volume", player.volumePercentage)
+            addProperty("quality", Configs.PLAY.PLAY_QUALITY.optionListValue.stringValue)
             addProperty("theme", Configs.GUI.GUI_THEME.getStringValue())
             add("song", song?.let(::musicJson))
         }
@@ -321,6 +396,7 @@ private data class MusicControlRequest(
     val playlistId: Long? = null,
     val index: Int? = null,
     val query: String? = null,
+    val page: Int? = null,
 )
 
 private fun Route.controlMusic() = post("/control") {
@@ -337,7 +413,7 @@ private fun Route.controlMusic() = post("/control") {
         "play-search" -> {
             val query = request.query?.trim().orEmpty()
             if (query.isBlank()) call.badRequest("Missing search query")
-            val songs = withContext(Dispatchers.IO) { MusicCommand.searchMusics(query) }
+            val songs = withContext(Dispatchers.IO) { searchSongs(query, request.page?.coerceAtLeast(1) ?: 1) }
             val index = request.index ?: 0
             if (index !in songs.indices) call.badRequest("Invalid song index")
             withContext(Dispatchers.Minecraft) { MusicCommand.playMusicsFrom(songs, index) }
@@ -348,11 +424,23 @@ private fun Route.controlMusic() = post("/control") {
             if (index !in songs.indices) call.badRequest("Invalid cloud song index")
             withContext(Dispatchers.Minecraft) { MusicCommand.playMusicsFrom(songs, index) }
         }
+        "play-local" -> {
+            val songs: List<IMusic> = RikkaMusicLocal.songs()
+            val index = request.index ?: 0
+            if (index !in songs.indices) call.badRequest("Invalid local song index")
+            withContext(Dispatchers.Minecraft) { MusicCommand.playMusicsFrom(songs, index) }
+        }
         "toggle" -> withContext(Dispatchers.Minecraft) { MusicCommand.getPlayer().switchPlay() }
         "next" -> withContext(Dispatchers.Minecraft) { MusicCommand.getPlayer().next() }
         "previous" -> withContext(Dispatchers.Minecraft) { MusicCommand.getPlayer().prev() }
         "seek" -> withContext(Dispatchers.Minecraft) { MusicCommand.getPlayer().seek(request.value ?: 0L) }
         "volume" -> withContext(Dispatchers.Minecraft) { MusicCommand.getPlayer().volumeSet((request.value ?: 0L).toInt()) }
+        "quality" -> withContext(Dispatchers.Minecraft) {
+            var option = Configs.PLAY.PLAY_QUALITY.optionListValue
+            repeat((request.value ?: 1L).toInt().coerceAtLeast(1)) { option = option.cycle(true) }
+            Configs.PLAY.PLAY_QUALITY.setOptionListValue(option)
+            Configs.INSTANCE.save()
+        }
         "theme" -> withContext(Dispatchers.Minecraft) {
             Configs.GUI.GUI_THEME.setStringValue(if (request.value == 1L) "Light" else "LiquidBounce")
             Configs.INSTANCE.save()
@@ -366,6 +454,8 @@ internal fun Route.rikkaMusicRoutes() = route("/music") {
     getMusicLibrary()
     getMusicPlaylist()
     getMusicCloud()
+    getMusicLocal()
+    mountMusicLocal()
     searchMusic()
     getMusicState()
     controlMusic()

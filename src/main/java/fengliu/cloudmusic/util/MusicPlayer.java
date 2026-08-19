@@ -177,6 +177,14 @@ public class MusicPlayer implements Runnable {
 
         this.playingMusic = music;
         if (!Configs.PLAY.PLAY_URL.getBooleanValue()) {
+            if (musicUrl.startsWith("file:")) {
+                try {
+                    this.play(java.nio.file.Path.of(java.net.URI.create(musicUrl)).toFile());
+                } catch (Exception err) {
+                    reportPlaybackError(music, "本地音频打开失败", err);
+                }
+                return;
+            }
             String fileType = fileExtension(musicUrl);
 
             File file;
@@ -241,7 +249,8 @@ public class MusicPlayer implements Runnable {
                 this.seekTargetMs = -1;
                 try {
                     audioInputStream.close();
-                    audioInputStream = this.seekStream(seekTarget);
+                    long actualSeekTarget = this.seekStream(seekTarget);
+                    audioInputStream = this.activeStream;
                     this.activeStream = audioInputStream;
                     if (this.play != output || !output.isOpen()) {
                         break;
@@ -249,8 +258,8 @@ public class MusicPlayer implements Runnable {
                     output.stop();
                     output.flush();
                     output.start();
-                    this.startPlayingTime = System.currentTimeMillis() - seekTarget;
-                    this.playingProgress = seekTarget;
+                    this.startPlayingTime = System.currentTimeMillis() - actualSeekTarget;
+                    this.playingProgress = actualSeekTarget;
                 } catch (Exception err) {
                     err.printStackTrace();
                     try {
@@ -331,7 +340,7 @@ public class MusicPlayer implements Runnable {
     /**
      * 重新打开播放源并跳转到指定毫秒位置
      */
-    private AudioInputStream seekStream(long targetMs) throws Exception {
+    private long seekStream(long targetMs) throws Exception {
         AudioInputStream stream = this.openAudioInputStream();
         AudioFormat format = stream.getFormat();
         long bytesPerSecond = (long) (format.getFrameRate() * format.getFrameSize());
@@ -349,13 +358,16 @@ public class MusicPlayer implements Runnable {
         long skipped = 0;
         while (skipped < bytesToSkip) {
             int read = stream.read(buffer, 0, (int) Math.min(buffer.length, bytesToSkip - skipped));
-            if (read <= 0) {
-                stream.close();
-                throw new EOFException("Audio stream ended before the seek target");
+            if (read < 0) {
+                break;
+            }
+            if (read == 0) {
+                continue;
             }
             skipped += read;
         }
-        return stream;
+        this.activeStream = stream;
+        return (long) (skipped * 1000d / bytesPerSecond);
     }
 
     /**

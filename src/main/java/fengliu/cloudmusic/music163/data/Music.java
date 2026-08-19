@@ -33,9 +33,19 @@ public class Music extends Music163Obj implements IMusic, ICanComment {
     public static String getArtistsName(JsonArray artists) {
         StringBuilder artistsName = new StringBuilder();
         for (JsonElement artistData : artists) {
-            artistsName.append(((JsonObject) artistData).get("name").getAsString()).append("/");
+            if (!artistData.isJsonObject()) {
+                continue;
+            }
+            JsonElement name = artistData.getAsJsonObject().get("name");
+            if (name == null || name.isJsonNull() || name.getAsString().isBlank()) {
+                continue;
+            }
+            if (!artistsName.isEmpty()) {
+                artistsName.append("/");
+            }
+            artistsName.append(name.getAsString());
         }
-        return artistsName.substring(0, artistsName.length() - 1);
+        return artistsName.toString();
     }
 
     /**
@@ -77,7 +87,7 @@ public class Music extends Music163Obj implements IMusic, ICanComment {
             this.duration = data.get("duration").getAsLong() / 1000;
         }
 
-        if (this.album.has("picUrl")) {
+        if (this.album.has("picUrl") && !this.album.get("picUrl").isJsonNull()) {
             this.picUrl = this.album.get("picUrl").getAsString();
         } else {
             this.picUrl = cover;
