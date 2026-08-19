@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -226,12 +227,39 @@ public class MusicPlayer implements Runnable {
             return;
         }
         this.activeStream = audioInputStream;
-        AudioFormat audioFormat = audioInputStream.getFormat();
-
-        DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
-        SourceDataLine output = (SourceDataLine) AudioSystem.getLine(dataLineInfo);
+        AudioFormat sourceFormat = audioInputStream.getFormat();
+        AudioFormat audioFormat = sourceFormat;
+        SourceDataLine output = null;
+        Exception lastOutputFailure = null;
+        for (AudioFormat candidate : outputCandidates(sourceFormat)) {
+            SourceDataLine candidateOutput = null;
+            try {
+                // Open the device first. A failed format must not close the
+                // shared decoder stream before we can try the next fallback.
+                candidateOutput = openOutputLine(candidate);
+                AudioInputStream candidateStream = audioInputStream;
+                if (!sourceFormat.matches(candidate)) {
+                    candidateStream = AudioSystem.getAudioInputStream(candidate, audioInputStream);
+                }
+                output = candidateOutput;
+                audioInputStream = candidateStream;
+                audioFormat = candidate;
+                if (!sourceFormat.matches(candidate)) {
+                    LOGGER.info("[CloudMusic][Player] 输出格式降级: {} -> {}", sourceFormat, candidate);
+                }
+                break;
+            } catch (IllegalArgumentException | LineUnavailableException failure) {
+                lastOutputFailure = failure;
+                if (candidateOutput != null) candidateOutput.close();
+            }
+        }
+        if (output == null) {
+            if (lastOutputFailure instanceof IllegalArgumentException illegalArgument) throw illegalArgument;
+            if (lastOutputFailure instanceof LineUnavailableException unavailable) throw unavailable;
+            throw new LineUnavailableException("没有可用的音频输出设备");
+        }
+        this.activeStream = audioInputStream;
         this.play = output;
-        output.open(audioFormat);
         //设置音量
         this.volumeSet(volumePercentage);
 
@@ -259,6 +287,7 @@ public class MusicPlayer implements Runnable {
                     audioInputStream.close();
                     long actualSeekTarget = this.seekStream(seekTarget);
                     audioInputStream = this.activeStream;
+                    audioInputStream = convertForOutput(audioInputStream, audioFormat);
                     this.activeStream = audioInputStream;
                     if (this.play != output || !output.isOpen()) {
                         break;
@@ -274,7 +303,7 @@ public class MusicPlayer implements Runnable {
                         if (this.play != output || !output.isOpen()) {
                             break;
                         }
-                        audioInputStream = this.openAudioInputStream();
+                        audioInputStream = convertForOutput(this.openAudioInputStream(), audioFormat);
                         this.activeStream = audioInputStream;
                         output.flush();
                         this.startPlayingTime = System.currentTimeMillis();
@@ -422,7 +451,7 @@ public class MusicPlayer implements Runnable {
             this.playUrl = url;
             this.play(this.openAudioInputStream());
         } catch (Exception e) {
-            if (this.play == null || !canContinue()) {
+            if (!canContinue()) {
                 return;
             }
             reportPlaybackError(this.playingMusic, "音频解码失败", e);
@@ -443,11 +472,85 @@ public class MusicPlayer implements Runnable {
             this.playFile = file;
             this.play(this.openAudioInputStream());
         } catch (Exception e) {
-            if (this.play == null || !canContinue()) {
+            if (!canContinue()) {
                 return;
             }
             reportPlaybackError(this.playingMusic, "音频解码失败", e);
         }
+    }
+
+    private static SourceDataLine openOutputLine(AudioFormat format) throws LineUnavailableException {
+        DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, format, AudioSystem.NOT_SPECIFIED);
+        LineUnavailableException lastUnavailable = null;
+
+        // Prefer an installed Windows/WASAPI Java Sound provider when one is
+        // present, then fall back to the platform default mixer. Java Sound
+        // providers expose WASAPI devices through MixerInfo, so this keeps the
+        // client compatible with both the stock JRE and optional providers.
+        Mixer.Info[] mixers = AudioSystem.getMixerInfo();
+        for (int pass = 0; pass < 2; pass++) {
+            for (Mixer.Info mixerInfo : mixers) {
+                String name = (mixerInfo.getName() + " " + mixerInfo.getDescription()).toLowerCase(java.util.Locale.ROOT);
+                boolean wasapi = name.contains("wasapi") || name.contains("windows audio session");
+                if ((pass == 0) != wasapi) continue;
+                Mixer mixer = AudioSystem.getMixer(mixerInfo);
+                if (!mixer.isLineSupported(dataLineInfo)) continue;
+                try {
+                    SourceDataLine output = (SourceDataLine) mixer.getLine(dataLineInfo);
+                    output.open(format);
+                    return output;
+                } catch (LineUnavailableException unavailable) {
+                    lastUnavailable = unavailable;
+                } catch (IllegalArgumentException ignored) {
+                    // The provider advertised the line but rejected this
+                    // exact format; let the caller try its PCM fallback.
+                }
+            }
+        }
+
+        try {
+            SourceDataLine output = (SourceDataLine) AudioSystem.getLine(dataLineInfo);
+            output.open(format);
+            return output;
+        } catch (LineUnavailableException unavailable) {
+            if (lastUnavailable != null) unavailable.addSuppressed(lastUnavailable);
+            throw unavailable;
+        }
+    }
+
+    private static List<AudioFormat> outputCandidates(AudioFormat source) {
+        List<AudioFormat> candidates = new ArrayList<>();
+        candidates.add(source);
+        int channels = source.getChannels() > 0 ? source.getChannels() : 2;
+        float rate = source.getSampleRate() > 0 ? source.getSampleRate() : 44_100f;
+        addPcmCandidate(candidates, rate, channels);
+        if (channels > 2) addPcmCandidate(candidates, rate, 2);
+        if (Math.abs(rate - 48_000f) > 1f) addPcmCandidate(candidates, 48_000f, Math.min(channels, 2));
+        if (Math.abs(rate - 44_100f) > 1f) addPcmCandidate(candidates, 44_100f, Math.min(channels, 2));
+        return candidates;
+    }
+
+    private static void addPcmCandidate(List<AudioFormat> candidates, float rate, int channels) {
+        AudioFormat candidate = new AudioFormat(
+                AudioFormat.Encoding.PCM_SIGNED,
+                rate,
+                16,
+                channels,
+                channels * 2,
+                rate,
+                false
+        );
+        for (AudioFormat existing : candidates) {
+            if (existing.matches(candidate)) return;
+        }
+        candidates.add(candidate);
+    }
+
+    private static AudioInputStream convertForOutput(AudioInputStream stream, AudioFormat outputFormat) throws
+            UnsupportedAudioFileException {
+        AudioFormat source = stream.getFormat();
+        if (source.matches(outputFormat)) return stream;
+        return AudioSystem.getAudioInputStream(outputFormat, stream);
     }
 
     private static String fileExtension(String url) {

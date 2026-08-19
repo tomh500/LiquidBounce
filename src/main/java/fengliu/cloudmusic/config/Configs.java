@@ -34,6 +34,8 @@ public class Configs implements IConfigHandler {
         public static final ConfigOptionList PLAY_QUALITY = ConfigUtil.addConfigOptionList("play.quality", Quality.EXHIGH);
         public static final ConfigBoolean DJRADIO_PLAY_ASC = ConfigUtil.addConfigBoolean("dj.radio.play.asc");
         public static final ConfigBoolean NOT_PLAY_GAME_MUSIC = ConfigUtil.addConfigBoolean("play.not.game.music", true);
+        public static final ConfigBoolean BLOCK_NOTE_BLOCK = ConfigUtil.addConfigBoolean("play.block.note.block", false);
+        public static final ConfigBoolean BLOCK_JUKEBOX = ConfigUtil.addConfigBoolean("play.block.jukebox", false);
         public static final ConfigBoolean EXIT_GAME_STOP_MUSIC = ConfigUtil.addConfigBoolean("exit.game.stop.music");
         public static final ConfigBoolean STOP_PLAY_SHOW_UI = ConfigUtil.addConfigBoolean("stop.play.show.ui");
         public static final ConfigString CACHE_PATH = ConfigUtil.addConfigString("cache.path", FileUtils.getMinecraftDirectory().resolve("cloud_music_cache").toAbsolutePath().toString());
@@ -99,6 +101,8 @@ public class Configs implements IConfigHandler {
                 PLAY_QUALITY,
                 DJRADIO_PLAY_ASC,
                 NOT_PLAY_GAME_MUSIC,
+                BLOCK_NOTE_BLOCK,
+                BLOCK_JUKEBOX,
                 EXIT_GAME_STOP_MUSIC,
                 STOP_PLAY_SHOW_UI,
                 CACHE_PATH,
@@ -161,6 +165,8 @@ public class Configs implements IConfigHandler {
         public static final ConfigOptionList PLAY_QUALITY = ALL.PLAY_QUALITY;
         public static final ConfigBoolean DJRADIO_PLAY_ASC = ALL.DJRADIO_PLAY_ASC;
         public static final ConfigBoolean NOT_PLAY_GAME_MUSIC = ALL.NOT_PLAY_GAME_MUSIC;
+        public static final ConfigBoolean BLOCK_NOTE_BLOCK = ALL.BLOCK_NOTE_BLOCK;
+        public static final ConfigBoolean BLOCK_JUKEBOX = ALL.BLOCK_JUKEBOX;
         public static final ConfigBoolean EXIT_GAME_STOP_MUSIC = ALL.EXIT_GAME_STOP_MUSIC;
         public static final ConfigString CACHE_PATH = ALL.CACHE_PATH;
         public static final ConfigInteger CACHE_MAX_MB = ALL.CACHE_MAX_MB;
@@ -178,6 +184,8 @@ public class Configs implements IConfigHandler {
                 PLAY_QUALITY,
                 DJRADIO_PLAY_ASC,
                 NOT_PLAY_GAME_MUSIC,
+                BLOCK_NOTE_BLOCK,
+                BLOCK_JUKEBOX,
                 EXIT_GAME_STOP_MUSIC,
                 CACHE_PATH,
                 CACHE_MAX_MB,

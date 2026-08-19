@@ -38,7 +38,7 @@ import org.lwjgl.glfw.GLFW
  */
 object ModuleCloudMusic : ClientModule(
     "RikkaMusic",
-    ModuleCategories.MISC,
+    ModuleCategories.FUN,
     bind = GLFW.GLFW_KEY_UNKNOWN,
     disableActivation = true,
     origin = ModuleOrigin.XUAN_RIKKA,
@@ -55,13 +55,18 @@ object ModuleCloudMusic : ClientModule(
             return
         }
 
+        openGui()
+        super.onEnabled()
+    }
+
+    @JvmStatic
+    fun openGui() {
         mc.execute {
             if (standaloneScreen == null) {
                 standaloneScreen = CustomStandaloneMinecraftScreen(CustomScreenType.RIKKAMUSIC)
             }
             mc.gui.setScreen(standaloneScreen)
         }
-        super.onEnabled()
     }
 
 }

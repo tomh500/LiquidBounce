@@ -13,7 +13,7 @@
 
     const categoryLabels: Record<SettingsCategory, string> = {account: "账号", playback: "播放", interface: "界面", command: "命令", network: "网络", hotkeys: "按键"};
     const settingLabels: Record<string, string> = {
-        "gui.draggable.window": "允许拖动窗口", "gui.window.x": "窗口横坐标", "gui.window.y": "窗口纵坐标", "gui.theme": "界面主题", "volume": "音量", "play.url": "在线播放", "play.loop": "循环播放", "play.auto.random": "自动随机播放", "play.quality": "播放音质", "dj.radio.play.asc": "电台按时间升序播放", "play.not.game.music": "暂停游戏背景音乐", "exit.game.stop.music": "退出游戏时停止音乐", "stop.play.show.ui": "停止播放时关闭界面", "cache.path": "缓存路径", "cache.max.mb": "最大缓存空间", "cache.delete.mb": "缓存清理空间", "page.limit": "每页歌曲数量", "music.info": "显示播放信息", "music.info.x": "播放信息横坐标", "music.info.y": "播放信息纵坐标", "music.info.effect.offset": "药水效果时调整信息位置", "music.info.effect.offset.x": "信息横向偏移", "music.info.effect.offset.y": "信息纵向偏移", "music.info.color": "信息背景颜色", "music.progress.bar.color": "进度条颜色", "music.player.progress.bar.color": "已播放进度条颜色", "music.progress.font.color": "进度文字颜色", "music.info.title.font.color": "歌曲标题颜色", "music.info.font.color": "歌曲副标题颜色", "lyric.style": "歌词显示样式", "lyric.color": "歌词颜色", "lyric.scale": "歌词缩放比例", "lyric.x": "歌词横坐标", "lyric.y": "歌词纵坐标", "click.run.command": "点击聊天选项执行命令", "login.country.code": "手机国家码", "login.qr.check.num": "二维码轮查次数", "login.qr.check.time": "二维码轮查间隔", "http.max.retry": "请求重试次数", "http.time.out": "请求超时时间", "http.proxy": "使用 HTTP 代理", "http.proxy.ip": "代理服务器地址", "http.proxy.port": "代理服务器端口", "open.config.gui": "打开配置界面", "switch.play.music": "暂停 / 继续播放", "play.music": "继续播放", "next.music": "下一首歌曲", "prev.music": "上一首歌曲", "stop.music": "暂停播放", "exit.play": "退出播放", "play.volume.add": "增加音量", "play.volume.down": "降低音量", "delete.play.music": "删除当前歌曲", "trash.add.play.music": "将当前歌曲移入垃圾桶", "like.music": "喜欢当前歌曲", "playlist.add.music": "添加到歌单", "playlist.del.music": "从歌单删除", "playlist.random": "随机播放队列", "enable.nearby.monster.decrease.volume": "靠近生物时降低音量", "nearby.monster.decrease.volume.value": "附近生物音量降低", "nearby.monster.decrease.volume.radius": "附近生物距离", "nearby.monster.is.survival": "仅对生存模式生物生效"
+        "gui.draggable.window": "允许拖动窗口", "gui.window.x": "窗口横坐标", "gui.window.y": "窗口纵坐标", "gui.theme": "界面主题", "volume": "音量", "play.url": "在线播放", "play.loop": "循环播放", "play.auto.random": "自动随机播放", "play.quality": "播放音质", "dj.radio.play.asc": "电台按时间升序播放", "play.not.game.music": "暂停游戏背景音乐", "play.block.note.block": "屏蔽音符盒", "play.block.jukebox": "屏蔽唱片机", "exit.game.stop.music": "退出游戏时停止音乐", "stop.play.show.ui": "停止播放时关闭界面", "cache.path": "缓存路径", "cache.max.mb": "最大缓存空间", "cache.delete.mb": "缓存清理空间", "page.limit": "每页歌曲数量", "music.info": "显示播放信息", "music.info.x": "播放信息横坐标", "music.info.y": "播放信息纵坐标", "music.info.effect.offset": "药水效果时调整信息位置", "music.info.effect.offset.x": "信息横向偏移", "music.info.effect.offset.y": "信息纵向偏移", "music.info.color": "信息背景颜色", "music.progress.bar.color": "进度条颜色", "music.player.progress.bar.color": "已播放进度条颜色", "music.progress.font.color": "进度文字颜色", "music.info.title.font.color": "歌曲标题颜色", "music.info.font.color": "歌曲副标题颜色", "lyric.style": "歌词显示样式", "lyric.color": "歌词颜色", "lyric.scale": "歌词缩放比例", "lyric.x": "歌词横坐标", "lyric.y": "歌词纵坐标", "click.run.command": "点击聊天选项执行命令", "login.country.code": "手机国家码", "login.qr.check.num": "二维码轮查次数", "login.qr.check.time": "二维码轮查间隔", "http.max.retry": "请求重试次数", "http.time.out": "请求超时时间", "http.proxy": "使用 HTTP 代理", "http.proxy.ip": "代理服务器地址", "http.proxy.port": "代理服务器端口", "open.config.gui": "打开配置界面", "switch.play.music": "暂停 / 继续播放", "play.music": "继续播放", "next.music": "下一首歌曲", "prev.music": "上一首歌曲", "stop.music": "暂停播放", "exit.play": "退出播放", "play.volume.add": "增加音量", "play.volume.down": "降低音量", "delete.play.music": "删除当前歌曲", "trash.add.play.music": "将当前歌曲移入垃圾桶", "like.music": "喜欢当前歌曲", "playlist.add.music": "添加到歌单", "playlist.del.music": "从歌单删除", "playlist.random": "随机播放队列", "enable.nearby.monster.decrease.volume": "靠近生物时降低音量", "nearby.monster.decrease.volume.value": "附近生物音量降低", "nearby.monster.decrease.volume.radius": "附近生物距离", "nearby.monster.is.survival": "仅对生存模式生物生效"
     };
 
     let library: RikkaMusicLibrary | null = null;
@@ -155,7 +155,7 @@
     <div class:light={state.theme === "Light"} class="rikkamusic-shell" style={`transform: scale(${viewportScale});`}>
         <header class="top-header">
             <div class="logo-section"><div class="logo-icon">♪</div><span class="logo-title">RikkaMusic</span></div>
-            <div class="search-section"><button class="nav-btn" on:click={() => view = "liked"} aria-label="返回音乐库">‹</button><div class="search-bar"><span>⌕</span><input bind:value={search} on:keydown={(event) => event.key === "Enter" && runSearch()} placeholder="搜索歌手、歌曲、歌单" aria-label="搜索歌曲、歌手、歌单" />{#if search}<button on:click={() => { search = ""; view = "liked"; }} aria-label="清除搜索">×</button>{/if}</div></div>
+            <div class="search-section"><button class="nav-btn" on:click={() => view = "liked"} aria-label="返回音乐库">‹</button><div class="search-bar"><span>⌕</span><input lang="zh-CN" inputmode="text" autocomplete="off" spellcheck="false" bind:value={search} on:keydown={(event) => event.key === "Enter" && runSearch()} placeholder="搜索歌手、歌曲、歌单" aria-label="搜索歌曲、歌手、歌单" />{#if search}<button on:click={() => { search = ""; view = "liked"; }} aria-label="清除搜索">×</button>{/if}</div></div>
             <div class="user-section"><button class="account-button" on:click={openLogin}><span class="avatar">♙</span><span>{library?.authenticated ? library.username : "登录"}</span>{#if library?.authenticated}<span class="badge">VIP</span>{/if}</button><div class="window-controls"><button on:click={openSettings} title="设置" aria-label="设置">⚙</button><button on:click={toggleTheme} title="切换主题" aria-label="切换主题">◐</button><button on:click={deleteScreen} title="关闭" aria-label="关闭">×</button></div></div>
         </header>
 
@@ -211,5 +211,21 @@
     .setting-item { min-height: 46px; }
     .setting-item small, .settings-note, .menu-title, .track-text small, .progress-container { font-size: 12px; }
     .tab { cursor: pointer; }
+    .search-bar input { ime-mode: active; }
+    .window-controls button { width: 32px; height: 32px; font-size: 20px; }
+    .player-bar { height: 82px; padding: 0 20px; }
+    .small-cover { width: 54px; height: 54px; }
+    .track-info { width: 220px; gap: 12px; }
+    .track-text strong { font-size: 15px; }
+    .track-text small { font-size: 13px; }
+    .player-center { width: min(470px, 44vw); }
+    .player-controls { gap: 24px; margin-bottom: 8px; }
+    .player-controls button { min-width: 28px; min-height: 28px; font-size: 18px; }
+    .play-btn { width: 38px; height: 38px; }
+    .progress-container { font-size: 13px; }
+    .extra-controls { width: 210px; gap: 16px; }
+    .quality-tag { min-width: 62px; min-height: 34px; padding: 6px 9px; border-radius: 5px; font-size: 13px; }
+    .volume-container { gap: 8px; font-size: 17px; }
+    .volume-container input { width: 100px; }
     @media (max-width: 760px), (max-height: 590px) { .rikkamusic-shell { width: 100vw; height: 100vh; min-height: 0; border-radius: 0; }.rikkamusic-stage { background: transparent; }.logo-section { width: auto; }.logo-title, .account-button > span:not(.avatar), .badge, .extra-controls { display: none; }.user-section { width: auto; }.sidebar { width: 160px; }.content-area { padding: 16px; }.song-row { grid-template-columns: 28px minmax(120px, 1fr) 78px 48px; }.song-row > :nth-child(4) { display: none; }.track-info { width: 170px; }.player-center { width: min(320px, 48vw); }.player-controls { gap: 12px; }.search-bar { width: 160px; } }
 </style>

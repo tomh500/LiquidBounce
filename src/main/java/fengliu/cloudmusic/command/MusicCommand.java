@@ -25,6 +25,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
+import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleCloudMusic;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -366,27 +367,13 @@ public class MusicCommand {
 
         Collections.addAll(helpsList, helps);
         CloudMusic.executes(context -> {
-            page = new Page(helpsList) {
-                @Override
-                protected TextClickItem putPageItem(Object data) {
-                    String helpText = ((Component) data).getString();
-                    int commandStart = helpText.indexOf("/cloudmusic");
-                    if (commandStart < 0) {
-                        return new TextClickItem(Component.literal(helpText), "");
-                    }
-
-                    String usage = helpText.substring(commandStart + "/cloudmusic".length())
-                            .replaceAll("\\s*\\[[^]]*]", "");
-                    return new TextClickItem(
-                            Component.literal(helpText.replace("/cloudmusic", ".rikkamusic")),
-                            ".rikkamusic" + usage
-                    );
-                }
-            };
-            page.setInfoText(Component.translatable("cloudmusic.info.page.help"));
-            page.look(context.getSource());
+            ModuleCloudMusic.openGui();
             return Command.SINGLE_SUCCESS;
         });
+        CloudMusic.then(literal("help").executes(context -> {
+            showHelp(context.getSource());
+            return Command.SINGLE_SUCCESS;
+        }));
 
         // cloudmusic music id
         CloudMusic.then(Music.then(
@@ -1940,6 +1927,28 @@ public class MusicCommand {
             LOGGER.error("[CloudMusic][Cmd] 执行异常", err);
             source.sendError(Component.literal(err.getMessage()));
         }
+    }
+
+    private static void showHelp(FabricClientCommandSource source) {
+        page = new Page(helpsList) {
+            @Override
+            protected TextClickItem putPageItem(Object data) {
+                String helpText = ((Component) data).getString();
+                int commandStart = helpText.indexOf("/cloudmusic");
+                if (commandStart < 0) {
+                    return new TextClickItem(Component.literal(helpText), "");
+                }
+
+                String usage = helpText.substring(commandStart + "/cloudmusic".length())
+                        .replaceAll("\\s*\\[[^]]*]", "");
+                return new TextClickItem(
+                        Component.literal(helpText.replace("/cloudmusic", ".rikkamusic")),
+                        ".rikkamusic" + usage
+                );
+            }
+        };
+        page.setInfoText(Component.translatable("cloudmusic.info.page.help"));
+        page.look(source);
     }
 
     private static void sendUsage(String rawArgs, FabricClientCommandSource source) {
