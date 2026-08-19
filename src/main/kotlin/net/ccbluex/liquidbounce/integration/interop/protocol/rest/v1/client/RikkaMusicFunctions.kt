@@ -106,19 +106,23 @@ private fun playlistJson(playlist: PlayList, includeSongs: Boolean): JsonObject 
 
 private fun libraryJson(my: My): JsonObject {
     val liked = runCatching { my.likeMusicPlayList() }.getOrNull()
+    val playlists = runCatching { my.playLists(0, 100) }.getOrDefault(emptyList())
     val result = JsonObject()
     result.addProperty("authenticated", true)
     result.addProperty("username", my.name)
     result.add("liked", liked?.let { playlistJson(it, true) })
     result.add("playlists", JsonArray().apply {
-        my.playLists(0, 100).drop(if (liked == null) 0 else 1).forEach { add(playlistJson(it, false)) }
+        playlists.drop(if (liked == null) 0 else 1).forEach { add(playlistJson(it, false)) }
     })
     return result
 }
 
-private fun unavailableLibrary(error: String? = null): JsonObject = JsonObject().apply {
-    addProperty("authenticated", false)
-    addProperty("username", "未登录")
+private fun hasMusicCookie(): Boolean = Configs.LOGIN.COOKIE.getStringValue().isNotBlank() ||
+    MusicCommand.getMusic163().httpClient.cookies.isNotBlank()
+
+private fun unavailableLibrary(error: String? = null, authenticated: Boolean = hasMusicCookie()): JsonObject = JsonObject().apply {
+    addProperty("authenticated", authenticated)
+    addProperty("username", if (authenticated) "已登录" else "未登录")
     add("liked", null)
     add("playlists", JsonArray())
     error?.let { addProperty("error", it) }
@@ -129,7 +133,7 @@ private suspend fun loadPlaylist(id: Long): PlayList = withContext(Dispatchers.I
 }
 
 private fun Route.getMusicLibrary() = get("/library") {
-    if (Configs.LOGIN.COOKIE.stringValue.isBlank()) {
+    if (!hasMusicCookie()) {
         call.respond(unavailableLibrary())
         return@get
     }
@@ -137,7 +141,7 @@ private fun Route.getMusicLibrary() = get("/library") {
     val result = runCatching {
         withContext(Dispatchers.IO) { libraryJson(MusicCommand.getMy(false)) }
     }.getOrElse { error ->
-        call.respond(unavailableLibrary(error.message ?: "无法读取网易云账号信息"))
+        call.respond(unavailableLibrary(error.message ?: "无法读取网易云账号信息", authenticated = true))
         return@get
     }
     call.respond(result)
@@ -182,6 +186,15 @@ private fun settingJson(config: IConfigBase): JsonObject? {
             is ConfigOptionList -> {
                 addProperty("type", "option")
                 addProperty("value", config.optionListValue.stringValue)
+                add("options", JsonArray().apply {
+                    val values = linkedSetOf<String>()
+                    var option = config.optionListValue
+                    do {
+                        values += option.stringValue
+                        option = option.cycle(true)
+                    } while (option.stringValue !in values && values.size < 32)
+                    values.forEach(::add)
+                })
             }
             is ConfigHotkey -> {
                 addProperty("type", "hotkey")
@@ -228,7 +241,18 @@ private fun Route.updateMusicSettings() = post("/settings") {
         is ConfigDouble -> config.setDoubleValue(value.toDoubleOrNull() ?: call.badRequest("Invalid decimal value"))
         is ConfigColor -> config.setIntegerValue(value.removePrefix("#").toLongOrNull(16)?.toInt() ?: call.badRequest("Invalid color value"))
         is ConfigString -> config.setStringValue(value)
-        is ConfigOptionList -> config.setOptionListValue(config.optionListValue.cycle(true))
+        is ConfigOptionList -> {
+            var option = config.optionListValue
+            if (option.stringValue == value) {
+                option = option.cycle(true)
+            } else {
+                for (ignored in 0 until 32) {
+                    if (option.stringValue == value) break
+                    option = option.cycle(true)
+                }
+            }
+            config.setOptionListValue(option)
+        }
         is ConfigHotkey -> config.setValueFromString(value)
         else -> call.badRequest("Unsupported music setting")
     }
@@ -253,6 +277,20 @@ private fun Route.getMusicLoginQrCode() = get("/login/qr") {
 private fun Route.getMusicPlaylist() = get("/playlist/{id}") {
     val id = call.parameters["id"]?.toLongOrNull() ?: call.badRequest("Invalid playlist id")
     call.respond(playlistJson(loadPlaylist(id), true))
+}
+
+private fun Route.getMusicCloud() = get("/cloud") {
+    if (!hasMusicCookie()) {
+        call.respond(JsonArray())
+        return@get
+    }
+    val songs = runCatching {
+        withContext(Dispatchers.IO) { MusicCommand.getMusic163().cloudMusic() }
+    }.getOrElse {
+        call.respond(JsonArray())
+        return@get
+    }
+    call.respond(JsonArray().apply { songs.forEach { add(musicJson(it)) } })
 }
 
 private fun Route.searchMusic() = get("/search") {
@@ -304,6 +342,12 @@ private fun Route.controlMusic() = post("/control") {
             if (index !in songs.indices) call.badRequest("Invalid song index")
             withContext(Dispatchers.Minecraft) { MusicCommand.playMusicsFrom(songs, index) }
         }
+        "play-cloud" -> {
+            val songs: List<IMusic> = withContext(Dispatchers.IO) { MusicCommand.getMusic163().cloudMusic().map { it } }
+            val index = request.index ?: 0
+            if (index !in songs.indices) call.badRequest("Invalid cloud song index")
+            withContext(Dispatchers.Minecraft) { MusicCommand.playMusicsFrom(songs, index) }
+        }
         "toggle" -> withContext(Dispatchers.Minecraft) { MusicCommand.getPlayer().switchPlay() }
         "next" -> withContext(Dispatchers.Minecraft) { MusicCommand.getPlayer().next() }
         "previous" -> withContext(Dispatchers.Minecraft) { MusicCommand.getPlayer().prev() }
@@ -321,6 +365,7 @@ private fun Route.controlMusic() = post("/control") {
 internal fun Route.rikkaMusicRoutes() = route("/music") {
     getMusicLibrary()
     getMusicPlaylist()
+    getMusicCloud()
     searchMusic()
     getMusicState()
     controlMusic()

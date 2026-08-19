@@ -213,12 +213,13 @@ public class MusicPlayer implements Runnable {
         AudioFormat audioFormat = audioInputStream.getFormat();
 
         DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
-        play = (SourceDataLine) AudioSystem.getLine(dataLineInfo);
-        play.open(audioFormat);
+        SourceDataLine output = (SourceDataLine) AudioSystem.getLine(dataLineInfo);
+        this.play = output;
+        output.open(audioFormat);
         //设置音量
         this.volumeSet(volumePercentage);
 
-        play.start();
+        output.start();
         if (lyric != null) {
             this.lyric.start();
         }
@@ -241,16 +242,24 @@ public class MusicPlayer implements Runnable {
                 try {
                     audioInputStream.close();
                     audioInputStream = this.seekStream(seekTarget);
-                    play.stop();
-                    play.flush();
-                    play.start();
+                    this.activeStream = audioInputStream;
+                    if (this.play != output || !output.isOpen()) {
+                        break;
+                    }
+                    output.stop();
+                    output.flush();
+                    output.start();
                     this.startPlayingTime = System.currentTimeMillis() - seekTarget;
                     this.playingProgress = seekTarget;
                 } catch (Exception err) {
                     err.printStackTrace();
                     try {
+                        if (this.play != output || !output.isOpen()) {
+                            break;
+                        }
                         audioInputStream = this.openAudioInputStream();
-                        play.flush();
+                        this.activeStream = audioInputStream;
+                        output.flush();
                         this.startPlayingTime = System.currentTimeMillis();
                         this.playingProgress = 0;
                     } catch (Exception err2) {
@@ -263,7 +272,12 @@ public class MusicPlayer implements Runnable {
             int frameSize = Math.max(1, audioFormat.getFrameSize());
             int alignedCount = count - count % frameSize;
             if (alignedCount > 0) {
-                play.write(tempBuff, 0, alignedCount);
+                // Queue replacement closes the output asynchronously. The old
+                // decoder must exit quietly instead of reporting a false decode error.
+                if (this.play != output || !output.isOpen()) {
+                    break;
+                }
+                output.write(tempBuff, 0, alignedCount);
             }
             this.playingProgress = System.currentTimeMillis() - this.startPlayingTime;
         }
@@ -273,7 +287,9 @@ public class MusicPlayer implements Runnable {
             this.playbackState = PlaybackState.ENDED;
         }
         try { audioInputStream.close(); } catch (IOException ignored) { }
-        this.activeStream = null;
+        if (this.activeStream == audioInputStream) {
+            this.activeStream = null;
+        }
         if (lyric != null) {
             this.lyric.exit();
         }
@@ -373,6 +389,9 @@ public class MusicPlayer implements Runnable {
             this.playUrl = url;
             this.play(this.openAudioInputStream());
         } catch (Exception e) {
+            if (this.play == null || !canContinue()) {
+                return;
+            }
             reportPlaybackError(this.playingMusic, "音频解码失败", e);
         }
     }
@@ -391,6 +410,9 @@ public class MusicPlayer implements Runnable {
             this.playFile = file;
             this.play(this.openAudioInputStream());
         } catch (Exception e) {
+            if (this.play == null || !canContinue()) {
+                return;
+            }
             reportPlaybackError(this.playingMusic, "音频解码失败", e);
         }
     }

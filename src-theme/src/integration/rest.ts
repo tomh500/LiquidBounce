@@ -79,6 +79,7 @@ export interface RikkaMusicSetting {
     value: string | number | boolean;
     min?: number;
     max?: number;
+    options?: string[];
     hotkey?: string;
 }
 
@@ -114,27 +115,32 @@ async function readMusicJson<T>(response: Response): Promise<T> {
 }
 
 export async function getRikkaMusicLibrary(): Promise<RikkaMusicLibrary> {
-    const response = await fetch(`${API_BASE}/music/library`);
+    const response = await fetch(`${API_BASE}/client/music/library`);
     return await readMusicJson(response);
 }
 
 export async function getRikkaMusicState(): Promise<RikkaMusicState> {
-    const response = await fetch(`${API_BASE}/music/state`);
+    const response = await fetch(`${API_BASE}/client/music/state`);
     return await readMusicJson(response);
 }
 
 export async function getRikkaMusicPlaylist(id: number): Promise<RikkaMusicPlaylist> {
-    const response = await fetch(`${API_BASE}/music/playlist/${id}`);
+    const response = await fetch(`${API_BASE}/client/music/playlist/${id}`);
+    return await readMusicJson(response);
+}
+
+export async function getRikkaMusicCloud(): Promise<RikkaMusicSong[]> {
+    const response = await fetch(`${API_BASE}/client/music/cloud`);
     return await readMusicJson(response);
 }
 
 export async function searchRikkaMusic(query: string): Promise<RikkaMusicSong[]> {
-    const response = await fetch(`${API_BASE}/music/search?q=${encodeURIComponent(query)}`);
+    const response = await fetch(`${API_BASE}/client/music/search?q=${encodeURIComponent(query)}`);
     return await readMusicJson(response);
 }
 
 export async function controlRikkaMusic(action: string, value?: number, playlistId?: number, index?: number, query?: string) {
-    const response = await fetch(`${API_BASE}/music/control`, {
+    const response = await fetch(`${API_BASE}/client/music/control`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({action, value, playlistId, index, query})
@@ -143,29 +149,29 @@ export async function controlRikkaMusic(action: string, value?: number, playlist
 }
 
 export async function startRikkaMusicLogin(): Promise<RikkaMusicLoginStatus> {
-    const response = await fetch(`${API_BASE}/music/login/start`, {method: "POST"});
+    const response = await fetch(`${API_BASE}/client/music/login/start`, {method: "POST"});
     return await readMusicJson(response);
 }
 
 export async function getRikkaMusicLoginStatus(): Promise<RikkaMusicLoginStatus> {
-    const response = await fetch(`${API_BASE}/music/login/status`);
+    const response = await fetch(`${API_BASE}/client/music/login/status`);
     return await readMusicJson(response);
 }
 
 export function getRikkaMusicQrCodeUrl(): string {
-    return `${API_BASE}/music/login/qr?${Date.now()}`;
+    return `${API_BASE}/client/music/login/qr?${Date.now()}`;
 }
 
 export async function getRikkaMusicSettings(category: string): Promise<RikkaMusicSettings> {
-    const response = await fetch(`${API_BASE}/music/settings?category=${encodeURIComponent(category)}`);
+    const response = await fetch(`${API_BASE}/client/music/settings?category=${encodeURIComponent(category)}`);
     return await readMusicJson(response);
 }
 
 export async function updateRikkaMusicSetting(key: string, value?: string | number | boolean): Promise<RikkaMusicSettings> {
-    const response = await fetch(`${API_BASE}/music/settings`, {
+    const response = await fetch(`${API_BASE}/client/music/settings`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({key, value})
+        body: JSON.stringify({key, value: value === undefined ? undefined : String(value)})
     });
     return await readMusicJson(response);
 }

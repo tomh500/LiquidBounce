@@ -28,6 +28,8 @@ import net.ccbluex.liquidbounce.utils.text.asPlainText
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
+import net.minecraft.client.input.CharacterEvent
+import net.minecraft.client.input.KeyEvent
 
 class CustomStandaloneMinecraftScreen(
     val screenType: CustomScreenType
@@ -79,6 +81,15 @@ class CustomStandaloneMinecraftScreen(
     }
 
     override fun isPauseScreen() = false
+
+    // The browser's InputListener receives these events first. Consuming them
+    // here keeps Minecraft's screen/keybinding handling from stealing IME
+    // composition while a web input (such as the music search field) is focused.
+    override fun keyPressed(event: KeyEvent) = true
+
+    override fun keyReleased(event: KeyEvent) = true
+
+    override fun charTyped(event: CharacterEvent) = true
 
     override fun close() {
         browser.close()

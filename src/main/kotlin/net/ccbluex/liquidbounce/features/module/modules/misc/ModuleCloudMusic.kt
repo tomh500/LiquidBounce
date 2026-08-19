@@ -26,6 +26,7 @@ import net.ccbluex.liquidbounce.features.module.ModuleOrigin
 import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.integration.screen.CustomScreenType
+import net.ccbluex.liquidbounce.integration.screen.impl.CustomStandaloneMinecraftScreen
 import org.lwjgl.glfw.GLFW
 
 /**
@@ -43,6 +44,8 @@ object ModuleCloudMusic : ClientModule(
     origin = ModuleOrigin.XUAN_RIKKA,
 ) {
 
+    private var standaloneScreen: CustomStandaloneMinecraftScreen? = null
+
     override fun onRegistration() {
         CloudMusicCommands.register()
     }
@@ -53,7 +56,10 @@ object ModuleCloudMusic : ClientModule(
         }
 
         mc.execute {
-            CustomScreenType.RIKKAMUSIC.open()
+            if (standaloneScreen == null) {
+                standaloneScreen = CustomStandaloneMinecraftScreen(CustomScreenType.RIKKAMUSIC)
+            }
+            mc.gui.setScreen(standaloneScreen)
         }
         super.onEnabled()
     }
