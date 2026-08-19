@@ -183,11 +183,11 @@ object DynamicIslandHudComponent : NativeHudComponent(
     description = "Shows CloudMusic in an expanding Dynamic Island layout.",
 ) {
     // The collapsed island only reserves space for the logo and cover.
-    private val minimumWidth = 88f
-    private val maximumWidth by int("MaximumWidth", 280, 160..400)
-    private val singleLineHeight = 28f
-    private val doubleLineHeight = 40f
-    private val collapseDurationMs = 220L
+    private val minimumWidth = 104f
+    private val maximumWidth by int("MaximumWidth", 300, 180..420)
+    private val singleLineHeight = 26f
+    private val doubleLineHeight = 36f
+    private val collapseDurationMs = 520L
     private val showTranslation by boolean("ShowTranslation", true)
     private val backgroundColor by color("BackgroundColor", Color4b(0, 0, 0, 255))
     private val lyricColor by color("LyricColor", Color4b.WHITE)
@@ -243,7 +243,7 @@ object DynamicIslandHudComponent : NativeHudComponent(
                     drawCloudMusicText(CloudMusicGui.truncate(it, textWidth - 3f), textX + textWidth / 2f, primaryY, CloudMusicGui.bodyScale, lyricColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
                 }
                 translation?.let {
-                    drawCloudMusicText(CloudMusicGui.truncate(it, textWidth - 3f, CloudMusicGui.smallScale), textX + textWidth / 2f, bounds.yMin + 16f, CloudMusicGui.smallScale, translationColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
+                    drawCloudMusicText(CloudMusicGui.truncate(it, textWidth - 3f, CloudMusicGui.smallScale), textX + textWidth / 2f, bounds.yMin + 14f, CloudMusicGui.smallScale, translationColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
                 }
                 pinBounds = bounds
             } else pinBounds = null
@@ -284,7 +284,7 @@ object DynamicIslandHudComponent : NativeHudComponent(
             lyrics.original?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.bodyScale) } ?: 0f,
             if (showTranslation) lyrics.translation?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.smallScale) } ?: 0f else 0f,
         )
-        val expandedTarget = (textWidth + 64f).coerceIn(minimumWidth, maximumWidth.toFloat())
+        val expandedTarget = (textWidth + 76f).coerceIn(minimumWidth, maximumWidth.toFloat())
         val widthTarget = if (collapsePending || (lyricTransitionStarted != 0L && !lyricContentVisible)) minimumWidth else expandedTarget
         displayedWidth += (widthTarget - displayedWidth) * (1f - kotlin.math.exp((-elapsed * 16f).toDouble()).toFloat())
         if (visibility < .005f && target == 0f) {
