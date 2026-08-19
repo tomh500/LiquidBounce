@@ -16,7 +16,6 @@ import net.ccbluex.liquidbounce.features.misc.HideAppearance
 import net.ccbluex.liquidbounce.integration.theme.component.components.NativeHudComponent
 import net.ccbluex.liquidbounce.integration.theme.component.HudComponentManager
 import net.ccbluex.liquidbounce.render.drawQuad
-import net.ccbluex.liquidbounce.render.drawCustomElement
 import net.ccbluex.liquidbounce.render.drawRoundedRect
 import net.ccbluex.liquidbounce.render.drawTexQuad
 import net.ccbluex.liquidbounce.render.getBounds
@@ -29,7 +28,6 @@ import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention
 import net.ccbluex.liquidbounce.utils.render.Alignment
 import net.ccbluex.liquidbounce.utils.render.textureSetup
 import net.minecraft.client.gui.screens.ChatScreen
-import net.minecraft.client.renderer.RenderPipelines
 import org.lwjgl.glfw.GLFW
 import kotlin.math.roundToLong
 
@@ -182,10 +180,11 @@ object DynamicIslandHudComponent : NativeHudComponent(
     Alignment(Alignment.ScreenAxisX.CENTER_TRANSLATED, 0, Alignment.ScreenAxisY.TOP, 0),
     description = "Shows CloudMusic in an expanding Dynamic Island layout.",
 ) {
-    private val minimumWidth = 170f
-    private val maximumWidth by int("MaximumWidth", 380, 240..500)
-    private val singleLineHeight = 42f
-    private val doubleLineHeight = 60f
+    // Keep the island close to the compact 5:1 proportions of the reference HUD.
+    private val minimumWidth = 180f
+    private val maximumWidth by int("MaximumWidth", 340, 220..440)
+    private val singleLineHeight = 40f
+    private val doubleLineHeight = 58f
     private val showTranslation by boolean("ShowTranslation", true)
     private val backgroundColor by color("BackgroundColor", Color4b(0, 0, 0, 255))
     private val lyricColor by color("LyricColor", Color4b.WHITE)
@@ -222,16 +221,16 @@ object DynamicIslandHudComponent : NativeHudComponent(
         with(event.context) {
             drawDynamicIslandShape(bounds, islandHeight, backgroundColor.fade(visibility))
             if (contentAlpha > 0f) {
-                val logoSize = 16f
+                val logoSize = 18f
                 val iconY = bounds.yMin + (islandHeight - logoSize) / 2f
                 MusicIconTexture.loadLiquidBounceIcon()
                 if (MusicIconTexture.canUseLiquidBounceIcon()) mc.textureManager.getTexture(MusicIconTexture.LIQUID_BOUNCE_ICON_ID)?.let {
-                    drawTexQuad(it.textureSetup, bounds.xMin + 10f, iconY, bounds.xMin + 10f + logoSize, iconY + logoSize)
+                    drawTexQuad(it.textureSetup, bounds.xMin + 13f, iconY, bounds.xMin + 13f + logoSize, iconY + logoSize)
                 }
-                val coverSize = 22f
-                CloudMusicHudRender.drawCover(this, bounds.xMax - coverSize - 8f, bounds.yMin + (islandHeight - coverSize) / 2f, coverSize, rounded = true)
-                val textX = bounds.xMin + 29f
-                val textWidth = (bounds.xMax - coverSize - 12f - textX).coerceAtLeast(1f)
+                val coverSize = 26f
+                CloudMusicHudRender.drawCover(this, bounds.xMax - coverSize - 13f, bounds.yMin + (islandHeight - coverSize) / 2f, coverSize, rounded = true)
+                val textX = bounds.xMin + 42f
+                val textWidth = (bounds.xMax - coverSize - 25f - textX).coerceAtLeast(1f)
                 val lyric = lyrics.original ?: lyrics.translation ?: music.name
                 val translation = lyrics.translation.takeIf { showTranslation }
                 val primaryY = if (translation == null) bounds.yMin + (islandHeight - 12f) / 2f else bounds.yMin + 8f
@@ -239,7 +238,7 @@ object DynamicIslandHudComponent : NativeHudComponent(
                 translation?.let {
                     drawScrollingLyric(it, textX, bounds.yMin + 27f, textWidth, CloudMusicGui.smallScale, translationColor.fade(contentAlpha), centered = true, scrollProgress = player.scrollProgress())
                 }
-                pinBounds = BoundingBox2f(bounds.xMax - 10f, bounds.yMin + 19f, bounds.xMax - 4f, bounds.yMin + 29f)
+                pinBounds = bounds
             } else pinBounds = null
         }
     }
@@ -261,7 +260,7 @@ object DynamicIslandHudComponent : NativeHudComponent(
             CloudMusicGui.textWidth(lyrics.original ?: music?.name.orEmpty(), CloudMusicGui.bodyScale),
             if (showTranslation) CloudMusicGui.textWidth(lyrics.translation.orEmpty(), CloudMusicGui.smallScale) else 0f,
         )
-        val expandedTarget = (textWidth + 66f).coerceIn(minimumWidth, maximumWidth.toFloat())
+        val expandedTarget = (textWidth + 82f).coerceIn(minimumWidth, maximumWidth.toFloat())
         val collapseFor = if (lyricTransitionStarted == 0L) 0L else (now - lyricTransitionStarted) / 1_000_000
         val widthTarget = if (collapseFor in 0..115) minimumWidth else expandedTarget
         displayedWidth += (widthTarget - displayedWidth) * (1f - kotlin.math.exp((-elapsed * 16f).toDouble()).toFloat())
@@ -274,31 +273,13 @@ object DynamicIslandHudComponent : NativeHudComponent(
     }
 }
 
-/** Top-attached island silhouette: the complete top band is filled, then its lower edge curves inward. */
+/** Top-attached capsule silhouette. The background exactly contains the HUD content. */
 private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape(
     bounds: BoundingBox2f,
     height: Float,
     color: Color4b,
 ) {
-    val maxInset = (bounds.width * .18f).coerceAtLeast(16f)
-    val steps = height.toInt().coerceAtLeast(2)
-    drawCustomElement(
-        pipeline = RenderPipelines.GUI,
-        bounds = getBounds(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax),
-    ) { pose ->
-        for (row in 0 until steps) {
-            val t = row.toFloat() / (steps - 1).toFloat()
-            val curveT = (t / .70f).coerceIn(0f, 1f)
-            val smooth = curveT * curveT * (3f - 2f * curveT)
-            val inset = maxInset * smooth
-            val y1 = bounds.yMin + row
-            val y2 = bounds.yMin + row + 1.05f
-            addVertexWith2DPose(pose, bounds.xMin + inset, y1).setColor(color.argb)
-            addVertexWith2DPose(pose, bounds.xMin + inset, y2).setColor(color.argb)
-            addVertexWith2DPose(pose, bounds.xMax - inset, y2).setColor(color.argb)
-            addVertexWith2DPose(pose, bounds.xMax - inset, y1).setColor(color.argb)
-        }
-    }
+    drawRoundedRect(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax, (height * .46f).coerceAtLeast(14f), color)
 }
 
 private object CloudMusicHudRender {
