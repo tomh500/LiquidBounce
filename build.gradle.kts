@@ -20,6 +20,8 @@
 import com.github.gradle.node.npm.task.NpmTask
 import dev.detekt.gradle.DetektCreateBaselineTask
 import groovy.json.JsonOutput
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.jvm.tasks.Jar
 import org.gradle.kotlin.dsl.support.listFilesOrdered
@@ -33,9 +35,13 @@ plugins {
     alias(libs.plugins.dokka)
 }
 
+val upstreamModVersion = providers.gradleProperty("mod_version")
+val buildTimestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmm"))
+val clientVersion = providers.provider { "${upstreamModVersion.get()}-XuanRikka$buildTimestamp" }
+
 base {
     archivesName = project.property("archives_base_name") as String
-    version = project.property("mod_version") as String
+    version = clientVersion.get()
     group = project.property("maven_group") as String
 }
 
@@ -235,7 +241,6 @@ tasks.processResources {
         into("resources/liquidbounce/themes/liquidbounce")
     }
 
-    val modVersion = providers.gradleProperty("mod_version")
     val minecraftVersion = providers.gradleProperty("mod_mc_version")
     val fabricVersion = libs.versions.fabric.api
     val loaderVersion = libs.versions.fabric.loader
@@ -258,7 +263,7 @@ tasks.processResources {
     }
     val contributors = provider { contributorsJson }
 
-    inputs.property("version", modVersion)
+    inputs.property("version", clientVersion)
     inputs.property("minecraft_version", minecraftVersion)
     inputs.property("fabric_version", fabricVersion)
     inputs.property("loader_version", loaderVersion)
@@ -270,7 +275,7 @@ tasks.processResources {
     filesMatching("fabric.mod.json") {
         expand(
             mapOf(
-                "version" to modVersion.get(),
+                "version" to clientVersion.get(),
                 "minecraft_version" to minecraftVersion.get(),
                 "fabric_version" to fabricVersion.get(),
                 "loader_version" to loaderVersion.get(),
@@ -431,17 +436,16 @@ kotlin {
 
 tasks.jar {
     val archivesBaseName = providers.gradleProperty("archives_base_name")
-    val modVersion = providers.gradleProperty("mod_version")
     val mavenGroup = providers.gradleProperty("maven_group")
 
     inputs.property("archives_base_name", archivesBaseName)
-    inputs.property("mod_version", modVersion)
+    inputs.property("mod_version", clientVersion)
     inputs.property("maven_group", mavenGroup)
 
     manifest {
         attributes["Main-Class"] = "net.ccbluex.liquidbounce.LiquidInstruction"
         attributes["Implementation-Title"] = archivesBaseName.get()
-        attributes["Implementation-Version"] = modVersion.get()
+        attributes["Implementation-Version"] = clientVersion.get()
         attributes["Implementation-Vendor"] = mavenGroup.get()
     }
 
