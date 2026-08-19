@@ -223,7 +223,8 @@ object DynamicIslandHudComponent : NativeHudComponent(
         val bounds = getGuiScaledBounds(displayedWidth, islandHeight)
             val contentAlpha = if (lyricContentVisible) ((visibility - .12f) / .88f).coerceIn(0f, 1f) else 0f
         with(event.context) {
-            drawDynamicIslandShape(bounds, islandHeight, backgroundColor.fade(visibility))
+            // Match the ArrayList HUD mask: surface black at 68% opacity.
+            drawDynamicIslandShape(bounds, islandHeight, backgroundColor.with(r = 0, g = 0, b = 0, a = 173).fade(visibility))
             if (contentAlpha > 0f) {
                 val logoSize = 14f
                 val iconY = bounds.yMin + (islandHeight - logoSize) / 2f - 2f
