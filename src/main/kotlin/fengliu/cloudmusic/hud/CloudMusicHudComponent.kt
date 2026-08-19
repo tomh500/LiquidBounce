@@ -183,10 +183,11 @@ object DynamicIslandHudComponent : NativeHudComponent(
     description = "Shows CloudMusic in an expanding Dynamic Island layout.",
 ) {
     // The collapsed island only reserves space for the logo and cover.
-    private val minimumWidth = 104f
-    private val maximumWidth by int("MaximumWidth", 300, 180..420)
-    private val singleLineHeight = 38f
-    private val doubleLineHeight = 54f
+    private val minimumWidth = 88f
+    private val maximumWidth by int("MaximumWidth", 280, 160..400)
+    private val singleLineHeight = 28f
+    private val doubleLineHeight = 40f
+    private val collapseDurationMs = 220L
     private val showTranslation by boolean("ShowTranslation", true)
     private val backgroundColor by color("BackgroundColor", Color4b(0, 0, 0, 255))
     private val lyricColor by color("LyricColor", Color4b.WHITE)
@@ -197,6 +198,7 @@ object DynamicIslandHudComponent : NativeHudComponent(
     private var lyricTransitionStarted = 0L
     private var lastLyricKey = ""
     private var lyricContentVisible = true
+    private var collapsePending = false
     private var cachedMusic: IMusic? = null
     private var pinBounds: BoundingBox2f? = null
     override val guiScaledWidth get() = minimumWidth
@@ -215,7 +217,7 @@ object DynamicIslandHudComponent : NativeHudComponent(
         if (HideAppearance.isHidingNow || !enabled) return@handler
         val player = MusicCommand.getPlayer()
         val lyrics = player.lyricLines()
-        animate(player.isPlaying(), player.getPlayingMusic(), lyrics)
+        animate(player, player.isPlaying(), player.getPlayingMusic(), lyrics)
         val music = cachedMusic ?: return@handler
         if (visibility <= 0.01f) return@handler
         val islandHeight = if (showTranslation && !lyrics.translation.isNullOrBlank()) doubleLineHeight else singleLineHeight
@@ -224,31 +226,31 @@ object DynamicIslandHudComponent : NativeHudComponent(
         with(event.context) {
             drawDynamicIslandShape(bounds, islandHeight, backgroundColor.fade(visibility))
             if (contentAlpha > 0f) {
-                val logoSize = 17f
-                val iconY = bounds.yMin + (islandHeight - logoSize) / 2f
+                val logoSize = 14f
+                val iconY = bounds.yMin + (islandHeight - logoSize) / 2f - 2f
                 MusicIconTexture.loadLiquidBounceIcon()
                 if (MusicIconTexture.canUseLiquidBounceIcon()) mc.textureManager.getTexture(MusicIconTexture.LIQUID_BOUNCE_ICON_ID)?.let {
-                    drawTexQuad(it.textureSetup, bounds.xMin + 12f, iconY, bounds.xMin + 12f + logoSize, iconY + logoSize)
+                    drawTexQuad(it.textureSetup, bounds.xMin + 10f, iconY, bounds.xMin + 10f + logoSize, iconY + logoSize)
                 }
-                val coverSize = 24f
-                CloudMusicHudRender.drawCover(this, bounds.xMax - coverSize - 12f, bounds.yMin + (islandHeight - coverSize) / 2f, coverSize, rounded = true)
-                val textX = bounds.xMin + 38f
-                val textWidth = (bounds.xMax - coverSize - 22f - textX).coerceAtLeast(1f)
+                val coverSize = 20f
+                CloudMusicHudRender.drawCover(this, bounds.xMax - coverSize - 10f, bounds.yMin + (islandHeight - coverSize) / 2f - 2f, coverSize, rounded = true)
+                val textX = bounds.xMin + 31f
+                val textWidth = (bounds.xMax - coverSize - 18f - textX).coerceAtLeast(1f)
                 val lyric = lyrics.original?.takeIf { it.isNotBlank() }
                 val translation = lyrics.translation?.takeIf { showTranslation && it.isNotBlank() }
                 lyric?.let {
-                    val primaryY = if (translation == null) bounds.yMin + (islandHeight - 12f) / 2f else bounds.yMin + 8f
-                    drawCloudMusicText(it, textX + textWidth / 2f, primaryY, CloudMusicGui.bodyScale, lyricColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
+                    val primaryY = if (translation == null) bounds.yMin + 4f else bounds.yMin + 2f
+                    drawCloudMusicText(CloudMusicGui.truncate(it, textWidth - 3f), textX + textWidth / 2f, primaryY, CloudMusicGui.bodyScale, lyricColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
                 }
                 translation?.let {
-                    drawCloudMusicText(it, textX + textWidth / 2f, bounds.yMin + 27f, CloudMusicGui.smallScale, translationColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
+                    drawCloudMusicText(CloudMusicGui.truncate(it, textWidth - 3f, CloudMusicGui.smallScale), textX + textWidth / 2f, bounds.yMin + 16f, CloudMusicGui.smallScale, translationColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
                 }
                 pinBounds = bounds
             } else pinBounds = null
         }
     }
 
-    private fun animate(isPlaying: Boolean, music: IMusic?, lyrics: CurrentLyrics) {
+    private fun animate(player: fengliu.cloudmusic.util.MusicPlayer, isPlaying: Boolean, music: IMusic?, lyrics: CurrentLyrics) {
         val now = System.nanoTime()
         val elapsed = if (lastUpdate == 0L) 0f else ((now - lastUpdate) / 1_000_000_000.0).toFloat().coerceAtMost(.1f)
         lastUpdate = now
@@ -258,20 +260,32 @@ object DynamicIslandHudComponent : NativeHudComponent(
 
         val lyricKey = "${lyrics.original}\u0000${lyrics.translation}"
         if (target > 0f && lyricKey != lastLyricKey) {
-            if (lastLyricKey.isNotEmpty()) {
+            if (collapsePending) {
+                // The predicted collapse ended exactly at this line's timestamp.
+                collapsePending = false
+                lyricTransitionStarted = 0L
+                lyricContentVisible = true
+            } else if (lastLyricKey.isNotEmpty()) {
                 lyricTransitionStarted = now
                 lyricContentVisible = false
             }
             lastLyricKey = lyricKey
         }
+        if (target > 0f && !collapsePending) {
+            val times = player.getLyricWindowTimes(0, 1)
+            val nextStart = times.getOrNull(1)?.takeIf { it >= player.playingProgress }
+            if (nextStart != null && nextStart - player.playingProgress <= collapseDurationMs) {
+                collapsePending = true
+                lyricTransitionStarted = now
+                lyricContentVisible = false
+            }
+        }
         val textWidth = maxOf(
             lyrics.original?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.bodyScale) } ?: 0f,
             if (showTranslation) lyrics.translation?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.smallScale) } ?: 0f else 0f,
         )
-        val expandedTarget = (textWidth + 76f).coerceIn(minimumWidth, maximumWidth.toFloat())
-        val collapseFor = if (lyricTransitionStarted == 0L) 0L else (now - lyricTransitionStarted) / 1_000_000
-        if (collapseFor > 115L) lyricContentVisible = true
-        val widthTarget = if (collapseFor in 0..115) minimumWidth else expandedTarget
+        val expandedTarget = (textWidth + 64f).coerceIn(minimumWidth, maximumWidth.toFloat())
+        val widthTarget = if (collapsePending || (lyricTransitionStarted != 0L && !lyricContentVisible)) minimumWidth else expandedTarget
         displayedWidth += (widthTarget - displayedWidth) * (1f - kotlin.math.exp((-elapsed * 16f).toDouble()).toFloat())
         if (visibility < .005f && target == 0f) {
             visibility = 0f
@@ -279,6 +293,7 @@ object DynamicIslandHudComponent : NativeHudComponent(
             cachedMusic = null
             pinBounds = null
             lyricContentVisible = true
+            collapsePending = false
         }
     }
 }
@@ -289,16 +304,18 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     height: Float,
     color: Color4b,
 ) {
-    val rows = height.toInt().coerceAtLeast(2)
-    val topRadius = 12f.coerceAtMost(height / 2f)
-    val bottomRadius = 24f.coerceAtMost(height / 2f)
+    // Supersample the curved silhouette to avoid visible stair-stepping at small HUD scales.
+    val samplesPerPixel = 4f
+    val rows = kotlin.math.ceil(height * samplesPerPixel).toInt().coerceAtLeast(2)
+    val topRadius = 15f.coerceAtMost(height / 2f)
+    val bottomRadius = 28f.coerceAtMost(height / 2f)
     drawCustomElement(
         pipeline = RenderPipelines.GUI,
         bounds = getBounds(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax),
     ) { pose ->
         for (row in 0 until rows) {
-            val y = row.toFloat()
-            val nextY = (row + 1f).coerceAtMost(height)
+            val y = row / samplesPerPixel
+            val nextY = ((row + 1f) / samplesPerPixel).coerceAtMost(height)
             val topInset = if (y < topRadius) {
                 topRadius - kotlin.math.sqrt((topRadius * topRadius - (topRadius - y) * (topRadius - y)).coerceAtLeast(0f))
             } else 0f
