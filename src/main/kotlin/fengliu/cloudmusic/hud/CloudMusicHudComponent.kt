@@ -305,11 +305,10 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     color: Color4b,
 ) {
     // Supersample the curved silhouette to avoid visible stair-stepping at small HUD scales.
-    val samplesPerPixel = 4f
+    val samplesPerPixel = 8f
     val rows = kotlin.math.ceil(height * samplesPerPixel).toInt().coerceAtLeast(2)
+    val topOutset = 24f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 4f)
     val maxBottomInset = 30f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 2f)
-    val curveStart = 6f.coerceAtMost(height * .18f)
-    val flatStart = (height - 4f).coerceAtLeast(curveStart)
     drawCustomElement(
         pipeline = RenderPipelines.GUI,
         bounds = getBounds(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax),
@@ -317,15 +316,11 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
         for (row in 0 until rows) {
             val y = row / samplesPerPixel
             val nextY = ((row + 1f) / samplesPerPixel).coerceAtMost(height)
-            val bottomInset = if (nextY <= curveStart) {
-                0f
-            } else {
-                val progress = ((nextY - curveStart) / (flatStart - curveStart).coerceAtLeast(1f)).coerceIn(0f, 1f)
-                // In screen space this is the inverse of y = a * x^2,
-                // producing an upward-opening parabolic bottom edge.
-                maxBottomInset * kotlin.math.sqrt(progress)
-            }
-            val inset = bottomInset
+            val progress = (nextY / height).coerceIn(0f, 1f)
+            // A quadratic profile keeps the arc bowed outward longer before
+            // it reaches the shallow bottom section.
+            val convexProgress = progress * progress
+            val inset = -topOutset + (topOutset + maxBottomInset) * convexProgress
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + y).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + nextY).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMax - inset, bounds.yMin + nextY).setColor(color.argb)
