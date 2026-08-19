@@ -131,6 +131,17 @@ dependencies {
     jij("com.googlecode.soundlibs:mp3spi:1.9.5.4")
     implementation("com.googlecode.soundlibs:tritonus-share:0.3.7.4")
     jij("com.googlecode.soundlibs:tritonus-share:0.3.7.4")
+    // Cloud-disk uploads are commonly returned as OGG or M4A rather than MP3.
+    // Register Java Sound providers for both formats so the same player path
+    // can decode catalog tracks and private uploads.
+    implementation("com.googlecode.soundlibs:vorbisspi:1.0.3.3")
+    jij("com.googlecode.soundlibs:vorbisspi:1.0.3.3")
+    implementation("com.googlecode.soundlibs:jorbis:0.0.17.4")
+    jij("com.googlecode.soundlibs:jorbis:0.0.17.4")
+    implementation("com.tianscar.javasound:jaad:0.9.4")
+    jij("com.tianscar.javasound:jaad:0.9.4")
+    implementation("org:jaudiotagger:2.0.3")
+    jij("org:jaudiotagger:2.0.3")
     implementation("org.jflac:jflac-codec:1.5.2")
     jij("org.jflac:jflac-codec:1.5.2")
 

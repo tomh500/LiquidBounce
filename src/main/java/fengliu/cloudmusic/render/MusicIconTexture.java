@@ -2,6 +2,7 @@ package fengliu.cloudmusic.render;
 
 import fengliu.cloudmusic.CloudMusicClient;
 import fengliu.cloudmusic.music163.IMusic;
+import fengliu.cloudmusic.music163.data.LocalMusic;
 import fengliu.cloudmusic.util.HttpClient;
 import fengliu.cloudmusic.util.PNGConverter;
 import fengliu.cloudmusic.util.QRCode;
@@ -12,6 +13,7 @@ import net.minecraft.resources.Identifier;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.ByteArrayInputStream;
 import java.util.Objects;
 
 public class MusicIconTexture {
@@ -51,7 +53,13 @@ public class MusicIconTexture {
             NativeImage img;
             NativeImage circularImg;
             try {
-                img = NativeImage.read(PNGConverter.convertJPEGtoPNG(HttpClient.downloadStream(music.getPicUrl() + "?param=128y128")));
+                if (music instanceof LocalMusic localMusic && localMusic.getPicUrl().isBlank() && localMusic.getEmbeddedCover() != null) {
+                    img = NativeImage.read(new ByteArrayInputStream(localMusic.getEmbeddedCover()));
+                } else if (!music.getPicUrl().isBlank()) {
+                    img = NativeImage.read(PNGConverter.convertJPEGtoPNG(HttpClient.downloadStream(music.getPicUrl() + "?param=128y128")));
+                } else {
+                    return;
+                }
                 circularImg = copy(img);
                 cropToCircle(circularImg);
             } catch (Exception err) {

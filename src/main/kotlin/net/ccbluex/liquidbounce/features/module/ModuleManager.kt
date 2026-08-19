@@ -102,6 +102,7 @@ import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleAutoPearl
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleBetterTab
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleBookBot
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleCloudMusic
+import net.ccbluex.liquidbounce.features.global.GlobalSettingsClientChat
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleEasyPearl
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleElytraSwap
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleFlagCheck
@@ -565,6 +566,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleAntiCheatDetect,
             ModuleEasyPearl,
             ModuleCloudMusic,
+            GlobalSettingsClientChat,
 
             // Movement
             ModuleAirJump,

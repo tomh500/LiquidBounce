@@ -6,6 +6,7 @@ import fengliu.cloudmusic.music163.ActionException;
 import fengliu.cloudmusic.music163.IMusic;
 import fengliu.cloudmusic.music163.Lyric;
 import fengliu.cloudmusic.music163.data.DjMusic;
+import fengliu.cloudmusic.music163.data.LocalMusic;
 import fengliu.cloudmusic.music163.data.Music;
 import fengliu.cloudmusic.render.MusicIconTexture;
 import fengliu.cloudmusic.util.page.Page;
@@ -19,6 +20,8 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -26,11 +29,15 @@ import java.util.List;
  * 歌曲播放对象
  */
 public class MusicPlayer implements Runnable {
+    public enum PlaybackState { STOPPED, LOADING, PLAYING, PAUSED, ENDED, ERROR }
     private static final Logger LOGGER = LoggerFactory.getLogger("cloudmusic");
     private final Minecraft client = Minecraft.getInstance();
     protected final List<IMusic> playList;
     private IMusic playingMusic = null;
-    private SourceDataLine play;
+    private volatile SourceDataLine play;
+    private volatile AudioInputStream activeStream;
+    private volatile Thread playbackThread;
+    private volatile PlaybackState playbackState = PlaybackState.STOPPED;
     private Lyric lyric;
     protected int playIn = 0;
     protected int playListSize;
@@ -110,11 +117,17 @@ public class MusicPlayer implements Runnable {
         this.start();
     }
 
-public void start() {
+    public synchronized void start() {
+        if (playbackThread != null && playbackThread.isAlive()) {
+            return;
+        }
+        this.notExitFlag = true;
+        this.loopPlayIn = true;
         LOGGER.info("[CloudMusic][Player] 启动播放线程");
         Thread thread = new Thread(this);
         thread.setDaemon(true);
         thread.setName("CloudMusicPlayer thread");
+        this.playbackThread = thread;
         thread.start();
     }
 
@@ -122,6 +135,10 @@ public void start() {
      * 播放歌曲
      */
     protected void playMusic() {
+        if (!canContinue()) {
+            return;
+        }
+        this.playbackState = PlaybackState.LOADING;
         LOGGER.info("[CloudMusic][Player] 开始播放曲目, 播放列表大小={}", this.playListSize);
         // 开始播放的时候停止所有的声音(只会停止一瞬间)
         client.getSoundManager().stop();
@@ -130,13 +147,14 @@ public void start() {
         String musicUrl;
         try {
             musicUrl = music.getPlayUrl();
-        } catch (ActionException err) {
-            Minecraft client = Minecraft.getInstance();
-            LOGGER.info("[CloudMusic][Player] 获取播放地址失败", err);
-            if (client.player != null) {
-                client.execute(() -> client.player.sendSystemMessage(Component.literal(err.getMessage())));
-            }
-            this.stop();
+        } catch (RuntimeException err) {
+            reportPlaybackError(music, "获取播放地址失败", err);
+            return;
+        }
+
+        // A queue replacement can happen while the URL request is blocked.
+        // That old worker must never acquire another SourceDataLine.
+        if (!canContinue()) {
             return;
         }
 
@@ -152,23 +170,41 @@ public void start() {
             }
         }
 
-        MusicIconTexture.getMusicIcon(music);
-        if (music instanceof Music) {
+        if (music instanceof LocalMusic localMusic) {
+            Music matched = localMusic.resolveNetEaseMatch(fengliu.cloudmusic.command.MusicCommand.getMusic163());
+            Lyric onlineLyrics = matched == null ? null : matched.lyric();
+            this.lyric = onlineLyrics != null && onlineLyrics.hasLyrics()
+                    ? onlineLyrics : Lyric.fromLrc(localMusic.getEmbeddedLyrics());
+        } else if (music instanceof Music) {
             this.lyric = ((Music) music).lyric();
         } else {
             this.lyric = null;
         }
+        MusicIconTexture.getMusicIcon(music);
 
         this.playingMusic = music;
         if (!Configs.PLAY.PLAY_URL.getBooleanValue()) {
-            String[] urls = musicUrl.split("\\.");
-            String fileType = urls[urls.length - 1];
+            if (musicUrl.startsWith("file:")) {
+                try {
+                    this.play(java.nio.file.Path.of(java.net.URI.create(musicUrl)).toFile());
+                } catch (Exception err) {
+                    reportPlaybackError(music, "本地音频打开失败", err);
+                }
+                return;
+            }
+            String fileType = fileExtension(musicUrl);
 
             File file;
+            String quality = music instanceof Music cloudMusic ? cloudMusic.getResolvedQuality()
+                    : music instanceof DjMusic djMusic ? djMusic.getResolvedQuality() : Configs.PLAY.PLAY_QUALITY.getStringValue();
             if (music instanceof DjMusic) {
-                file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile("djmusic_" + music.getId() + "." + fileType));
+                file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile("djmusic_" + music.getId() + "_" + quality + "." + fileType));
             } else {
-                file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile(music.getId() + "." + fileType));
+                file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile(music.getId() + "_" + quality + "." + fileType));
+            }
+
+            if (!canContinue()) {
+                return;
             }
 
             CloudMusicClient.cacheHelper.addUseSize(file);
@@ -186,15 +222,48 @@ public void start() {
      * 播放歌曲
      */
     private void play(AudioInputStream audioInputStream) throws IOException, InterruptedException, LineUnavailableException {
-        AudioFormat audioFormat = audioInputStream.getFormat();
-
-        DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, audioFormat, AudioSystem.NOT_SPECIFIED);
-        play = (SourceDataLine) AudioSystem.getLine(dataLineInfo);
-        play.open(audioFormat);
+        if (!canContinue()) {
+            audioInputStream.close();
+            return;
+        }
+        this.activeStream = audioInputStream;
+        AudioFormat sourceFormat = audioInputStream.getFormat();
+        AudioFormat audioFormat = sourceFormat;
+        SourceDataLine output = null;
+        Exception lastOutputFailure = null;
+        for (AudioFormat candidate : outputCandidates(sourceFormat)) {
+            SourceDataLine candidateOutput = null;
+            try {
+                // Open the device first. A failed format must not close the
+                // shared decoder stream before we can try the next fallback.
+                candidateOutput = openOutputLine(candidate);
+                AudioInputStream candidateStream = audioInputStream;
+                if (!sourceFormat.matches(candidate)) {
+                    candidateStream = AudioSystem.getAudioInputStream(candidate, audioInputStream);
+                }
+                output = candidateOutput;
+                audioInputStream = candidateStream;
+                audioFormat = candidate;
+                if (!sourceFormat.matches(candidate)) {
+                    LOGGER.info("[CloudMusic][Player] 输出格式降级: {} -> {}", sourceFormat, candidate);
+                }
+                break;
+            } catch (IllegalArgumentException | LineUnavailableException failure) {
+                lastOutputFailure = failure;
+                if (candidateOutput != null) candidateOutput.close();
+            }
+        }
+        if (output == null) {
+            if (lastOutputFailure instanceof IllegalArgumentException illegalArgument) throw illegalArgument;
+            if (lastOutputFailure instanceof LineUnavailableException unavailable) throw unavailable;
+            throw new LineUnavailableException("没有可用的音频输出设备");
+        }
+        this.activeStream = audioInputStream;
+        this.play = output;
         //设置音量
         this.volumeSet(volumePercentage);
 
-        play.start();
+        output.start();
         if (lyric != null) {
             this.lyric.start();
         }
@@ -203,6 +272,7 @@ public void start() {
         byte[] tempBuff = new byte[1024];
 
         this.load = true;
+        this.playbackState = PlaybackState.PLAYING;
         this.startPlayingTime = System.currentTimeMillis();
         while ((count = audioInputStream.read(tempBuff, 0, tempBuff.length)) != -1) {
             synchronized (this) {
@@ -215,17 +285,27 @@ public void start() {
                 this.seekTargetMs = -1;
                 try {
                     audioInputStream.close();
-                    audioInputStream = this.seekStream(seekTarget);
-                    play.stop();
-                    play.flush();
-                    play.start();
-                    this.startPlayingTime = System.currentTimeMillis() - seekTarget;
-                    this.playingProgress = seekTarget;
+                    long actualSeekTarget = this.seekStream(seekTarget);
+                    audioInputStream = this.activeStream;
+                    audioInputStream = convertForOutput(audioInputStream, audioFormat);
+                    this.activeStream = audioInputStream;
+                    if (this.play != output || !output.isOpen()) {
+                        break;
+                    }
+                    output.stop();
+                    output.flush();
+                    output.start();
+                    this.startPlayingTime = System.currentTimeMillis() - actualSeekTarget;
+                    this.playingProgress = actualSeekTarget;
                 } catch (Exception err) {
                     err.printStackTrace();
                     try {
-                        audioInputStream = this.openAudioInputStream();
-                        play.flush();
+                        if (this.play != output || !output.isOpen()) {
+                            break;
+                        }
+                        audioInputStream = convertForOutput(this.openAudioInputStream(), audioFormat);
+                        this.activeStream = audioInputStream;
+                        output.flush();
                         this.startPlayingTime = System.currentTimeMillis();
                         this.playingProgress = 0;
                     } catch (Exception err2) {
@@ -238,12 +318,24 @@ public void start() {
             int frameSize = Math.max(1, audioFormat.getFrameSize());
             int alignedCount = count - count % frameSize;
             if (alignedCount > 0) {
-                play.write(tempBuff, 0, alignedCount);
+                // Queue replacement closes the output asynchronously. The old
+                // decoder must exit quietly instead of reporting a false decode error.
+                if (this.play != output || !output.isOpen()) {
+                    break;
+                }
+                output.write(tempBuff, 0, alignedCount);
             }
             this.playingProgress = System.currentTimeMillis() - this.startPlayingTime;
         }
 
         this.playingProgress = 0;
+        if (this.playbackState != PlaybackState.PAUSED && this.playbackState != PlaybackState.STOPPED) {
+            this.playbackState = PlaybackState.ENDED;
+        }
+        try { audioInputStream.close(); } catch (IOException ignored) { }
+        if (this.activeStream == audioInputStream) {
+            this.activeStream = null;
+        }
         if (lyric != null) {
             this.lyric.exit();
         }
@@ -255,18 +347,51 @@ public void start() {
     private AudioInputStream openAudioInputStream() throws Exception {
         AudioInputStream stream;
         if (this.playFile != null) {
-            stream = AudioSystem.getAudioInputStream(this.playFile);
+            if (M4aAudio.isM4a(this.playFile)) {
+                try {
+                    stream = M4aAudio.open(this.playFile);
+                } catch (Exception m4aFailure) {
+                    // JAAD and Java Sound use separate container entry points.
+                    // Keep the file available for the provider fallback rather
+                    // than treating one malformed AAC metadata block as fatal.
+                    LOGGER.debug("[CloudMusic][Player] M4A decoder failed for {}, trying Java Sound provider", this.playFile.getName(), m4aFailure);
+                    try {
+                        stream = AudioSystem.getAudioInputStream(this.playFile);
+                        LOGGER.info("[CloudMusic][Player] Java Sound M4A compatibility decoder selected for {}: {}",
+                                this.playFile.getName(), stream.getFormat());
+                    } catch (Exception javaSoundFailure) {
+                        javaSoundFailure.addSuppressed(m4aFailure);
+                        throw javaSoundFailure;
+                    }
+                }
+            } else {
+                stream = AudioSystem.getAudioInputStream(this.playFile);
+            }
         } else if (this.playUrl != null) {
-            stream = AudioSystem.getAudioInputStream(AudioSystem.getAudioInputStream(new URL(this.playUrl)));
+            stream = AudioSystem.getAudioInputStream(new URL(this.playUrl));
         } else {
             throw new IllegalStateException("没有可播放的音频源");
         }
 
         AudioFormat sourceFormat = stream.getFormat();
         // 转换文件编码
-        if (sourceFormat.getEncoding() != AudioFormat.Encoding.PCM_SIGNED) {
-            System.out.println(sourceFormat.getEncoding());
-            AudioFormat pcmFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, sourceFormat.getSampleRate(), 16, sourceFormat.getChannels(), sourceFormat.getChannels() * 2, sourceFormat.getSampleRate(), false);
+        if (!AudioFormat.Encoding.PCM_SIGNED.equals(sourceFormat.getEncoding())) {
+            float sampleRate = sourceFormat.getSampleRate() > 0 ? sourceFormat.getSampleRate() : 44_100f;
+            int channels = sourceFormat.getChannels() > 0 ? sourceFormat.getChannels() : 2;
+            int sampleSize = sourceFormat.getSampleSizeInBits();
+            // Hi-Res FLAC is commonly 24-bit. JFLAC decodes it at its native
+            // depth but rejects a lossy 24-bit to 16-bit conversion request.
+            if (sampleSize <= 0 || sampleSize > 32) sampleSize = 16;
+            int frameSize = channels * ((sampleSize + 7) / 8);
+            AudioFormat pcmFormat = new AudioFormat(
+                    AudioFormat.Encoding.PCM_SIGNED,
+                    sampleRate,
+                    sampleSize,
+                    channels,
+                    frameSize,
+                    sampleRate,
+                    false
+            );
             stream = AudioSystem.getAudioInputStream(pcmFormat, stream);
         }
 
@@ -276,12 +401,13 @@ public void start() {
     /**
      * 重新打开播放源并跳转到指定毫秒位置
      */
-    private AudioInputStream seekStream(long targetMs) throws Exception {
+    private long seekStream(long targetMs) throws Exception {
         AudioInputStream stream = this.openAudioInputStream();
         AudioFormat format = stream.getFormat();
         long bytesPerSecond = (long) (format.getFrameRate() * format.getFrameSize());
         if (bytesPerSecond <= 0) {
-            return stream;
+            this.activeStream = stream;
+            return 0L;
         }
 
         // 不能用 skip(): mp3spi 等解码后的转换流上 skip() 按压缩源字节跳过,
@@ -292,15 +418,23 @@ public void start() {
         bytesToSkip -= bytesToSkip % frameSize;
         byte[] buffer = new byte[65536];
         long skipped = 0;
+        int emptyReads = 0;
         while (skipped < bytesToSkip) {
             int read = stream.read(buffer, 0, (int) Math.min(buffer.length, bytesToSkip - skipped));
-            if (read <= 0) {
-                stream.close();
-                throw new EOFException("Audio stream ended before the seek target");
+            if (read < 0) {
+                break;
             }
+            if (read == 0) {
+                if (++emptyReads >= 100) {
+                    break;
+                }
+                continue;
+            }
+            emptyReads = 0;
             skipped += read;
         }
-        return stream;
+        this.activeStream = stream;
+        return (long) (skipped * 1000d / bytesPerSecond);
     }
 
     /**
@@ -326,12 +460,18 @@ public void start() {
      * @param url 歌曲 url
      */
     private void play(String url) {
+        if (!canContinue()) {
+            return;
+        }
         try {
             this.playFile = null;
             this.playUrl = url;
             this.play(this.openAudioInputStream());
         } catch (Exception e) {
-            e.printStackTrace();
+            if (!canContinue()) {
+                return;
+            }
+            reportPlaybackError(this.playingMusic, "音频解码失败", e);
         }
     }
 
@@ -341,13 +481,123 @@ public void start() {
      * @param file 文件对象
      */
     private void play(File file) {
+        if (!canContinue()) {
+            return;
+        }
         try {
             this.playUrl = null;
             this.playFile = file;
             this.play(this.openAudioInputStream());
         } catch (Exception e) {
-            e.printStackTrace();
+            if (!canContinue()) {
+                return;
+            }
+            reportPlaybackError(this.playingMusic, "音频解码失败", e);
         }
+    }
+
+    private static SourceDataLine openOutputLine(AudioFormat format) throws LineUnavailableException {
+        DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, format, AudioSystem.NOT_SPECIFIED);
+        LineUnavailableException lastUnavailable = null;
+
+        // Prefer an installed Windows/WASAPI Java Sound provider when one is
+        // present, then fall back to the platform default mixer. Java Sound
+        // providers expose WASAPI devices through MixerInfo, so this keeps the
+        // client compatible with both the stock JRE and optional providers.
+        Mixer.Info[] mixers = AudioSystem.getMixerInfo();
+        for (int pass = 0; pass < 2; pass++) {
+            for (Mixer.Info mixerInfo : mixers) {
+                String name = (mixerInfo.getName() + " " + mixerInfo.getDescription()).toLowerCase(java.util.Locale.ROOT);
+                boolean wasapi = name.contains("wasapi") || name.contains("windows audio session");
+                if ((pass == 0) != wasapi) continue;
+                Mixer mixer = AudioSystem.getMixer(mixerInfo);
+                if (!mixer.isLineSupported(dataLineInfo)) continue;
+                try {
+                    SourceDataLine output = (SourceDataLine) mixer.getLine(dataLineInfo);
+                    output.open(format);
+                    return output;
+                } catch (LineUnavailableException unavailable) {
+                    lastUnavailable = unavailable;
+                } catch (IllegalArgumentException ignored) {
+                    // The provider advertised the line but rejected this
+                    // exact format; let the caller try its PCM fallback.
+                }
+            }
+        }
+
+        try {
+            SourceDataLine output = (SourceDataLine) AudioSystem.getLine(dataLineInfo);
+            output.open(format);
+            return output;
+        } catch (LineUnavailableException unavailable) {
+            if (lastUnavailable != null) unavailable.addSuppressed(lastUnavailable);
+            throw unavailable;
+        }
+    }
+
+    private static List<AudioFormat> outputCandidates(AudioFormat source) {
+        List<AudioFormat> candidates = new ArrayList<>();
+        candidates.add(source);
+        int channels = source.getChannels() > 0 ? source.getChannels() : 2;
+        float rate = source.getSampleRate() > 0 ? source.getSampleRate() : 44_100f;
+        addPcmCandidate(candidates, rate, channels);
+        if (channels > 2) addPcmCandidate(candidates, rate, 2);
+        if (Math.abs(rate - 48_000f) > 1f) addPcmCandidate(candidates, 48_000f, Math.min(channels, 2));
+        if (Math.abs(rate - 44_100f) > 1f) addPcmCandidate(candidates, 44_100f, Math.min(channels, 2));
+        return candidates;
+    }
+
+    private static void addPcmCandidate(List<AudioFormat> candidates, float rate, int channels) {
+        AudioFormat candidate = new AudioFormat(
+                AudioFormat.Encoding.PCM_SIGNED,
+                rate,
+                16,
+                channels,
+                channels * 2,
+                rate,
+                false
+        );
+        for (AudioFormat existing : candidates) {
+            if (existing.matches(candidate)) return;
+        }
+        candidates.add(candidate);
+    }
+
+    private static AudioInputStream convertForOutput(AudioInputStream stream, AudioFormat outputFormat) throws
+            UnsupportedAudioFileException {
+        AudioFormat source = stream.getFormat();
+        if (source.matches(outputFormat)) return stream;
+        return AudioSystem.getAudioInputStream(outputFormat, stream);
+    }
+
+    private static String fileExtension(String url) {
+        try {
+            String path = URI.create(url).getPath();
+            int dot = path.lastIndexOf('.');
+            if (dot >= 0 && dot + 1 < path.length()) {
+                String extension = path.substring(dot + 1).toLowerCase(java.util.Locale.ROOT);
+                if (extension.matches("[a-z0-9]{1,8}")) return extension;
+            }
+        } catch (IllegalArgumentException ignored) { }
+        // The Java Sound provider detects the actual container. This suffix is
+        // only used for a stable cache filename when the CDN URL has none.
+        return "audio";
+    }
+
+    private void reportPlaybackError(IMusic music, String reason, Throwable error) {
+        this.playbackState = PlaybackState.ERROR;
+        this.loopPlayIn = false;
+        this.load = false;
+        String musicName = music == null ? "未知歌曲" : music.getName();
+        String detail = error.getMessage();
+        String message = reason + "：" + musicName + (detail == null || detail.isBlank() ? "" : " (" + detail + ")");
+        LOGGER.error("[CloudMusic][Player] {}: {}", reason, musicName, error);
+        this.client.execute(() -> {
+            if (this.client.player != null) {
+                this.client.player.sendSystemMessage(Component.literal(message));
+            }
+            this.client.gui.hud.setOverlayMessage(Component.literal(message), false);
+        });
     }
 
     /**
@@ -376,10 +626,13 @@ public void start() {
         FloatControl gainControl = (FloatControl) this.play.getControl(FloatControl.Type.MASTER_GAIN);
         float minGain = gainControl.getMinimum();
         float maxGain = gainControl.getMaximum();
-        // 人耳对分贝是对数感知: 之前 min*(1-v/100) 是分贝线性, 50~60 音量相当于 -32~-40dB 几乎听不见。
-        // 改用平方曲线把低音量段抬高, 让音量条上的数值接近实际听感
+        // Slider percentages are perceptual volume, as in desktop music
+        // players.  SourceDataLine takes decibels, while perceived loudness is
+        // logarithmic: 50% is roughly -6 dB, not the almost-silent -40 dB
+        // produced by a linear dB interpolation.  Zero remains true mute.
         float t = volume / 100.0f;
-        float gain = maxGain - (maxGain - minGain) * (1 - t) * (1 - t);
+        float gain = t <= 0.0f ? minGain : Math.max(minGain, 20.0f * (float) Math.log10(t));
+        gain = Math.min(maxGain, gain);
         gainControl.setValue(gain);
 
     }
@@ -412,6 +665,36 @@ public void start() {
         return lyric.getToLyric();
     }
 
+    /** A centered lyric snapshot for the in-game music window. */
+    public String[] getLyricWindow(int before, int after) {
+        return getLyricWindow(0, before, after);
+    }
+
+    public String[] getLyricWindow(int lineOffset, int before, int after) {
+        if (lyric == null) {
+            return new String[]{};
+        }
+        return lyric.getWindow(getPlayingProgress(), before, after, lineOffset);
+    }
+
+    public long[] getLyricWindowTimes(int before, int after) {
+        return getLyricWindowTimes(0, before, after);
+    }
+
+    public long[] getLyricWindowTimes(int lineOffset, int before, int after) {
+        if (lyric == null) return new long[0];
+        return lyric.getWindowTimes(getPlayingProgress(), before, after, lineOffset);
+    }
+
+    public String[] getLyricTranslationWindow(int before, int after) {
+        return getLyricTranslationWindow(0, before, after);
+    }
+
+    public String[] getLyricTranslationWindow(int lineOffset, int before, int after) {
+        if (lyric == null) return new String[0];
+        return lyric.getTranslationWindow(getPlayingProgress(), before, after, lineOffset);
+    }
+
     /**
      * 播放下一首
      */
@@ -420,8 +703,7 @@ public void start() {
             return;
         }
 
-        this.play.stop();
-        this.play.close();
+        closeOutput();
     }
 
     /**
@@ -467,7 +749,20 @@ public void start() {
 
         this.loopPlayIn = false;
         this.notExitFlag = false;
-        next();
+        synchronized (this) {
+            this.load = false;
+            notifyAll();
+        }
+        closeOutput();
+        Thread thread = this.playbackThread;
+        if (thread != null) {
+            thread.interrupt();
+            if (thread != Thread.currentThread()) {
+                try { thread.join(250L); } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
     }
 
     /**
@@ -484,6 +779,7 @@ public void start() {
             notifyAll();
         }
         this.loopPlayIn = false;
+        this.playbackState = PlaybackState.PAUSED;
     }
 
     /**
@@ -505,6 +801,9 @@ public void start() {
      * 继续播放
      */
     public void continues() {
+        if (this.playingMusic == null || !this.notExitFlag) {
+            return;
+        }
         if (this.lyric != null) {
             this.lyric.continues();
         }
@@ -515,7 +814,30 @@ public void start() {
             notifyAll();
         }
         this.loopPlayIn = true;
+        this.playbackState = PlaybackState.PLAYING;
     }
+
+    private void closeOutput() {
+        SourceDataLine line = this.play;
+        this.play = null;
+        if (line != null) {
+            try { line.stop(); } catch (Exception ignored) { }
+            try { line.flush(); } catch (Exception ignored) { }
+            try { line.close(); } catch (Exception ignored) { }
+        }
+        AudioInputStream stream = this.activeStream;
+        this.activeStream = null;
+        if (stream != null) {
+            try { stream.close(); } catch (IOException ignored) { }
+        }
+    }
+
+    /** True only while this player still owns its playback worker. */
+    private boolean canContinue() {
+        return this.notExitFlag && !Thread.currentThread().isInterrupted();
+    }
+
+    public PlaybackState getPlaybackState() { return playbackState; }
 
     /**
      * 从播放列表中删除当前播放歌曲

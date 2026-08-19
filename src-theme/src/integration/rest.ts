@@ -35,6 +35,174 @@ import {replace} from "svelte-spa-router";
 
 const API_BASE = `${REST_BASE}/api/v1`;
 
+export interface RikkaMusicSong {
+    id: number;
+    name: string;
+    artist: string;
+    album: string;
+    cover: string;
+    duration: number;
+}
+
+export interface RikkaMusicPlaylist {
+    id: number;
+    name: string;
+    cover: string;
+    count: number;
+    songs?: RikkaMusicSong[];
+    artist?: string;
+}
+
+export interface RikkaMusicLibrary {
+    authenticated: boolean;
+    username: string;
+    liked: RikkaMusicPlaylist | null;
+    playlists: RikkaMusicPlaylist[];
+    error?: string;
+}
+
+export interface RikkaMusicState {
+    playing: boolean;
+    progress: number;
+    volume: number;
+    song: RikkaMusicSong | null;
+    theme: string;
+    quality: string;
+}
+
+export interface RikkaMusicSearchResult {
+    type: "song" | "playlist" | "artist";
+    page: number;
+    pageCount: number;
+    total: number;
+    items: RikkaMusicSong[] | RikkaMusicPlaylist[];
+}
+
+export interface RikkaMusicLocalLibrary {
+    path: string;
+    songs: RikkaMusicSong[];
+}
+
+export interface RikkaMusicLoginStatus {
+    status: "idle" | "loading" | "waiting" | "success" | "error";
+    message: string;
+}
+
+export interface RikkaMusicSetting {
+    key: string;
+    type: "boolean" | "integer" | "double" | "string" | "option" | "color" | "hotkey";
+    value: string | number | boolean;
+    min?: number;
+    max?: number;
+    options?: string[];
+    hotkey?: string;
+}
+
+export interface RikkaMusicSettings {
+    category: string;
+    settings: RikkaMusicSetting[];
+}
+
+async function readMusicJson<T>(response: Response): Promise<T> {
+    const body = await response.text();
+    let payload: unknown = null;
+
+    if (body) {
+        try {
+            payload = JSON.parse(body);
+        } catch {
+            throw new Error("音乐服务返回了无效数据，请重新打开界面");
+        }
+    }
+
+    if (!response.ok) {
+        const message = typeof payload === "object" && payload && "error" in payload
+            ? String(payload.error)
+            : `音乐服务请求失败 (${response.status})`;
+        throw new Error(message);
+    }
+
+    if (payload === null) {
+        throw new Error("音乐服务没有返回数据，请重新打开界面");
+    }
+
+    return payload as T;
+}
+
+export async function getRikkaMusicLibrary(): Promise<RikkaMusicLibrary> {
+    const response = await fetch(`${API_BASE}/client/music/library`);
+    return await readMusicJson(response);
+}
+
+export async function getRikkaMusicState(): Promise<RikkaMusicState> {
+    const response = await fetch(`${API_BASE}/client/music/state`);
+    return await readMusicJson(response);
+}
+
+export async function getRikkaMusicPlaylist(id: number): Promise<RikkaMusicPlaylist> {
+    const response = await fetch(`${API_BASE}/client/music/playlist/${id}`);
+    return await readMusicJson(response);
+}
+
+export async function getRikkaMusicCloud(): Promise<RikkaMusicSong[]> {
+    const response = await fetch(`${API_BASE}/client/music/cloud`);
+    return await readMusicJson(response);
+}
+
+export async function searchRikkaMusic(query: string, type: "song" | "playlist" | "artist" = "song", page = 1): Promise<RikkaMusicSearchResult> {
+    const response = await fetch(`${API_BASE}/client/music/search?q=${encodeURIComponent(query)}&type=${type}&page=${page}`);
+    return await readMusicJson(response);
+}
+
+export async function getRikkaMusicLocal(): Promise<RikkaMusicLocalLibrary> {
+    const response = await fetch(`${API_BASE}/client/music/local`);
+    return await readMusicJson(response);
+}
+
+export async function mountRikkaMusicLocal(path: string): Promise<RikkaMusicLocalLibrary> {
+    const response = await fetch(`${API_BASE}/client/music/local/mount`, {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({path})
+    });
+    return await readMusicJson(response);
+}
+
+export async function controlRikkaMusic(action: string, value?: number, playlistId?: number, index?: number, query?: string, page?: number) {
+    const response = await fetch(`${API_BASE}/client/music/control`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({action, value, playlistId, index, query, page})
+    });
+    if (!response.ok) await readMusicJson(response);
+}
+
+export async function startRikkaMusicLogin(): Promise<RikkaMusicLoginStatus> {
+    const response = await fetch(`${API_BASE}/client/music/login/start`, {method: "POST"});
+    return await readMusicJson(response);
+}
+
+export async function getRikkaMusicLoginStatus(): Promise<RikkaMusicLoginStatus> {
+    const response = await fetch(`${API_BASE}/client/music/login/status`);
+    return await readMusicJson(response);
+}
+
+export function getRikkaMusicQrCodeUrl(): string {
+    return `${API_BASE}/client/music/login/qr?${Date.now()}`;
+}
+
+export async function getRikkaMusicSettings(category: string): Promise<RikkaMusicSettings> {
+    const response = await fetch(`${API_BASE}/client/music/settings?category=${encodeURIComponent(category)}`);
+    return await readMusicJson(response);
+}
+
+export async function updateRikkaMusicSetting(key: string, value?: string | number | boolean): Promise<RikkaMusicSettings> {
+    const response = await fetch(`${API_BASE}/client/music/settings`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({key, value: value === undefined ? undefined : String(value)})
+    });
+    return await readMusicJson(response);
+}
+
 export async function getMetadata(): Promise<Metadata> {
     const response = await fetch(`metadata.json`);
     const data: Metadata = await response.json();

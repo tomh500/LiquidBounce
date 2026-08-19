@@ -27,7 +27,11 @@ object CloudMusicCommands : EventListener {
         .vararg()
         .optional()
         .autocompletedWith { begin, args ->
-            val rawArgs = args.drop(1).joinToString(" ")
+            // LB's autocomplete token list includes the command root; the
+            // Brigadier bridge expects only the text after `rikkamusic`.
+            val withoutRoot = if (args.firstOrNull()?.equals("rikkamusic", true) == true ||
+                args.firstOrNull()?.equals("music", true) == true) args.drop(1) else args
+            val rawArgs = withoutRoot.joinToString(" ").ifEmpty { begin }
             MusicCommand.completeCommand(
                 if (begin.isEmpty()) "$rawArgs " else rawArgs,
                 source,
@@ -52,7 +56,9 @@ object CloudMusicCommands : EventListener {
      */
     @Suppress("unused")
     private val rawCommandHandler = handler<ChatSendEvent>(
-        priority = (EventPriorityConvention.FIRST_PRIORITY + 1).toShort(),
+        // Run before the generic LB command executor so quoted strings and
+        // greedy password arguments remain exactly as typed.
+        priority = (EventPriorityConvention.FIRST_PRIORITY + 100).toShort(),
     ) { event ->
         val rawArgs = extractRawArgs(event.message) ?: return@handler
         MusicCommand.executeCommand(rawArgs, source)
@@ -61,7 +67,7 @@ object CloudMusicCommands : EventListener {
 
     private fun extractRawArgs(message: String): String? {
         val prefix = CommandManager.GlobalSettings.prefix
-        val roots = arrayOf("${prefix}rikkamusic", "${prefix}music", "/rikkamusic", "/music")
+        val roots = arrayOf("${prefix}rikkamusic", "${prefix}music")
         val root = roots.firstOrNull { root ->
             message.equals(root, ignoreCase = true) ||
                 (message.startsWith(root, ignoreCase = true) &&
@@ -79,6 +85,9 @@ object CloudMusicCommands : EventListener {
             return
         }
         registered = true
+        // This is idempotent because the merged initializer may have already
+        // built the original command tree.
+        MusicCommand.registerAll()
         net.ccbluex.liquidbounce.features.command.CommandManager.addCommand(command)
     }
 }

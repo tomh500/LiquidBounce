@@ -19,43 +19,35 @@
 package net.ccbluex.liquidbounce.features.module.modules.misc
 
 import fengliu.cloudmusic.command.CloudMusicCommands
-import fengliu.cloudmusic.config.Configs
-import fengliu.cloudmusic.gui.CloudMusicScreen
 import net.ccbluex.liquidbounce.LiquidBounce
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.ModuleOrigin
 import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.mc
+import net.ccbluex.liquidbounce.integration.screen.CustomScreenType
+import net.ccbluex.liquidbounce.integration.screen.impl.CustomStandaloneMinecraftScreen
 import org.lwjgl.glfw.GLFW
 
 /**
- * CloudMusic module
+ * RikkaMusic module
  *
  * Merged NetEase Cloud Music player. Toggling the module opens the in-client
  * music GUI. The original mod is not exposed as a standalone Fabric mod; the
  * `.rikkamusic` (or `.music`) command tree and the HUD widgets are part of the client.
  */
 object ModuleCloudMusic : ClientModule(
-    "CloudMusic",
-    ModuleCategories.MISC,
+    "RikkaMusic",
+    ModuleCategories.FUN,
     bind = GLFW.GLFW_KEY_UNKNOWN,
     disableActivation = true,
     origin = ModuleOrigin.XUAN_RIKKA,
 ) {
 
+    private var standaloneScreen: CustomStandaloneMinecraftScreen? = null
+
     override fun onRegistration() {
         CloudMusicCommands.register()
-    }
-
-    /**
-     * Volume slider bridges into the original malilib configuration so the
-     * settings screen and the module stay in sync.
-     */
-    @Suppress("UnusedPrivateProperty")
-    private val volume by int("Volume", Configs.PLAY.VOLUME.getIntegerValue(), 0..100).onChange {
-        Configs.PLAY.VOLUME.setIntegerValue(it)
-        it
     }
 
     override fun onEnabled() {
@@ -63,10 +55,18 @@ object ModuleCloudMusic : ClientModule(
             return
         }
 
-        mc.execute {
-            mc.gui.setScreen(CloudMusicScreen())
-        }
+        openGui()
         super.onEnabled()
+    }
+
+    @JvmStatic
+    fun openGui() {
+        mc.execute {
+            if (standaloneScreen == null) {
+                standaloneScreen = CustomStandaloneMinecraftScreen(CustomScreenType.RIKKAMUSIC)
+            }
+            mc.gui.setScreen(standaloneScreen)
+        }
     }
 
 }

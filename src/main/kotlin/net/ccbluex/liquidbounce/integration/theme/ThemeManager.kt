@@ -38,6 +38,8 @@ import net.ccbluex.liquidbounce.utils.client.clientLogger
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.ChatScreen
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen
+import net.minecraft.client.gui.components.EditBox
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener
 import java.io.File
 import java.util.concurrent.CompletableFuture
@@ -89,7 +91,11 @@ object ThemeManager : Config("theme") {
     val isThemeExternal: Boolean
         get() = theme?.origin?.external == true
 
-    private val takesInputHandler = InputAcceptor { mc.gui.screen() != null && mc.gui.screen() !is ChatScreen }
+    private val takesInputHandler = InputAcceptor {
+        val screen = mc.gui.screen()
+        screen != null && screen !is ChatScreen &&
+            !(screen is CreativeModeInventoryScreen && screen.focused is EditBox)
+    }
 
     var shaderEnabled by boolean("Shader", true)
         .onChange { enabled ->
@@ -262,4 +268,3 @@ object ThemeManager : Config("theme") {
     data class ScreenLocation(val theme: Theme, val url: String)
 
 }
-

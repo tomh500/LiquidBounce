@@ -41,9 +41,28 @@ public abstract class SoundSystemMixin {
         return soundCategory == SoundSource.MUSIC;
     }
 
+    @Unique
+    private static boolean isBlockedMusicSource(SoundInstance soundInstance) {
+        if (!MusicCommand.getPlayer().isPlaying()) {
+            return false;
+        }
+        // The identifier is the sound event (for example
+        // minecraft:block.note_block.harp or minecraft:music_disc.cat).
+        // getSound() is not guaranteed to be resolved when this hook runs.
+        String path = soundInstance.getIdentifier().getPath();
+        return (Configs.PLAY.BLOCK_NOTE_BLOCK.getBooleanValue()
+                && path.startsWith("block.note_block."))
+                || (Configs.PLAY.BLOCK_JUKEBOX.getBooleanValue()
+                && (path.startsWith("music_disc.") || path.startsWith("record.")));
+    }
+
     @Inject(method = "play(Lnet/minecraft/client/resources/sounds/SoundInstance;)Lnet/minecraft/client/sounds/SoundEngine$PlayResult;", at = @At("HEAD"), cancellable = true)
     public void play(SoundInstance soundInstance, CallbackInfoReturnable<SoundEngine.PlayResult> cir) {
         currentCategory = soundInstance.getSource();
+        if (isBlockedMusicSource(soundInstance)) {
+            cir.setReturnValue(SoundEngine.PlayResult.NOT_STARTED);
+            return;
+        }
         if (!canStopGameMusic(soundInstance.getSource())){
             return;
         }

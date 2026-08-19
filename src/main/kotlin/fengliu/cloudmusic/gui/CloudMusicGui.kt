@@ -18,11 +18,14 @@
  */
 package fengliu.cloudmusic.gui
 
+import fengliu.cloudmusic.config.Configs
 import net.ccbluex.liquidbounce.render.FontManager
 import net.ccbluex.liquidbounce.render.engine.font.HorizontalAnchor
 import net.ccbluex.liquidbounce.render.engine.font.VerticalAnchor
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.ChatFormatting
+import net.ccbluex.liquidbounce.utils.text.asPlainText
 
 /**
  * LiquidBounce styled palette and text helpers shared by the merged CloudMusic
@@ -30,13 +33,17 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
  */
 object CloudMusicGui {
 
-    // Theme palette
-    val BACKGROUND = Color4b(0x0C, 0x0C, 0x0E, 0xFF)
-    val SIDEBAR = Color4b(0x11, 0x11, 0x14, 0xFF)
-    val PLAYER_BG = Color4b(0x16, 0x16, 0x1A, 0xFF)
+    val isLightPalette: Boolean
+        get() = Configs.GUI.GUI_THEME.getStringValue().equals("Light", ignoreCase = true)
+
+    // HUD components retain the original LiquidBounce palette. RikkaMusic's
+    // light/dark switch is scoped to its browser page only.
+    val BACKGROUND = Color4b(0x11, 0x13, 0x18, 0xF4)
+    val SIDEBAR = Color4b(0x17, 0x1A, 0x22, 0xE8)
+    val PLAYER_BG = Color4b(0x17, 0x1A, 0x22, 0xE0)
     val ACCENT = Color4b(0x46, 0x77, 0xFF, 0xFF)
-    val ACCENT_HOVER = Color4b(0x3B, 0x62, 0xD0, 0xFF)
-    val ACCENT_SUBTLE = Color4b(0x46, 0x77, 0xFF, 0x22)
+    val ACCENT_HOVER = Color4b(0x5C, 0x87, 0xFF, 0xD2)
+    val ACCENT_SUBTLE = Color4b(0x46, 0x77, 0xFF, 0x2A)
     val TEXT = Color4b.WHITE
     val TEXT_DIM = Color4b(0xD3, 0xD3, 0xD3, 0xFF)
     val TEXT_FAINT = Color4b(0xFF, 0xFF, 0xFF, 0x59)
@@ -56,10 +63,10 @@ object CloudMusicGui {
     val fontScale
         get() = fontRenderer.scaleToVanillaFont
 
-    val titleScale = fontScale * 2.1f
-    val headerScale = fontScale * 1.4f
-    val bodyScale = fontScale * 1.25f
-    val smallScale = fontScale * 1.05f
+    val titleScale get() = fontScale * 2.1f
+    val headerScale get() = fontScale * 1.4f
+    val bodyScale get() = fontScale * 1.25f
+    val smallScale get() = fontScale * 1.05f
 
     fun textWidth(text: String, scale: Float = bodyScale, shadow: Boolean = false): Float =
         fontRenderer.getStringWidth(fontRenderer.process(text), shadow) * scale
@@ -102,6 +109,31 @@ fun drawCloudMusicText(
     verticalAnchor: VerticalAnchor = VerticalAnchor.TOP,
 ): Float {
     val processed = CloudMusicGui.fontRenderer.process(text, color)
+    CloudMusicGui.fontRenderer.draw(processed) {
+        this.x = x
+        this.y = y
+        this.scale = scale
+        this.shadow = shadow
+        this.horizontalAnchor = horizontalAnchor
+        this.verticalAnchor = verticalAnchor
+    }
+    return CloudMusicGui.textWidth(text, scale)
+}
+
+/** Draws a ClickGUI-style medium/semibold label using the registered bold face. */
+context(ctx: GuiGraphicsExtractor)
+fun drawCloudMusicTextBold(
+    text: String,
+    x: Float,
+    y: Float,
+    scale: Float = CloudMusicGui.bodyScale,
+    color: Color4b = CloudMusicGui.TEXT,
+    shadow: Boolean = false,
+    horizontalAnchor: HorizontalAnchor = HorizontalAnchor.START,
+    verticalAnchor: VerticalAnchor = VerticalAnchor.TOP,
+): Float {
+    val component = text.asPlainText(ChatFormatting.BOLD)
+    val processed = CloudMusicGui.fontRenderer.process(component, color)
     CloudMusicGui.fontRenderer.draw(processed) {
         this.x = x
         this.y = y

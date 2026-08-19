@@ -24,6 +24,7 @@ public class DjMusic extends Music163Obj implements IMusic, ICanComment {
     public final String[] description;
     public final long duration;
     public final String threadId;
+    private String resolvedQuality = Configs.PLAY.PLAY_QUALITY.getStringValue();
 
     /**
      * 初始化对象
@@ -69,19 +70,15 @@ public class DjMusic extends Music163Obj implements IMusic, ICanComment {
 
     @Override
     public String getPlayUrl(){
-        HttpClient playApi = new HttpClient("https://interface3.music.163.com", this.api.getHeader());
-        Map<String, Object> data = new HashMap<>();
-        data.put("ids", "[" + this.mainTrackId +"]");
-        data.put("level", Configs.PLAY.PLAY_QUALITY.getStringValue());
-        data.put("encodeType", "flac");
-
-        JsonObject result = playApi.POST_API("/api/song/enhance/player/url/v1", data);
-        JsonObject music = result.get("data").getAsJsonArray().get(0).getAsJsonObject();
-        if (music.get("code").getAsInt() != 200) {
+        Music.PlayUrl playUrl = Music.resolvePlayUrl(this.api, this.mainTrackId);
+        if (playUrl == null) {
             throw new ActionException(Component.translatable("cloudmusic.exception.music.get.url", this.name));
         }
-        return music.get("url").getAsString();
+        this.resolvedQuality = playUrl.quality();
+        return playUrl.url();
     }
+
+    public String getResolvedQuality() { return resolvedQuality; }
 
     @Override
     public long getDuration() {

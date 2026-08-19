@@ -33,7 +33,6 @@ object HudComponentManager {
         MinimapHudComponent,
         fengliu.cloudmusic.hud.CloudMusicHudComponent,
         fengliu.cloudmusic.hud.MusicLyricsHudComponent,
-        fengliu.cloudmusic.hud.MusicActionbarLyricsHudComponent,
         fengliu.cloudmusic.hud.DynamicIslandHudComponent,
     )
 

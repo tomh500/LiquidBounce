@@ -24,7 +24,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
 import net.ccbluex.liquidbounce.event.SuspendHandlerBehavior.CancelPrevious
 import net.ccbluex.liquidbounce.event.eventListenerScope
 import net.ccbluex.liquidbounce.event.events.ClientChatJwtTokenEvent
@@ -37,6 +36,8 @@ import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.suspendHandler
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.features.chat.AxochatClient
+import net.ccbluex.liquidbounce.features.module.ClientModule
+import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.chat.packet.C2SRequestJWTPacket
 import net.ccbluex.liquidbounce.features.command.CommandExecutor.suspendHandler
 import net.ccbluex.liquidbounce.features.command.CommandManager
@@ -69,9 +70,10 @@ import net.minecraft.network.chat.contents.objects.PlayerSprite
 import net.minecraft.world.item.component.ResolvableProfile
 import kotlin.time.Duration.Companion.seconds
 
-object GlobalSettingsClientChat : ToggleableValueGroup(
-    name = "ClientChat",
-    enabled = true,
+object GlobalSettingsClientChat : ClientModule(
+    name = "LiquidChat",
+    category = ModuleCategories.MISC,
+    state = false,
     aliases = listOf("GlobalChat", "IRC")
 ) {
 
@@ -160,6 +162,9 @@ object GlobalSettingsClientChat : ToggleableValueGroup(
 
     @Suppress("unused")
     private val repeatable = tickHandler(Dispatchers.IO) {
+        if (!enabled) {
+            return@tickHandler
+        }
         if (!chatClient.isConnected) {
             chatClient.connect()
         } else {
@@ -170,6 +175,9 @@ object GlobalSettingsClientChat : ToggleableValueGroup(
 
     @Suppress("unused")
     private val sessionChange = suspendHandler<SessionEvent>(behavior = CancelPrevious) {
+        if (!enabled) {
+            return@suspendHandler
+        }
         chatClient.reconnect()
     }
 
@@ -229,6 +237,9 @@ object GlobalSettingsClientChat : ToggleableValueGroup(
 
     @Suppress("unused")
     private val handleStateChange = suspendHandler<ClientChatStateChange>(behavior = CancelPrevious) {
+        if (!enabled) {
+            return@suspendHandler
+        }
         when (it.state) {
             ClientChatStateChange.State.CONNECTED -> {
                 notification(

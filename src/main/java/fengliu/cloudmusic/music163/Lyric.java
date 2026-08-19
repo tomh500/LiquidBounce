@@ -92,7 +92,11 @@ public class Lyric implements Runnable{
     }
 
     public Lyric(JsonObject data){
-        String lyric = data.getAsJsonObject("lrc").get("lyric").getAsString();
+        String lyric = "";
+        if (data != null && data.has("lrc") && data.get("lrc").isJsonObject()) {
+            JsonObject lrc = data.getAsJsonObject("lrc");
+            if (lrc.has("lyric") && !lrc.get("lyric").isJsonNull()) lyric = lrc.get("lyric").getAsString();
+        }
         if(lyric.equals("")){
             this.lyric = new LinkedHashMap<>();
             this.tlyric = this.lyric;
@@ -100,18 +104,32 @@ public class Lyric implements Runnable{
         }
 
         this.lyric = lyricToMap(lyric);
-        if(!data.has("tlyric")){
+        if(!data.has("tlyric") || !data.get("tlyric").isJsonObject()){
             this.tlyric = new LinkedHashMap<>();
             return;
         }
 
-        String tlyric = data.getAsJsonObject("tlyric").get("lyric").getAsString();
+        JsonObject translation = data.getAsJsonObject("tlyric");
+        String tlyric = translation.has("lyric") && !translation.get("lyric").isJsonNull()
+                ? translation.get("lyric").getAsString() : "";
         if(tlyric.equals("")){
             this.tlyric = new LinkedHashMap<>();
             return;
         }
 
-        this.tlyric = lyricToMap(data.getAsJsonObject("tlyric").get("lyric").getAsString());
+        this.tlyric = lyricToMap(tlyric);
+    }
+
+    public static Lyric fromLrc(String lyric) {
+        JsonObject data = new JsonObject();
+        JsonObject lrc = new JsonObject();
+        lrc.addProperty("lyric", lyric == null ? "" : lyric);
+        data.add("lrc", lrc);
+        return new Lyric(data);
+    }
+
+    public boolean hasLyrics() {
+        return !this.lyric.isEmpty();
     }
 
     @Override
@@ -183,6 +201,80 @@ public class Lyric implements Runnable{
      */
     public String[] getToLyric() {
         return toLyric;
+    }
+
+    /**
+     * Returns a fixed-size lyric window centered on the line active at {@code progressMs}.
+     * The music screen uses this snapshot instead of guessing a lyric line from wall-clock time.
+     */
+    public String[] getWindow(long progressMs, int before, int after) {
+        return getWindow(progressMs, before, after, 0);
+    }
+
+    public String[] getWindow(long progressMs, int before, int after, int lineOffset) {
+        if (lyric.isEmpty()) {
+            return new String[0];
+        }
+
+        List<Map.Entry<Long, String>> entries = new ArrayList<>(lyric.entrySet());
+        int current = currentIndex(entries, progressMs) + lineOffset;
+
+        String[] window = new String[before + after + 1];
+        for (int offset = -before; offset <= after; offset++) {
+            int index = current + offset;
+            if (index >= 0 && index < entries.size()) {
+                window[offset + before] = entries.get(index).getValue();
+            } else {
+                window[offset + before] = "";
+            }
+        }
+        return window;
+    }
+
+    public long[] getWindowTimes(long progressMs, int before, int after) {
+        return getWindowTimes(progressMs, before, after, 0);
+    }
+
+    public long[] getWindowTimes(long progressMs, int before, int after, int lineOffset) {
+        if (lyric.isEmpty()) return new long[0];
+        List<Map.Entry<Long, String>> entries = new ArrayList<>(lyric.entrySet());
+        int current = currentIndex(entries, progressMs) + lineOffset;
+        long[] window = new long[before + after + 1];
+        for (int offset = -before; offset <= after; offset++) {
+            int index = current + offset;
+            window[offset + before] = index >= 0 && index < entries.size() ? entries.get(index).getKey() : -1L;
+        }
+        return window;
+    }
+
+    public String[] getTranslationWindow(long progressMs, int before, int after) {
+        return getTranslationWindow(progressMs, before, after, 0);
+    }
+
+    public String[] getTranslationWindow(long progressMs, int before, int after, int lineOffset) {
+        if (lyric.isEmpty()) return new String[0];
+        List<Map.Entry<Long, String>> entries = new ArrayList<>(lyric.entrySet());
+        int current = currentIndex(entries, progressMs) + lineOffset;
+        String[] window = new String[before + after + 1];
+        for (int offset = -before; offset <= after; offset++) {
+            int index = current + offset;
+            if (index < 0 || index >= entries.size()) {
+                window[offset + before] = "";
+            } else {
+                String translation = tlyric.get(entries.get(index).getKey());
+                window[offset + before] = translation == null ? "" : translation;
+            }
+        }
+        return window;
+    }
+
+    private static int currentIndex(List<Map.Entry<Long, String>> entries, long progressMs) {
+        int current = 0;
+        for (int i = 0; i < entries.size(); i++) {
+            if (entries.get(i).getKey() > progressMs) break;
+            current = i;
+        }
+        return current;
     }
 
     /**

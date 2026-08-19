@@ -29,6 +29,7 @@ import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client.loca
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client.marketplaceRoutes
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client.moduleRoutes
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client.proxyRoutes
+import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client.rikkaMusicRoutes
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client.screenRoutes
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client.sessionRoutes
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client.spooferRoutes
@@ -55,6 +56,7 @@ internal fun Route.registerInteropFunctions() = route("/api/v1/client") {
     sessionRoutes()
     accountRoutes()
     proxyRoutes()
+    rikkaMusicRoutes()
     browserRoutes()
     protocolRoutes()
     reconnectRoutes()

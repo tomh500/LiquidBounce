@@ -29,13 +29,26 @@ public class Music extends Music163Obj implements IMusic, ICanComment {
     public final String picUrl;
     public final String threadId;
     public JsonObject freeTrialInfo = null;
+    private String resolvedQuality = Configs.PLAY.PLAY_QUALITY.getStringValue();
+
+    public record PlayUrl(String url, String quality, JsonObject freeTrialInfo) { }
 
     public static String getArtistsName(JsonArray artists) {
         StringBuilder artistsName = new StringBuilder();
         for (JsonElement artistData : artists) {
-            artistsName.append(((JsonObject) artistData).get("name").getAsString()).append("/");
+            if (!artistData.isJsonObject()) {
+                continue;
+            }
+            JsonElement name = artistData.getAsJsonObject().get("name");
+            if (name == null || name.isJsonNull() || name.getAsString().isBlank()) {
+                continue;
+            }
+            if (!artistsName.isEmpty()) {
+                artistsName.append("/");
+            }
+            artistsName.append(name.getAsString());
         }
-        return artistsName.substring(0, artistsName.length() - 1);
+        return artistsName.toString();
     }
 
     /**
@@ -77,7 +90,7 @@ public class Music extends Music163Obj implements IMusic, ICanComment {
             this.duration = data.get("duration").getAsLong() / 1000;
         }
 
-        if (this.album.has("picUrl")) {
+        if (this.album.has("picUrl") && !this.album.get("picUrl").isJsonNull()) {
             this.picUrl = this.album.get("picUrl").getAsString();
         } else {
             this.picUrl = cover;
@@ -212,22 +225,41 @@ public class Music extends Music163Obj implements IMusic, ICanComment {
      * @return 歌曲文件
      */
     public String getPlayUrl(){
-        HttpClient playApi = new HttpClient("https://interface3.music.163.com", this.api.getHeader());
-        Map<String, Object> data = new HashMap<>();
-        data.put("ids", "[" + this.id +"]");
-        data.put("level", Configs.PLAY.PLAY_QUALITY.getStringValue());
-        data.put("encodeType", "flac");
-
-        JsonObject result = playApi.POST_API("/api/song/enhance/player/url/v1", data);
-        JsonObject music = result.get("data").getAsJsonArray().get(0).getAsJsonObject();
-        if(music.get("code").getAsInt() != 200){
+        PlayUrl playUrl = resolvePlayUrl(this.api, this.id);
+        if (playUrl == null) {
             throw new ActionException(Component.translatable("cloudmusic.exception.music.get.url", this.name));
         }
 
-        if (!music.get("freeTrialInfo").isJsonNull()){
-            this.freeTrialInfo = music.getAsJsonObject("freeTrialInfo");
+        this.resolvedQuality = playUrl.quality();
+        this.freeTrialInfo = playUrl.freeTrialInfo();
+        return playUrl.url();
+    }
+
+    public String getResolvedQuality() { return resolvedQuality; }
+
+    /** Requests the selected quality first, then walks down to the best level the account can stream. */
+    public static PlayUrl resolvePlayUrl(HttpClient api, long id) {
+        Quality[] qualities = Quality.values();
+        String configured = Configs.PLAY.PLAY_QUALITY.getStringValue();
+        int start = Quality.STANDARD.ordinal();
+        for (Quality quality : qualities) if (quality.getStringValue().equals(configured)) start = quality.ordinal();
+        HttpClient playApi = new HttpClient("https://interface3.music.163.com", api.getHeader());
+        for (int index = start; index >= 0; index--) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("ids", "[" + id + "]");
+            data.put("level", qualities[index].getStringValue());
+            data.put("encodeType", "flac");
+            JsonObject result = playApi.POST_API("/api/song/enhance/player/url/v1", data);
+            if (!result.has("data") || !result.get("data").isJsonArray() || result.getAsJsonArray("data").isEmpty()) continue;
+            JsonObject song = result.getAsJsonArray("data").get(0).getAsJsonObject();
+            if (song.has("code") && song.get("code").getAsInt() == 200 && song.has("url")
+                    && !song.get("url").isJsonNull() && !song.get("url").getAsString().isBlank()) {
+                JsonObject freeTrialInfo = song.has("freeTrialInfo") && song.get("freeTrialInfo").isJsonObject()
+                        ? song.getAsJsonObject("freeTrialInfo") : null;
+                return new PlayUrl(song.get("url").getAsString(), qualities[index].getStringValue(), freeTrialInfo);
+            }
         }
-        return music.get("url").getAsString();
+        return null;
     }
 
     @Override

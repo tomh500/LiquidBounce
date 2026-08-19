@@ -58,6 +58,7 @@ enum class CustomScreenType(
 
     HUD("hud", isInGame = true),
     CLICK_GUI("clickgui"),
+    RIKKAMUSIC("rikkamusic"),
     ALT_MANAGER("altmanager"),
     PROXY_MANAGER("proxymanager"),
 

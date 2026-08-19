@@ -39,7 +39,6 @@ object GlobalManager : Config("Settings") {
         tree(BlinkManager)
         tree(GlobalSettingsAutoTranslate)
         tree(GlobalBrowserSettings)
-        tree(GlobalSettingsClientChat)
         tree(GlobalSettingsRichPresence)
     }
 

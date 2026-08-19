@@ -14,7 +14,8 @@
     "multiplayer",
     "altmanager",
     "customize",
-    "singleplayer"
+    "singleplayer",
+    "rikkamusic"
   ],
   "overlays": [
     "hud",

@@ -75,10 +75,13 @@ import net.ccbluex.liquidbounce.utils.netty.clientChannelAndGroup
 import net.ccbluex.liquidbounce.utils.netty.syncSuspend
 import java.net.URI
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 class AxochatClient {
 
     private var channel: Channel? = null
+    private val channels = ConcurrentHashMap.newKeySet<Channel>()
+    @Volatile private var connectionGeneration = 0L
 
     private val serializer = PacketSerializer().apply {
         register<C2SRequestMojangInfoPacket>("RequestMojangInfo")
@@ -103,7 +106,7 @@ class AxochatClient {
     val isConnected: Boolean
         get() = channel != null && channel!!.isOpen
 
-    private var isConnecting = false
+    @Volatile private var isConnecting = false
     var isLoggedIn = false
         private set
 
@@ -128,6 +131,8 @@ class AxochatClient {
         if (isConnecting || isConnected) {
             return@runCatching
         }
+
+        val generation = connectionGeneration
 
         EventManager.callEvent(ClientChatStateChange(ClientChatStateChange.State.CONNECTING))
         isConnecting = true
@@ -177,7 +182,15 @@ class AxochatClient {
 
             })
 
-        channel = bootstrap.connect(uri.host, uri.port).syncSuspend().channel()!!
+        val newChannel = bootstrap.connect(uri.host, uri.port).syncSuspend().channel()!!
+        // A disable can happen while Netty is connecting.  Never publish a
+        // late channel after that disable; it would keep LiquidChat alive.
+        if (generation != connectionGeneration) {
+            newChannel.close()
+            return@runCatching
+        }
+        channels += newChannel
+        channel = newChannel
         handler.handshakeFuture.syncSuspend()
     }.onFailure {
         EventManager.callEvent(ClientChatErrorEvent(it.localizedMessage ?: it.message ?: it.javaClass.name))
@@ -192,7 +205,9 @@ class AxochatClient {
     }
 
     fun disconnect() {
-        channel?.writeAndFlush(CloseWebSocketFrame(1000, ""))?.addListener(ChannelFutureListener.CLOSE)
+        connectionGeneration++
+        channels.forEach { it.writeAndFlush(CloseWebSocketFrame(1000, "")).addListener(ChannelFutureListener.CLOSE) }
+        channels.clear()
         channel = null
 
         EventManager.callEvent(ClientChatStateChange(ClientChatStateChange.State.DISCONNECTED))
@@ -380,6 +395,7 @@ class AxochatClient {
          * Subclasses may override this method to change behavior.
          */
         override fun channelInactive(ctx: ChannelHandlerContext) {
+            channels.remove(ctx.channel())
             EventManager.callEvent(ClientChatStateChange(ClientChatStateChange.State.DISCONNECTED))
         }
 
