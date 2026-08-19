@@ -57,6 +57,11 @@ class CustomStandaloneMinecraftScreen(
 
     override fun init() {
         browser.visible = true
+        if (screenType == CustomScreenType.RIKKAMUSIC) {
+            // Keep the native IME active while the browser owns the text input.
+            // Minecraft otherwise disables it every tick for non-chat screens.
+            mc.textInputManager().startTextInput()
+        }
         mc.mouseHandler.setPosition(mouseX, mouseY)
     }
 
@@ -78,6 +83,9 @@ class CustomStandaloneMinecraftScreen(
         // the browser overlay lifecycle tied to the Minecraft screen lifecycle
         // instead of relying only on Escape/onClose paths.
         browser.visible = false
+        if (screenType == CustomScreenType.RIKKAMUSIC) {
+            mc.textInputManager().stopTextInput()
+        }
         super.removed()
     }
 
