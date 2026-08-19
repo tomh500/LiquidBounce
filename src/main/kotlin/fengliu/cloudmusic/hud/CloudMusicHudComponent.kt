@@ -212,7 +212,7 @@ object DynamicIslandHudComponent : NativeHudComponent(
         return true
     }
 
-    private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriorityConvention.MODEL_STATE) { event ->
+private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriorityConvention.MODEL_STATE) { event ->
         if (HideAppearance.isHidingNow || !enabled) return@handler
         val player = MusicCommand.getPlayer()
         val lyrics = player.lyricLines()
@@ -221,25 +221,32 @@ object DynamicIslandHudComponent : NativeHudComponent(
         if (visibility <= 0.01f) return@handler
         val islandHeight = if (showTranslation && !lyrics.translation.isNullOrBlank()) doubleLineHeight else singleLineHeight
         val bounds = getGuiScaledBounds(displayedWidth, islandHeight)
-            val contentAlpha = if (lyricContentVisible) ((visibility - .12f) / .88f).coerceIn(0f, 1f) else 0f
+        val contentAlpha = if (lyricContentVisible) ((visibility - .12f) / .88f).coerceIn(0f, 1f) else 0f
+        
         with(event.context) {
-            // Match the ArrayList HUD mask: surface black at 68% opacity.
             drawDynamicIslandShape(bounds, islandHeight, backgroundColor.with(r = 0, g = 0, b = 0, a = 173).fade(visibility))
             if (contentAlpha > 0f) {
+                // 加大边距（22f），避开两侧弧线内缩区域
+                val sidePadding = 22f
                 val logoSize = 14f
-                val iconY = bounds.yMin + (islandHeight - logoSize) / 2f - 2f
+                val iconY = bounds.yMin + (islandHeight - logoSize) / 2f
+                
                 MusicIconTexture.loadLiquidBounceIcon()
                 if (MusicIconTexture.canUseLiquidBounceIcon()) mc.textureManager.getTexture(MusicIconTexture.LIQUID_BOUNCE_ICON_ID)?.let {
-                    drawTexQuad(it.textureSetup, bounds.xMin + 10f, iconY, bounds.xMin + 10f + logoSize, iconY + logoSize)
+                    drawTexQuad(it.textureSetup, bounds.xMin + sidePadding, iconY, bounds.xMin + sidePadding + logoSize, iconY + logoSize)
                 }
+                
                 val coverSize = 20f
-                CloudMusicHudRender.drawCover(this, bounds.xMax - coverSize - 10f, bounds.yMin + (islandHeight - coverSize) / 2f - 2f, coverSize, rounded = true)
-                val textX = bounds.xMin + 31f
-                val textWidth = (bounds.xMax - coverSize - 18f - textX).coerceAtLeast(1f)
+                CloudMusicHudRender.drawCover(this, bounds.xMax - sidePadding - coverSize, bounds.yMin + (islandHeight - coverSize) / 2f, coverSize, rounded = true)
+                
+                // 重新计算文本安全区域
+                val textX = bounds.xMin + sidePadding + logoSize + 8f
+                val textWidth = (bounds.xMax - sidePadding - coverSize - 8f - textX).coerceAtLeast(1f)
                 val lyric = lyrics.original?.takeIf { it.isNotBlank() }
                 val translation = lyrics.translation?.takeIf { showTranslation && it.isNotBlank() }
+                
                 lyric?.let {
-                    val primaryY = if (translation == null) bounds.yMin + 4f else bounds.yMin + 2f
+                    val primaryY = if (translation == null) bounds.yMin + 5f else bounds.yMin + 2f
                     drawCloudMusicText(it, textX + textWidth / 2f, primaryY, CloudMusicGui.bodyScale, lyricColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
                 }
                 translation?.let {
@@ -261,7 +268,6 @@ object DynamicIslandHudComponent : NativeHudComponent(
         val lyricKey = "${lyrics.original}\u0000${lyrics.translation}"
         if (target > 0f && lyricKey != lastLyricKey) {
             if (collapsePending) {
-                // The predicted collapse ended exactly at this line's timestamp.
                 collapsePending = false
                 lyricTransitionStarted = 0L
                 lyricContentVisible = true
@@ -280,13 +286,16 @@ object DynamicIslandHudComponent : NativeHudComponent(
                 lyricContentVisible = false
             }
         }
+        
         val textWidth = maxOf(
             lyrics.original?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.bodyScale) } ?: 0f,
             if (showTranslation) lyrics.translation?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.smallScale) } ?: 0f else 0f,
         )
-        val expandedTarget = (textWidth + 76f).coerceAtLeast(minimumWidth)
+        // 关键：扩展基础保留宽度由原先 76f 提高至 104f，为两侧反弧预留充足的包裹空间
+        val expandedTarget = (textWidth + 104f).coerceAtLeast(minimumWidth)
         val widthTarget = if (collapsePending || (lyricTransitionStarted != 0L && !lyricContentVisible)) minimumWidth else expandedTarget
         displayedWidth += (widthTarget - displayedWidth) * (1f - kotlin.math.exp((-elapsed * 16f).toDouble()).toFloat())
+        
         if (visibility < .005f && target == 0f) {
             visibility = 0f
             displayedWidth = minimumWidth
@@ -331,22 +340,22 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
 }
 
 private fun dynamicIslandInset(y: Float, height: Float, shoulderInset: Float, bottomRadius: Float): Float {
-    // 1. 顶部反向凹弧过渡区 (Y: 0 ~ 10px)
     val shoulderHeight = 10f.coerceAtMost(height * 0.3f)
+    
+    // 1. 顶部平滑凹弧（y=0 时 inset=0 水平切线，向下平滑弯入主体的竖直边）
     if (y <= shoulderHeight) {
         val t = (y / shoulderHeight).coerceIn(0f, 1f)
-        // 平滑缓入 cubic ease-out：从 0 (最宽) 过渡到 shoulderInset
-        val smooth = 1f - (1f - t) * (1f - t)
-        return shoulderInset * smooth
+        val concaveArc = kotlin.math.sqrt((1f - (1f - t) * (1f - t)).toDouble()).toFloat()
+        return shoulderInset * concaveArc
     }
 
-    // 2. 底部凸向圆角过渡区 (Y: height - bottomRadius ~ height)
-    val bottomStart = (height - bottomRadius).coerceAtLeast(shoulderHeight)
+    // 2. 底部平滑凸圆角（从竖直边平滑收缩至底部的水平切线）
+    val realBottomRadius = bottomRadius.coerceAtMost(height - shoulderHeight)
+    val bottomStart = height - realBottomRadius
     if (y >= bottomStart) {
-        val t = ((y - bottomStart) / (height - bottomStart)).coerceIn(0f, 1f)
-        // 圆弧/超椭圆缓出：从 shoulderInset 继续向内收缩 bottomRadius
-        val circleInset = 1f - kotlin.math.sqrt((1f - t * t).toDouble()).toFloat()
-        return shoulderInset + bottomRadius * circleInset
+        val t = ((y - bottomStart) / realBottomRadius).coerceIn(0f, 1f)
+        val convexArc = 1f - kotlin.math.sqrt((1f - t * t).toDouble()).toFloat()
+        return shoulderInset + realBottomRadius * convexArc
     }
 
     // 3. 中间直壁区
