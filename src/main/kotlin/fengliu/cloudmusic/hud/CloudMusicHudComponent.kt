@@ -180,10 +180,10 @@ object DynamicIslandHudComponent : NativeHudComponent(
     Alignment(Alignment.ScreenAxisX.CENTER_TRANSLATED, 0, Alignment.ScreenAxisY.TOP, 0),
     description = "Shows CloudMusic in an expanding Dynamic Island layout.",
 ) {
-    private val minimumWidth = 156f
-    private val maximumWidth by int("MaximumWidth", 360, 220..560)
-    private val singleLineHeight = 48f
-    private val doubleLineHeight = 78f
+    private val minimumWidth = 112f
+    private val maximumWidth by int("MaximumWidth", 280, 180..420)
+    private val singleLineHeight = 40f
+    private val doubleLineHeight = 62f
     private val showTranslation by boolean("ShowTranslation", true)
     private val backgroundColor by color("BackgroundColor", Color4b(0, 0, 0, 255))
     private val lyricColor by color("LyricColor", Color4b.WHITE)
@@ -220,22 +220,22 @@ object DynamicIslandHudComponent : NativeHudComponent(
         with(event.context) {
             drawDynamicIslandShape(bounds, islandHeight, backgroundColor.fade(visibility))
             if (contentAlpha > 0f) {
-                val logoSize = 20f
+                val logoSize = 16f
                 val iconY = bounds.yMin + (islandHeight - logoSize) / 2f
                 MusicIconTexture.loadLiquidBounceIcon()
                 if (MusicIconTexture.canUseLiquidBounceIcon()) mc.textureManager.getTexture(MusicIconTexture.LIQUID_BOUNCE_ICON_ID)?.let {
-                    drawTexQuad(it.textureSetup, bounds.xMin + 14f, iconY, bounds.xMin + 14f + logoSize, iconY + logoSize)
+                    drawTexQuad(it.textureSetup, bounds.xMin + 10f, iconY, bounds.xMin + 10f + logoSize, iconY + logoSize)
                 }
-                val coverSize = 28f
-                CloudMusicHudRender.drawCover(this, bounds.xMax - coverSize - 14f, bounds.yMin + (islandHeight - coverSize) / 2f, coverSize, rounded = true)
-                val textX = bounds.xMin + 46f
-                val textWidth = (bounds.xMax - coverSize - 20f - textX).coerceAtLeast(1f)
+                val coverSize = 22f
+                CloudMusicHudRender.drawCover(this, bounds.xMax - coverSize - 10f, bounds.yMin + (islandHeight - coverSize) / 2f, coverSize, rounded = true)
+                val textX = bounds.xMin + 32f
+                val textWidth = (bounds.xMax - coverSize - 16f - textX).coerceAtLeast(1f)
                 val lyric = lyrics.original ?: lyrics.translation ?: music.name
                 val translation = lyrics.translation.takeIf { showTranslation }
-                val primaryY = if (translation == null) bounds.yMin + (islandHeight - 14f) / 2f else bounds.yMin + 17f
+                val primaryY = if (translation == null) bounds.yMin + (islandHeight - 12f) / 2f else bounds.yMin + 10f
                 drawScrollingLyric(lyric, textX, primaryY, textWidth, CloudMusicGui.bodyScale, lyricColor.fade(contentAlpha), centered = true, scrollProgress = player.scrollProgress())
                 translation?.let {
-                    drawScrollingLyric(it, textX, bounds.yMin + 47f, textWidth, CloudMusicGui.smallScale, translationColor.fade(contentAlpha), centered = true, scrollProgress = player.scrollProgress())
+                    drawScrollingLyric(it, textX, bounds.yMin + 31f, textWidth, CloudMusicGui.smallScale, translationColor.fade(contentAlpha), centered = true, scrollProgress = player.scrollProgress())
                 }
                 pinBounds = BoundingBox2f(bounds.xMax - 10f, bounds.yMin + 19f, bounds.xMax - 4f, bounds.yMin + 29f)
             } else pinBounds = null
@@ -259,7 +259,7 @@ object DynamicIslandHudComponent : NativeHudComponent(
             CloudMusicGui.textWidth(lyrics.original ?: music?.name.orEmpty(), CloudMusicGui.bodyScale),
             if (showTranslation) CloudMusicGui.textWidth(lyrics.translation.orEmpty(), CloudMusicGui.smallScale) else 0f,
         )
-        val expandedTarget = (textWidth + 106f).coerceIn(minimumWidth, maximumWidth.toFloat())
+        val expandedTarget = (textWidth + 72f).coerceIn(minimumWidth, maximumWidth.toFloat())
         val collapseFor = if (lyricTransitionStarted == 0L) 0L else (now - lyricTransitionStarted) / 1_000_000
         val widthTarget = if (collapseFor in 0..115) minimumWidth else expandedTarget
         displayedWidth += (widthTarget - displayedWidth) * (1f - kotlin.math.exp((-elapsed * 16f).toDouble()).toFloat())
@@ -278,11 +278,11 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     height: Float,
     color: Color4b,
 ) {
-    val topOverhang = 14f
+    val topOverhang = 22f
     val steps = height.toInt().coerceAtLeast(2)
     for (row in 0 until steps) {
         val t = row.toFloat() / (steps - 1).toFloat()
-        val curve = t * t * (3f - 2f * t)
+        val curve = (t * t * (3f - 2f * t)).coerceAtMost(1f)
         val inset = topOverhang * curve
         val y1 = bounds.yMin + row
         val y2 = bounds.yMin + row + 1.1f
