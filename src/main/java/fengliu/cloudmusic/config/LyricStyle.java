@@ -4,11 +4,10 @@ import fi.dy.masa.malilib.config.IConfigOptionListEntry;
 import net.minecraft.network.chat.Component;
 
 /**
- * 歌词显示样式: default=游戏内面板, actionbar=原版 ActionBar 居中显示, off=关闭
+ * 歌词显示样式: default=游戏内面板, off=关闭
  */
 public enum LyricStyle implements IConfigOptionListEntry {
     DEFAULT("cloudmusic.lyric.style.default", "default"),
-    ACTIONBAR("cloudmusic.lyric.style.actionbar", "actionbar"),
     OFF("cloudmusic.lyric.style.off", "off");
 
     private final String translationKey;

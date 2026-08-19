@@ -1626,7 +1626,7 @@ public class MusicCommand {
                 }))
         );
 
-        // cloudmusic lyric [default|actionbar|off]
+        // cloudmusic lyric [default|off]
         CloudMusic.then(literal("lyric").executes(context -> {
             LyricStyle style = (LyricStyle) Configs.GUI.LYRIC_STYLE.getOptionListValue();
             context.getSource().sendFeedback(Component.translatable("cloudmusic.info.command.lyric.current", style.getDisplayName()));
@@ -1636,12 +1636,6 @@ public class MusicCommand {
             Configs.GUI.LYRIC_STYLE.setOptionListValue(LyricStyle.DEFAULT);
             Configs.INSTANCE.save();
             context.getSource().sendFeedback(Component.translatable("cloudmusic.info.command.lyric.default"));
-            return Command.SINGLE_SUCCESS;
-        })));
-        CloudMusic.then(literal("lyric").then(literal("actionbar").executes(context -> {
-            Configs.GUI.LYRIC_STYLE.setOptionListValue(LyricStyle.ACTIONBAR);
-            Configs.INSTANCE.save();
-            context.getSource().sendFeedback(Component.translatable("cloudmusic.info.command.lyric.actionbar"));
             return Command.SINGLE_SUCCESS;
         })));
         CloudMusic.then(literal("lyric").then(literal("off").executes(context -> {

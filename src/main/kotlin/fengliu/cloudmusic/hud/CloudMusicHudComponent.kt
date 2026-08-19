@@ -131,14 +131,17 @@ object MusicLyricsHudComponent : NativeHudComponent(
     description = "Shows the current and following CloudMusic lyrics.",
 ) {
     private val widthSetting by int("Width", 300, 160..600)
+    private val scale by float("Scale", 1f, 0.25f..4f)
     private val showTranslation by boolean("ShowTranslation", true)
     // These defaults must not access CloudMusicGui during module registration: its font renderer is initialized later.
     private val lyricColor by color("LyricColor", Color4b.WHITE)
+    private val colorize by boolean("Colorize", false)
+    private val unplayedColor by color("UnplayedColor", Color4b(145, 145, 152, 255))
     private val translationColor by color("TranslationColor", Color4b(255, 255, 255, 89))
     private val background by boolean("Background", false)
     private val font by enumChoice("Font", LyricFont.LIQUID_BOUNCE)
     override val guiScaledWidth get() = widthSetting.toFloat()
-    override val guiScaledHeight get() = if (showTranslation) 34f else 17f
+    override val guiScaledHeight get() = (if (showTranslation) 34f else 17f) * scale
     init { registerComponentListen(this) }
     private val renderHandler = handler<OverlayRenderEvent> { event ->
         if (HideAppearance.isHidingNow || !enabled) return@handler
@@ -147,31 +150,25 @@ object MusicLyricsHudComponent : NativeHudComponent(
         val bounds = getGuiScaledBounds()
         with(event.context) {
             if (background) drawRoundedRect(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax, 4f, Color4b(0, 0, 0, 155))
-            drawScrollingLyric(lyric, bounds.xMin + 8f, bounds.yMin + 3f, widthSetting - 16f, CloudMusicGui.bodyScale, lyricColor, font, centered = true, scrollProgress = MusicCommand.getPlayer().scrollProgress())
-            if (showTranslation) lyrics.translation?.let {
-                drawScrollingLyric(it, bounds.xMin + 8f, bounds.yMin + 20f, widthSetting - 16f, CloudMusicGui.smallScale, translationColor, font, centered = true, scrollProgress = MusicCommand.getPlayer().scrollProgress())
+            val player = MusicCommand.getPlayer()
+            val bodyScale = CloudMusicGui.bodyScale * scale
+            val smallScale = CloudMusicGui.smallScale * scale
+            if (colorize && font == LyricFont.LIQUID_BOUNCE) {
+                drawAnimatedLyric(
+                    lyric,
+                    bounds.xMin + widthSetting / 2f,
+                    bounds.yMin + 3f * scale,
+                    bodyScale,
+                    lyricColor,
+                    unplayedColor,
+                    player.lyricProgress(),
+                )
+            } else {
+                drawScrollingLyric(lyric, bounds.xMin + 8f * scale, bounds.yMin + 3f * scale, widthSetting - 16f * scale, bodyScale, lyricColor, font, centered = true, scrollProgress = player.scrollProgress())
             }
-        }
-    }
-}
-
-/** ActionBar-inspired lyric overlay using LiquidBounce's font renderer. */
-object MusicActionbarLyricsHudComponent : NativeHudComponent(
-    "MusicActionbarLyrics", false,
-    Alignment(Alignment.ScreenAxisX.CENTER_TRANSLATED, 0, Alignment.ScreenAxisY.BOTTOM, 35),
-    description = "Shows the current lyric in an ActionBar-style overlay.",
-) {
-    private val widthSetting by int("Width", 360, 180..700)
-    override val guiScaledWidth get() = widthSetting.toFloat()
-    override val guiScaledHeight get() = 21f
-    init { registerComponentListen(this) }
-    private val renderHandler = handler<OverlayRenderEvent> { event ->
-        if (HideAppearance.isHidingNow || !enabled) return@handler
-        val lyric = MusicCommand.getPlayer().lyricLines().original ?: return@handler
-        val bounds = getGuiScaledBounds()
-        with(event.context) {
-            drawRoundedRect(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax, 4f, Color4b(0, 0, 0, 155))
-            drawCloudMusicText(CloudMusicGui.truncate(lyric, widthSetting - 16f), (bounds.xMin + bounds.xMax) / 2f, bounds.yMin + 4f, CloudMusicGui.bodyScale, CloudMusicGui.TEXT, horizontalAnchor = HorizontalAnchor.CENTER)
+            if (showTranslation) lyrics.translation?.let {
+                drawScrollingLyric(it, bounds.xMin + 8f * scale, bounds.yMin + 20f * scale, widthSetting - 16f * scale, smallScale, translationColor, font, centered = true, scrollProgress = player.scrollProgress())
+            }
         }
     }
 }
@@ -419,7 +416,14 @@ private fun fengliu.cloudmusic.util.MusicPlayer.lyricLines(): CurrentLyrics {
 private fun fengliu.cloudmusic.util.MusicPlayer.lyricProgress(): Float {
     val times = getLyricWindowTimes(0, 1)
     val start = times.getOrNull(0)?.takeIf { it >= 0L } ?: return 0f
-    val end = times.getOrNull(1)?.takeIf { it > start } ?: (start + 3000L)
+    val nextStart = times.getOrNull(1)?.takeIf { it > start }
+    // LRC exposes line starts rather than explicit ends. Keep normal lines
+    // synchronized to the next start; for a real interlude, finish the current
+    // line during its vocal section instead of waiting through the silence.
+    val end = nextStart?.let {
+        val interval = it - start
+        if (interval > 4000L) start + minOf(5000L, (interval * 0.65f).toLong()) else it
+    } ?: (start + 3000L)
     return ((playingProgress - start).toFloat() / (end - start).toFloat()).coerceIn(0f, 1f)
 }
 

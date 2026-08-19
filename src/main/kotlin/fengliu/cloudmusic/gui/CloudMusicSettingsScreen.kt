@@ -208,7 +208,6 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
 
             "lyric.style" -> when (value) {
                 "default" -> "游戏内面板"
-                "actionbar" -> "动作栏"
                 "off" -> "关闭"
                 else -> config.getOptionListValue().getDisplayName()
             }
