@@ -272,26 +272,17 @@ object DynamicIslandHudComponent : NativeHudComponent(
     }
 }
 
-/** Draws the top-attached Dynamic Island silhouette: wider at the top, with curved sides narrowing into a short flat base. */
+/** Standard top-attached Dynamic Island geometry: a pill body clipped into the top edge. */
 private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape(
     bounds: BoundingBox2f,
     height: Float,
     color: Color4b,
 ) {
-    val maxInset = (bounds.width * .18f).coerceAtLeast(18f)
-    val steps = height.toInt().coerceAtLeast(2)
-    for (row in 0 until steps) {
-        val t = row.toFloat() / (steps - 1).toFloat()
-        // The red guide describes a curved shoulder followed by a long flat bottom.
-        // Reach the inset by roughly two thirds of the height, then keep it constant.
-        val curveT = (t / .66f).coerceIn(0f, 1f)
-        val curve = curveT * curveT * (3f - 2f * curveT)
-        val inset = maxInset * curve
-        val y1 = bounds.yMin + row
-        val y2 = bounds.yMin + row + 1.1f
-        drawQuad(bounds.xMin + inset, y1, bounds.xMax - inset, y2, color)
-    }
-    drawRoundedRect(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMin + 5f, 4f, color, null)
+    val radius = (height * .5f).coerceAtLeast(1f)
+    drawRoundedRect(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax, radius, color, null)
+    // The top edge is attached to the screen. Fill the center of the top cap so
+    // the visible silhouette reads as a clipped island instead of a floating pill.
+    drawQuad(bounds.xMin + radius, bounds.yMin, bounds.xMax - radius, bounds.yMin + radius, color)
 }
 
 private object CloudMusicHudRender {
