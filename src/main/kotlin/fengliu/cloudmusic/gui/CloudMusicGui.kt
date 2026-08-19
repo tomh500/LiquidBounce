@@ -25,6 +25,8 @@ import net.ccbluex.liquidbounce.render.engine.font.VerticalAnchor
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.integration.theme.ThemeManager
 import net.minecraft.client.gui.GuiGraphicsExtractor
+import net.minecraft.ChatFormatting
+import net.ccbluex.liquidbounce.utils.text.asPlainText
 
 /**
  * LiquidBounce styled palette and text helpers shared by the merged CloudMusic
@@ -137,6 +139,31 @@ fun drawCloudMusicText(
     verticalAnchor: VerticalAnchor = VerticalAnchor.TOP,
 ): Float {
     val processed = CloudMusicGui.fontRenderer.process(text, color)
+    CloudMusicGui.fontRenderer.draw(processed) {
+        this.x = x
+        this.y = y
+        this.scale = scale
+        this.shadow = shadow
+        this.horizontalAnchor = horizontalAnchor
+        this.verticalAnchor = verticalAnchor
+    }
+    return CloudMusicGui.textWidth(text, scale)
+}
+
+/** Draws a ClickGUI-style medium/semibold label using the registered bold face. */
+context(ctx: GuiGraphicsExtractor)
+fun drawCloudMusicTextBold(
+    text: String,
+    x: Float,
+    y: Float,
+    scale: Float = CloudMusicGui.bodyScale,
+    color: Color4b = CloudMusicGui.TEXT,
+    shadow: Boolean = false,
+    horizontalAnchor: HorizontalAnchor = HorizontalAnchor.START,
+    verticalAnchor: VerticalAnchor = VerticalAnchor.TOP,
+): Float {
+    val component = text.asPlainText(ChatFormatting.BOLD)
+    val processed = CloudMusicGui.fontRenderer.process(component, color)
     CloudMusicGui.fontRenderer.draw(processed) {
         this.x = x
         this.y = y

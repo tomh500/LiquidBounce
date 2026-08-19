@@ -76,8 +76,14 @@ public class DjMusic extends Music163Obj implements IMusic, ICanComment {
         data.put("encodeType", "flac");
 
         JsonObject result = playApi.POST_API("/api/song/enhance/player/url/v1", data);
-        JsonObject music = result.get("data").getAsJsonArray().get(0).getAsJsonObject();
-        if (music.get("code").getAsInt() != 200) {
+        if (!result.has("data") || !result.get("data").isJsonArray()
+                || result.getAsJsonArray("data").isEmpty()) {
+            throw new ActionException(Component.translatable("cloudmusic.exception.music.get.url", this.name));
+        }
+        JsonObject music = result.getAsJsonArray("data").get(0).getAsJsonObject();
+        if (!music.has("code") || music.get("code").getAsInt() != 200
+                || !music.has("url") || music.get("url").isJsonNull()
+                || music.get("url").getAsString().isBlank()) {
             throw new ActionException(Component.translatable("cloudmusic.exception.music.get.url", this.name));
         }
         return music.get("url").getAsString();

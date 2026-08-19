@@ -19,6 +19,7 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 
@@ -144,14 +145,8 @@ public class MusicPlayer implements Runnable {
         String musicUrl;
         try {
             musicUrl = music.getPlayUrl();
-        } catch (ActionException err) {
-            Minecraft client = Minecraft.getInstance();
-            LOGGER.info("[CloudMusic][Player] 获取播放地址失败", err);
-            if (client.player != null) {
-                client.execute(() -> client.player.sendSystemMessage(Component.literal(err.getMessage())));
-            }
-            this.stop();
-            this.playbackState = PlaybackState.ERROR;
+        } catch (RuntimeException err) {
+            reportPlaybackError(music, "获取播放地址失败", err);
             return;
         }
 
@@ -182,8 +177,7 @@ public class MusicPlayer implements Runnable {
 
         this.playingMusic = music;
         if (!Configs.PLAY.PLAY_URL.getBooleanValue()) {
-            String[] urls = musicUrl.split("\\.");
-            String fileType = urls[urls.length - 1];
+            String fileType = fileExtension(musicUrl);
 
             File file;
             if (music instanceof DjMusic) {
@@ -293,16 +287,25 @@ public class MusicPlayer implements Runnable {
         if (this.playFile != null) {
             stream = AudioSystem.getAudioInputStream(this.playFile);
         } else if (this.playUrl != null) {
-            stream = AudioSystem.getAudioInputStream(AudioSystem.getAudioInputStream(new URL(this.playUrl)));
+            stream = AudioSystem.getAudioInputStream(new URL(this.playUrl));
         } else {
             throw new IllegalStateException("没有可播放的音频源");
         }
 
         AudioFormat sourceFormat = stream.getFormat();
         // 转换文件编码
-        if (sourceFormat.getEncoding() != AudioFormat.Encoding.PCM_SIGNED) {
-            System.out.println(sourceFormat.getEncoding());
-            AudioFormat pcmFormat = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED, sourceFormat.getSampleRate(), 16, sourceFormat.getChannels(), sourceFormat.getChannels() * 2, sourceFormat.getSampleRate(), false);
+        if (!AudioFormat.Encoding.PCM_SIGNED.equals(sourceFormat.getEncoding())) {
+            float sampleRate = sourceFormat.getSampleRate() > 0 ? sourceFormat.getSampleRate() : 44_100f;
+            int channels = sourceFormat.getChannels() > 0 ? sourceFormat.getChannels() : 2;
+            AudioFormat pcmFormat = new AudioFormat(
+                    AudioFormat.Encoding.PCM_SIGNED,
+                    sampleRate,
+                    16,
+                    channels,
+                    channels * 2,
+                    sampleRate,
+                    false
+            );
             stream = AudioSystem.getAudioInputStream(pcmFormat, stream);
         }
 
@@ -370,8 +373,7 @@ public class MusicPlayer implements Runnable {
             this.playUrl = url;
             this.play(this.openAudioInputStream());
         } catch (Exception e) {
-            this.playbackState = PlaybackState.ERROR;
-            e.printStackTrace();
+            reportPlaybackError(this.playingMusic, "音频解码失败", e);
         }
     }
 
@@ -389,9 +391,38 @@ public class MusicPlayer implements Runnable {
             this.playFile = file;
             this.play(this.openAudioInputStream());
         } catch (Exception e) {
-            this.playbackState = PlaybackState.ERROR;
-            e.printStackTrace();
+            reportPlaybackError(this.playingMusic, "音频解码失败", e);
         }
+    }
+
+    private static String fileExtension(String url) {
+        try {
+            String path = URI.create(url).getPath();
+            int dot = path.lastIndexOf('.');
+            if (dot >= 0 && dot + 1 < path.length()) {
+                String extension = path.substring(dot + 1).toLowerCase(java.util.Locale.ROOT);
+                if (extension.matches("[a-z0-9]{1,8}")) return extension;
+            }
+        } catch (IllegalArgumentException ignored) { }
+        // The Java Sound provider detects the actual container. This suffix is
+        // only used for a stable cache filename when the CDN URL has none.
+        return "audio";
+    }
+
+    private void reportPlaybackError(IMusic music, String reason, Throwable error) {
+        this.playbackState = PlaybackState.ERROR;
+        this.loopPlayIn = false;
+        this.load = false;
+        String musicName = music == null ? "未知歌曲" : music.getName();
+        String detail = error.getMessage();
+        String message = reason + "：" + musicName + (detail == null || detail.isBlank() ? "" : " (" + detail + ")");
+        LOGGER.error("[CloudMusic][Player] {}: {}", reason, musicName, error);
+        this.client.execute(() -> {
+            if (this.client.player != null) {
+                this.client.player.sendSystemMessage(Component.literal(message));
+            }
+            this.client.gui.hud.setOverlayMessage(Component.literal(message), false);
+        });
     }
 
     /**
