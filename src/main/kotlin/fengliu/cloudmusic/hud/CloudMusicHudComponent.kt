@@ -308,7 +308,8 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     val samplesPerPixel = 8f
     val rows = kotlin.math.ceil(height * samplesPerPixel).toInt().coerceAtLeast(2)
     val topOutset = 24f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 4f)
-    val maxBottomInset = 45f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 2f)
+    val peakInset = 45f.coerceAtMost((bounds.xMax - bounds.xMin - 2f) / 2f)
+    val bottomInset = 15f.coerceAtMost(peakInset)
     drawCustomElement(
         pipeline = RenderPipelines.GUI,
         bounds = getBounds(bounds.xMin, bounds.yMin, bounds.xMax, bounds.yMax),
@@ -317,7 +318,7 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
             val y = row / samplesPerPixel
             val nextY = ((row + 1f) / samplesPerPixel).coerceAtMost(height)
             val progress = (nextY / height).coerceIn(0f, 1f)
-            val inset = dynamicIslandInset(progress, topOutset, maxBottomInset)
+            val inset = dynamicIslandInset(progress, topOutset, peakInset, bottomInset)
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + y).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMin + inset, bounds.yMin + nextY).setColor(color.argb)
             addVertexWith2DPose(pose, bounds.xMax - inset, bounds.yMin + nextY).setColor(color.argb)
@@ -326,13 +327,13 @@ private fun net.minecraft.client.gui.GuiGraphicsExtractor.drawDynamicIslandShape
     }
 }
 
-private fun dynamicIslandInset(progress: Float, topOutset: Float, bottomInset: Float): Float {
+private fun dynamicIslandInset(progress: Float, topOutset: Float, peakInset: Float, bottomInset: Float): Float {
     val firstEnd = .22f
     val secondEnd = .78f
     val firstInset = -topOutset
-    // Keep the initial shoulder shallow, then use the main curve for most of
-    // the side before rounding into a nearly level bottom edge.
-    val shoulderInset = firstInset + (topOutset + bottomInset) * .14f
+    // The shoulder is the end of the small quarter-round. From there the
+    // boundary must bow outward immediately, then flatten into the bottom.
+    val shoulderInset = peakInset
     val nearBottomInset = bottomInset - 2f.coerceAtMost(bottomInset * .12f)
     fun smooth(value: Float) = value * value * (3f - 2f * value)
     return when {
@@ -342,7 +343,10 @@ private fun dynamicIslandInset(progress: Float, topOutset: Float, bottomInset: F
         }
         progress <= secondEnd -> {
             val t = ((progress - firstEnd) / (secondEnd - firstEnd)).coerceIn(0f, 1f)
-            val curvedT = t * t
+            // Quarter-ellipse easing: steep at the shoulder, flat at the
+            // bottom, which produces the outward convex return requested by
+            // the guide curve instead of an inward-converging parabola.
+            val curvedT = kotlin.math.sqrt((1f - (1f - t) * (1f - t)).coerceAtLeast(0f))
             shoulderInset + (nearBottomInset - shoulderInset) * curvedT
         }
         else -> {
