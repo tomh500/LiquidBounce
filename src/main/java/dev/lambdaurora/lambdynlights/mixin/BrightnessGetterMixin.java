@@ -39,7 +39,7 @@ public interface BrightnessGetterMixin {
 			int original,
 			BlockAndLightGetter level, BlockPos pos
 	) {
-		if (!level.getBlockState(pos).isSolidRender() && LambDynLights.get().config.getDynamicLightsMode().isEnabled())
+		if (LambDynLights.get().config.getDynamicLightsMode().isEnabled())
 			return LambDynLights.get().getLightmapWithDynamicLight(level, pos, original);
 
 		return original;
