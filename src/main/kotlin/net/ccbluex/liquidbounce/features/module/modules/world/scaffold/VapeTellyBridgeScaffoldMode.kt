@@ -168,11 +168,17 @@ internal object VapeTellyBridgeScaffoldMode : VapeScaffoldModeController, Minecr
     override fun isValidPlacementHit(hitResult: BlockHitResult): Boolean {
         if (hitResult.blockPos != bridgePath.lastOrNull()) return false
 
-        return if (bridgeLevel != 0 && bridgePath.size == 4) {
-            hitResult.direction == Direction.UP
+        // Vape原版逻辑：检查方向索引来验证放置尝试
+        // Direction索引: DOWN=0, UP=1, NORTH=2, SOUTH=3, WEST=4, EAST=5
+        val directionIndex = hitResult.direction.ordinal
+
+        val enoughAttempts = if (bridgeLevel != 0 && bridgePath.size == 4) {
+            directionIndex == 1  // 必须是UP
         } else {
-            hitResult.direction.axis != Direction.Axis.Y
+            directionIndex > 1   // 必须是侧面方向
         }
+
+        return enoughAttempts
     }
 
     override fun canDeactivateSafely(): Boolean {

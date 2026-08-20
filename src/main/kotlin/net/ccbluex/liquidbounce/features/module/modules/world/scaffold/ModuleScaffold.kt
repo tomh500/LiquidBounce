@@ -580,12 +580,13 @@ object ModuleScaffold : ClientModule(
     @Suppress("unused")
     private val tickHandler = tickHandler {
         if (!isLiquidBounceMode) {
+            // Update the bridge state first so bridgingActive is set before checking canAutomate
+            VapeScaffoldController.finishPlacementTick()
             val canPlace = VapeScaffoldController.canAutomate()
             updateRenderCount(if (vapeBlockCount) blockCount else null)
             if (canPlace) {
                 tryVapePlacement()
             }
-            VapeScaffoldController.finishPlacementTick()
             return@tickHandler
         }
 
