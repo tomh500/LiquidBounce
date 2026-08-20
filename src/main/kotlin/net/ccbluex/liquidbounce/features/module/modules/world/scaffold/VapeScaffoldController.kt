@@ -144,6 +144,11 @@ internal object VapeScaffoldController : MinecraftShortcuts {
 
     fun canRotate(): Boolean {
         updateState()
+        // Vape updates Telly's bridge state from its pre-tick handler, before
+        // the point rotation is read for the normal-reach block hit.  Without
+        // this, the first airborne tick keeps the landing rotation and only
+        // creates the placement aim after that tick's interaction window.
+        if (automated) activeMode.update()
         return automated
     }
 
