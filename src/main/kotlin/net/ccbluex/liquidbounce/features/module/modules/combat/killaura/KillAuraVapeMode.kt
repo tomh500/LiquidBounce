@@ -121,7 +121,7 @@ internal fun ModuleKillAura.runVapeTick() {
         return
     }
 
-    if (player.isDeadOrDying || player.isSpectator || !requirementsMet ||
+    if (player.isDeadOrDying || player.isSpectator ||
         Vape.requireMouseDown && !mc.options.keyAttack.isPressedOnAny ||
         Vape.limitToItems && player.mainHandItem.item !in Vape.allowedItems
     ) {
@@ -135,9 +135,7 @@ internal fun ModuleKillAura.runVapeTick() {
         .filter {
             isValidVapeTarget(it, Vape.ignoreNaked, Vape.ignoreInvisible, Vape.ignoreBehindWalls)
         }
-        // Vape keeps targets through SwingRange: entries outside AttackRange still produce
-        // the original empty swing/animation path, while only in-range entries are attacked.
-        .filter { player.distanceTo(it) <= Vape.swingRange }
+        .filter { player.distanceTo(it) <= Vape.attackRange }
         .filter { vapeYawAngle(it) <= Vape.maxAngle.toInt() / 2 }
         .sortedWith(vapeTargetComparator(Vape.targetMode))
         .take(Vape.maxTargets)
@@ -153,7 +151,7 @@ internal fun ModuleKillAura.runVapeTick() {
     var swung = false
     targets.forEach { target ->
         if (player.distanceTo(target) <= Vape.attackRange) {
-            attackEntity(target, SwingMode.DO_NOT_HIDE, keepSprint && !shouldBlockSprinting)
+            attackEntity(target, SwingMode.DO_NOT_HIDE)
         } else if (!swung) {
             SwingMode.DO_NOT_HIDE.swing(InteractionHand.MAIN_HAND)
         }
