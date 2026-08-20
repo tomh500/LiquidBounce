@@ -580,7 +580,9 @@ object ModuleScaffold : ClientModule(
     @Suppress("unused")
     private val tickHandler = tickHandler {
         if (!isLiquidBounceMode) {
-            // Update the bridge state first so bridgingActive is set before checking canAutomate
+            // Advance the Vape bridge before validating the placement window.
+            // Telly must be active on the same tick its movement task arrives
+            // at the edge, otherwise placement starts one tick late.
             VapeScaffoldController.finishPlacementTick()
             val canPlace = VapeScaffoldController.canAutomate()
             updateRenderCount(if (vapeBlockCount) blockCount else null)
