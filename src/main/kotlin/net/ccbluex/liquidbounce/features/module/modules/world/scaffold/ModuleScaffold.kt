@@ -144,8 +144,6 @@ object ModuleScaffold : ClientModule(
     internal val vapeActivationBlocks by vapeActivationBlocksSetting()
     internal val vapeRequireRightClick by vapeRequireRightClickSetting()
     internal val vapeYIncrease by vapeYIncreaseSetting()
-    internal val vapeAllowSprint by vapeAllowSprintSetting()
-    internal val vapeForceSprint by vapeForceSprintSetting()
 
     private val delay by intRange("Delay", 0..0, 0..40, "ticks")
         .visibleWhen { isLiquidBounceMode }
@@ -580,15 +578,12 @@ object ModuleScaffold : ClientModule(
     @Suppress("unused")
     private val tickHandler = tickHandler {
         if (!isLiquidBounceMode) {
-            // Advance the Vape bridge before validating the placement window.
-            // Telly must be active on the same tick its movement task arrives
-            // at the edge, otherwise placement starts one tick late.
-            VapeScaffoldController.finishPlacementTick()
             val canPlace = VapeScaffoldController.canAutomate()
             updateRenderCount(if (vapeBlockCount) blockCount else null)
             if (canPlace) {
                 tryVapePlacement()
             }
+            VapeScaffoldController.finishPlacementTick()
             return@tickHandler
         }
 

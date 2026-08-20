@@ -124,12 +124,6 @@ internal fun ModuleScaffold.vapeRequireRightClickSetting() = boolean("RequireRig
 internal fun ModuleScaffold.vapeYIncreaseSetting() = int("YIncrease", 1, 0..3)
     .visibleWhen { isTellyBridgeMode }
 
-internal fun ModuleScaffold.vapeAllowSprintSetting() = boolean("AllowSprint", true)
-    .visibleWhen { !isLiquidBounceMode }
-
-internal fun ModuleScaffold.vapeForceSprintSetting() = boolean("ForceSprint", false)
-    .visibleWhen { !isLiquidBounceMode && vapeAllowSprint }
-
 @Suppress("unused")
 internal fun ModuleScaffold.vapeActivationHandler() = handler<PacketEvent> { event ->
     val packet = event.packet as? ServerboundUseItemOnPacket ?: return@handler
@@ -158,12 +152,10 @@ internal fun ModuleScaffold.vapeUseKeyHandler() = handler<KeybindIsPressedEvent>
 internal fun ModuleScaffold.vapeSprintHandler() = handler<SprintEvent>(
     priority = EventPriorityConvention.SAFETY_FEATURE
 ) { event ->
-    if (!isLiquidBounceMode && VapeScaffoldController.isAutomated &&
+    if (!isLiquidBounceMode && VapeScaffoldController.shouldSprint &&
         (event.source == SprintEvent.Source.INPUT || event.source == SprintEvent.Source.MOVEMENT_TICK)
     ) {
-        // This is the final Scaffold decision, after Sprint and other movement modules
-        // have proposed their state. Vape bridge paths must not inherit their policy.
-        event.sprint = vapeAllowSprint && (vapeForceSprint || VapeScaffoldController.shouldSprint)
+        event.sprint = true
     }
 }
 
