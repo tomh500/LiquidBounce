@@ -12,7 +12,7 @@ import net.ccbluex.liquidbounce.event.events.MouseButtonEvent
 import net.ccbluex.liquidbounce.event.events.MouseCursorEvent
 import net.ccbluex.liquidbounce.event.events.OverlayRenderEvent
 import net.ccbluex.liquidbounce.event.handler
-import net.ccbluex.liquidbounce.features.misc.HideAppearance
+import net.ccbluex.liquidbounce.features.misc.SelfDestruct
 import net.ccbluex.liquidbounce.integration.theme.component.components.NativeHudComponent
 import net.ccbluex.liquidbounce.integration.theme.component.HudComponentManager
 import net.ccbluex.liquidbounce.render.drawQuad
@@ -72,7 +72,7 @@ object CloudMusicHudComponent : NativeHudComponent(
     }
 
     private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriorityConvention.MODEL_STATE) { event ->
-        if (!HideAppearance.isHidingNow && enabled) render(event)
+        if (!SelfDestruct.isDestructed && enabled) render(event)
     }
     private val qrRenderHandler = handler<OverlayRenderEvent> { event ->
         if (!MusicCommand.loadQRCode) return@handler
@@ -144,7 +144,7 @@ object MusicLyricsHudComponent : NativeHudComponent(
     override val guiScaledHeight get() = (if (showTranslation) 34f else 17f) * scale
     init { registerComponentListen(this) }
     private val renderHandler = handler<OverlayRenderEvent> { event ->
-        if (HideAppearance.isHidingNow || !enabled) return@handler
+        if (SelfDestruct.isDestructed || !enabled) return@handler
         val lyrics = MusicCommand.getPlayer().lyricLines()
         val lyric = lyrics.original ?: return@handler
         val bounds = getGuiScaledBounds()
@@ -211,7 +211,7 @@ object DynamicIslandHudComponent : NativeHudComponent(
     }
 
 private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriorityConvention.MODEL_STATE) { event ->
-        if (HideAppearance.isHidingNow || !enabled) return@handler
+        if (SelfDestruct.isDestructed || !enabled) return@handler
         val player = MusicCommand.getPlayer()
         val sampledLyrics = player.lyricLines()
         val lyrics = if (sampledLyrics.original != null || sampledLyrics.translation != null) {

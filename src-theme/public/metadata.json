@@ -18,6 +18,7 @@
     "rikkamusic"
   ],
   "overlays": [
+    "basicmenu",
     "hud",
     "inventory",
     "container",

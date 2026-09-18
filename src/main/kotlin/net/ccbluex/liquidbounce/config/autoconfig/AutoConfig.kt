@@ -25,8 +25,8 @@ import net.ccbluex.liquidbounce.api.services.client.ClientApi
 import net.ccbluex.liquidbounce.api.services.client.CloudServerApi
 import net.ccbluex.liquidbounce.api.types.enums.AutoSettingsStatusType
 import net.ccbluex.liquidbounce.api.types.enums.AutoSettingsType
-import net.ccbluex.liquidbounce.authlib.utils.obj
-import net.ccbluex.liquidbounce.authlib.utils.string
+import net.ccbluex.liquidbounce.config.gson.util.obj
+import net.ccbluex.liquidbounce.config.gson.util.string
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.config.ConfigSystem.deserializeValueGroup
 import net.ccbluex.liquidbounce.config.gson.publicGson
@@ -130,7 +130,7 @@ object AutoConfig {
      * This keeps .config load compatible with both sources.
      */
     suspend fun requestSettingsScript(settingId: String): String = runCatching {
-        ClientApi.requestSettingsScript(settingId).use { it.readText() }
+        ClientApi.requestSettings(settingId).use { it.readText() }
     }.recoverCatching {
         CloudServerApi.requestSettingsScript(settingId)
     }.getOrThrow()

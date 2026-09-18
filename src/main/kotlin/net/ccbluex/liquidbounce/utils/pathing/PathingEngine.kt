@@ -81,7 +81,7 @@ object PathingEngine {
     fun isPathing(): Boolean = primary.pathingBehavior.isPathing
 
     fun isRikkaAutomationEnabled(): Boolean =
-        ModuleManager.getModules().any { it is RikkaAutomationModule && it.enabled }
+        ModuleManager.any { it is RikkaAutomationModule && it.enabled }
 
     fun isRikkaAutomationActive(): Boolean =
         isRikkaAutomationEnabled() && (primary.pathingBehavior.hasPath() || isMining())
@@ -211,7 +211,7 @@ object PathingEngine {
 
     fun cancelAndDisableRikkaAutomationModules() {
         cancel()
-        ModuleManager.getModules()
+        ModuleManager
             .filter { it is RikkaAutomationModule && it.enabled }
             .forEach { it.enabled = false }
     }

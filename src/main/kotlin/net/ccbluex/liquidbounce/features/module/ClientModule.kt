@@ -37,7 +37,7 @@ import net.ccbluex.liquidbounce.event.events.RefreshArrayListEvent
 import net.ccbluex.liquidbounce.features.module.modules.misc.antibot.ModuleAntiBot
 import net.ccbluex.liquidbounce.lang.LanguageManager
 import net.ccbluex.liquidbounce.lang.translation
-import net.ccbluex.liquidbounce.script.ScriptApiRequired
+import net.ccbluex.liquidbounce.features.addon.AddonApi
 import net.ccbluex.liquidbounce.utils.client.clientLogger
 import net.ccbluex.liquidbounce.utils.text.asPlainText
 import net.ccbluex.liquidbounce.utils.client.inGame
@@ -53,7 +53,8 @@ import net.minecraft.network.chat.Style
  * A module also called 'hack' can be enabled and handle events
  */
 @Suppress("LongParameterList", "detekt:TooManyFunctions")
-open class ClientModule(
+@AddonApi
+open class ClientModule @JvmOverloads constructor(
     name: String, // name parameter in configurable
     @Exclude val category: ModuleCategory, // primary module category
     @Exclude val secondaryCategories: List<ModuleCategory> = emptyList(), // additional display categories
@@ -99,7 +100,8 @@ open class ClientModule(
     override val running: Boolean
         get() = super<EventListener>.running && inGame && (enabled || notActivatable)
 
-    internal val bindValue = bind("Bind", InputBind(InputConstants.Type.KEYSYM, bind, bindAction))
+    @AddonApi
+    val bindValue = bind("Bind", InputBind(InputConstants.Type.KEYSYM, bind, bindAction))
         .doNotIncludeWhen { !AutoConfig.includeConfiguration.includeBinds }
         .independentDescription().apply {
             if (notActivatable) {
@@ -107,6 +109,13 @@ open class ClientModule(
             }
         }
     val bind get() = bindValue.get()
+
+    /**
+     * True when something outside LiquidBounce acts on [bind], so the module manager leaves it alone.
+     */
+    @AddonApi
+    open val externalBind: Boolean
+        get() = false
 
     var hidden by boolean("Hidden", hide)
         .doNotIncludeWhen { !AutoConfig.includeConfiguration.includeHidden }
@@ -131,7 +140,7 @@ open class ClientModule(
     /**
      * Allows the user to access values by typing module.settings.<valuename>
      */
-    @ScriptApiRequired
+    @AddonApi
     open val settings by lazy { inner.associateBy { it.name } }
 
     /**
@@ -212,6 +221,10 @@ open class ClientModule(
      * Requires that [ValueGroup.walkKeyPath] has previously been run.
      */
     fun verifyFallbackDescription() {
+        if (hasLiteralDescription) {
+            return
+        }
+
         if (!LanguageManager.hasFallbackTranslation(descriptionKey!!)) {
             logger.warn("$name is missing fallback description key $descriptionKey")
         }

@@ -10,11 +10,15 @@
  */
 package net.ccbluex.liquidbounce.features.module.modules.world
 
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectArraySet
+import net.ccbluex.fastutil.enumSetAllOf
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.event.events.NotificationEvent
+import net.ccbluex.liquidbounce.event.events.PacketEvent
 import net.ccbluex.liquidbounce.event.events.PlayerMovementTickEvent
+import net.ccbluex.liquidbounce.event.events.TransferOrigin
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.event.tickUntil
@@ -25,6 +29,7 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debug
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ScaffoldBlockItemSelection
 import net.ccbluex.liquidbounce.utils.block.placer.BlockPlacer
 import net.ccbluex.liquidbounce.utils.block.placer.VapeBlockPlacerRotation
+import net.ccbluex.liquidbounce.utils.block.stateOrEmpty
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.ccbluex.liquidbounce.utils.collection.Filter
 import net.ccbluex.liquidbounce.utils.collection.blockSortedSetOf
@@ -37,6 +42,7 @@ import net.ccbluex.liquidbounce.utils.kotlin.random
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
 import net.minecraft.core.registries.BuiltInRegistries
+import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
 import net.minecraft.tags.BlockTags
 import net.minecraft.util.Mth
 import net.minecraft.world.level.block.BedBlock
@@ -76,7 +82,11 @@ object ModuleBlockIn : ClientModule(
         visibleWhen { false }
     }
 
-    private val autoDisable by boolean("AutoDisable", true)
+    private val disableOn by multiEnumChoice("DisableOn", enumSetAllOf<DisableOn>())
+        .visibleWhen { mode == BlockInMode.LIQUID_BOUNCE }
+    private val avoidBrokenBlocks by boolean("AvoidBrokenBlocks", true)
+        .visibleWhen { mode == BlockInMode.LIQUID_BOUNCE }
+    private val brokenBlockWindow by int("BrokenBlockWindow", 1000, 0..10000, "ms")
         .visibleWhen { mode == BlockInMode.LIQUID_BOUNCE }
     private val placeOrder by enumChoice("PlaceOrder", Order.NORMAL)
         .visibleWhen { mode == BlockInMode.LIQUID_BOUNCE }
@@ -113,12 +123,16 @@ object ModuleBlockIn : ClientModule(
     private var vapeCompleted = false
     private var vapeSneakLatched = false
     private var lastPhysicalSneak = false
+    private var moved = false
+    private val recentlyBrokenBlocks = Long2LongOpenHashMap()
 
     override fun onDisabled() {
         startPos.set(BlockPos.ZERO)
         blockList = emptyList()
         vapeCompleted = false
         vapeSneakLatched = false
+        moved = false
+        recentlyBrokenBlocks.clear()
         lbPlacer.disable()
         vapePlacer.disable()
     }
@@ -129,6 +143,7 @@ object ModuleBlockIn : ClientModule(
         vapeCompleted = false
         vapeSneakLatched = false
         lastPhysicalSneak = mc.options.keyShift.isPressedOnAny
+        moved = false
         getPositions()
     }
 
@@ -141,6 +156,8 @@ object ModuleBlockIn : ClientModule(
         vapeCompleted = false
         vapeSneakLatched = false
         lastPhysicalSneak = mc.options.keyShift.isPressedOnAny
+        moved = false
+        recentlyBrokenBlocks.clear()
         getPositions()
     }
 
@@ -153,7 +170,16 @@ object ModuleBlockIn : ClientModule(
     }
 
     private fun getPositions() {
-        blockList = if (mode == BlockInMode.VAPE) vapePositions() else placeOrder.positions().asList()
+        blockList = if (mode == BlockInMode.VAPE) {
+            vapePositions()
+        } else {
+            val now = System.currentTimeMillis()
+            recentlyBrokenBlocks.long2LongEntrySet().removeIf { it.longValue + brokenBlockWindow <= now }
+            placeOrder.positions().filter {
+                it.stateOrEmpty.canBeReplaced() &&
+                    (!avoidBrokenBlocks || !recentlyBrokenBlocks.containsKey(it.asLong()))
+            }
+        }
         debugParameter("Place Count") { blockList.size }
     }
 
@@ -202,16 +228,30 @@ object ModuleBlockIn : ClientModule(
     }
 
     @Suppress("unused")
+    private val packetHandler = handler<PacketEvent> {
+        if (mode != BlockInMode.LIQUID_BOUNCE || !avoidBrokenBlocks || it.origin != TransferOrigin.OUTGOING) {
+            return@handler
+        }
+        val packet = it.packet
+        if (packet is ServerboundPlayerActionPacket &&
+            packet.action == ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK
+        ) {
+            val pos = packet.pos.asLong()
+            mc.execute { recentlyBrokenBlocks.put(pos, System.currentTimeMillis()) }
+        }
+    }
+
+    @Suppress("unused")
     private val tickHandler = tickHandler {
         val activeMode = mode
         val placer = if (activeMode == BlockInMode.VAPE) vapePlacer else lbPlacer
         val targets = blockList.filter { world.getBlockState(it).canBeReplaced() }
         placer.update(targets)
-        tickUntil { placer.isDone() }
+        tickUntil { placer.isDone() || (activeMode == BlockInMode.LIQUID_BOUNCE && moved) }
 
         if (mode != activeMode) return@tickHandler
         if (activeMode == BlockInMode.LIQUID_BOUNCE) {
-            if (autoDisable) {
+            if (DisableOn.FINISH in disableOn && !moved) {
                 notification(name, message("filled"), NotificationEvent.Severity.SUCCESS)
                 enabled = false
             } else {
@@ -244,8 +284,12 @@ object ModuleBlockIn : ClientModule(
 
         val currentPos = player.blockPosition()
         if (currentPos != startPos && currentPos != startPos.above()) {
-            notification(name, message("positionChanged"), NotificationEvent.Severity.ERROR)
-            enabled = false
+            if (DisableOn.MOVE in disableOn) {
+                notification(name, message("positionChanged"), NotificationEvent.Severity.ERROR)
+                enabled = false
+            } else {
+                moved = true
+            }
         }
     }
 
@@ -289,6 +333,11 @@ object ModuleBlockIn : ClientModule(
             block === Blocks.OBSIDIAN -> 1
             else -> 0
         }
+    }
+
+    private enum class DisableOn(override val tag: String) : Tagged {
+        FINISH("Finish"),
+        MOVE("Move"),
     }
 
     private enum class BlockInMode(override val tag: String) : Tagged {

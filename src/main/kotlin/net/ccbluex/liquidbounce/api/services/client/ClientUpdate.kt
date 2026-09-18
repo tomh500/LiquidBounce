@@ -31,10 +31,11 @@ object ClientUpdate {
 
     val update = ioScope.async {
         runCatching {
+            val customBuild = "-XuanRikka" in LiquidBounce.clientVersion
             val newestBuild = runCatching {
                 ClientApi.requestNewestBuildEndpoint(
                     branch = LiquidBounce.clientBranch,
-                    release = !LiquidBounce.IN_DEVELOPMENT
+                    release = customBuild || !LiquidBounce.IN_DEVELOPMENT
                 )
             }.onFailure { exception ->
                 logger.error("Unable to receive update information", exception)
@@ -42,7 +43,10 @@ object ClientUpdate {
 
             val newestSemVersion = Semver(newestBuild.lbVersion, Semver.SemverType.LOOSE)
 
-            val isNewer = if (LiquidBounce.IN_DEVELOPMENT) { // check if new build is newer than current build
+            val isNewer = if (customBuild) {
+                val baseVersion = LiquidBounce.clientVersion.substringBefore("-XuanRikka")
+                newestBuild.release && newestSemVersion.isGreaterThan(Semver(baseVersion, Semver.SemverType.LOOSE))
+            } else if (LiquidBounce.IN_DEVELOPMENT) { // check if new build is newer than current build
                 val newestVersionDate = newestBuild.date
                 val currentVersionDate = OffsetDateTime.parse(
                     GitInfo.get("git.commit.time"),

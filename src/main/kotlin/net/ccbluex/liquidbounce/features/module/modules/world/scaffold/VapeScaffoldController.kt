@@ -179,7 +179,11 @@ internal object VapeScaffoldController : MinecraftShortcuts {
         if (!isAllowedBlock(stack) || stack.getBlock() == null) return
 
         val placement = BlockPlaceContext(UseOnContext(player, packet.hand, packet.hitResult)).clickedPos
-        activation.record(placement)
+        mc.execute {
+            if (ModuleScaffold.running && !automated && canActivate()) {
+                activation.record(placement)
+            }
+        }
     }
 
     fun targetedPosition(default: BlockPos): BlockPos =

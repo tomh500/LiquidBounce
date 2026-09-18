@@ -65,7 +65,7 @@
 
     {#if (expanded || cSetting.flattened) && nestedSettings.length > 0}
         <div class:nested-settings={!cSetting.flattened} class:flat-settings={cSetting.flattened}>
-            {#each nestedSettings as setting (setting.name)}
+            {#each nestedSettings as setting (`${cSetting.active}.${setting.name}`)}
                 <GenericSetting {localizeSettings} path={thisPath} bind:setting={setting} on:change={handleChange} />
             {/each}
         </div>

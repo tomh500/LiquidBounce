@@ -65,7 +65,7 @@ public abstract class MixinCommandSuggestions {
             this.updateRikkaMusicUsage();
             this.pendingSuggestions = CommandManager.INSTANCE.autoComplete(this.input.getValue(), this.input.getCursorPosition());
             this.pendingSuggestions.thenRun(() -> {
-                if (suggestions == null) {
+                if (this.pendingSuggestions.isDone() && suggestions == null) {
                     this.showSuggestions(false);
                 }
             });

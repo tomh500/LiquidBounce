@@ -1,63 +1,52 @@
 package fengliu.cloudmusic.command
 
-import net.ccbluex.liquidbounce.features.command.Command
+import com.mojang.brigadier.CommandDispatcher
+import com.mojang.brigadier.arguments.StringArgumentType
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
+import com.mojang.brigadier.builder.RequiredArgumentBuilder
 import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.events.ChatSendEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.command.CommandManager
-import net.ccbluex.liquidbounce.features.command.builder.CommandBuilder
-import net.ccbluex.liquidbounce.features.command.builder.ParameterBuilder
-import net.ccbluex.liquidbounce.features.command.dsl.castVarargNotRequired
+import net.ccbluex.liquidbounce.features.command.CommandRegistrar
+import net.ccbluex.liquidbounce.features.command.brigadier.ClientCommandSource
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention
 
-/**
- * Registers the merged CloudMusic command tree under the LiquidBounce command
- * system. The original Brigadier tree from the standalone mod is kept in
- * [MusicCommand] and executed with the client's '.' command prefix.
- */
-object CloudMusicCommands : EventListener {
+/** Bridges the original CloudMusic command tree into the client command system. */
+object CloudMusicCommands : EventListener, CommandRegistrar {
 
     private val source = LbClientCommandSource()
 
     @Volatile
     private var registered = false
 
-    private val argsParameter = ParameterBuilder
-        .begin<String>("args")
-        .vararg()
-        .optional()
-        .autocompletedWith { begin, args ->
-            // LB's autocomplete token list includes the command root; the
-            // Brigadier bridge expects only the text after `rikkamusic`.
-            val withoutRoot = if (args.firstOrNull()?.equals("rikkamusic", true) == true ||
-                args.firstOrNull()?.equals("music", true) == true) args.drop(1) else args
-            val rawArgs = withoutRoot.joinToString(" ").ifEmpty { begin }
-            MusicCommand.completeCommand(
-                if (begin.isEmpty()) "$rawArgs " else rawArgs,
-                source,
+    override fun register(dispatcher: CommandDispatcher<ClientCommandSource>) {
+        for (root in listOf("rikkamusic", "music")) {
+            dispatcher.register(
+                LiteralArgumentBuilder.literal<ClientCommandSource>(root)
+                    .executes {
+                        MusicCommand.executeCommand("", source)
+                        1
+                    }
+                    .then(
+                        RequiredArgumentBuilder.argument<ClientCommandSource, String>(
+                            "arguments", StringArgumentType.greedyString()
+                        ).suggests { _, builder ->
+                            MusicCommand.completeCommand(builder.remaining, source)
+                                .forEach(builder::suggest)
+                            builder.buildFuture()
+                        }.executes { context ->
+                            MusicCommand.executeCommand(StringArgumentType.getString(context, "arguments"), source)
+                            1
+                        }
+                    )
             )
         }
-        .build()
+    }
 
-    private val command: Command = CommandBuilder
-        .begin("rikkamusic")
-        .alias("music")
-        .parameter(argsParameter)
-        .handler {
-            val args = argsParameter.castVarargNotRequired()?.joinToString(" ") ?: ""
-            MusicCommand.executeCommand(args, source)
-        }
-        .build()
-
-    /**
-     * Keep CloudMusic's complete Brigadier input intact. The generic LB command
-     * parser intentionally tokenizes varargs, which loses the quoted/greedy
-     * argument semantics used throughout the original CloudMusic command tree.
-     */
+    /** Keep quoted and greedy arguments intact when commands are sent through chat. */
     @Suppress("unused")
     private val rawCommandHandler = handler<ChatSendEvent>(
-        // Run before the generic LB command executor so quoted strings and
-        // greedy password arguments remain exactly as typed.
         priority = (EventPriorityConvention.FIRST_PRIORITY + 100).toShort(),
     ) { event ->
         val rawArgs = extractRawArgs(event.message) ?: return@handler
@@ -72,22 +61,14 @@ object CloudMusicCommands : EventListener {
             message.equals(root, ignoreCase = true) ||
                 (message.startsWith(root, ignoreCase = true) &&
                     message.getOrNull(root.length)?.isWhitespace() == true)
-        }
-            ?: return null
+        } ?: return null
         return message.substring(root.length).trimStart()
     }
 
-    /**
-     * Registers `.rikkamusic` and its `.music` alias once into the client command manager.
-     */
     fun register() {
-        if (registered) {
-            return
-        }
+        if (registered) return
         registered = true
-        // This is idempotent because the merged initializer may have already
-        // built the original command tree.
         MusicCommand.registerAll()
-        net.ccbluex.liquidbounce.features.command.CommandManager.addCommand(command)
+        CommandManager.register(this)
     }
 }

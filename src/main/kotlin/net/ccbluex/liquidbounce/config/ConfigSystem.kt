@@ -138,7 +138,7 @@ object ConfigSystem {
         ensureRootKeys()
         val normalizedKey = normalizeKeyInput(key)
         return configs.asSequence()
-            .flatMap { it.collectValuesRecursively().asSequence() }
+            .flatMap { it.collectValuesRecursively(normalizedKey) }
             .firstOrNull { it.key?.equals(normalizedKey, true) == true }
     }
 
@@ -146,7 +146,7 @@ object ConfigSystem {
         ensureRootKeys()
         val normalizedKey = normalizeKeyInput(key)
         return configs.asSequence()
-            .flatMap { it.collectValueGroupsRecursively().asSequence() }
+            .flatMap { it.collectValueGroupsRecursively(normalizedKey) }
             .firstOrNull { it.key?.equals(normalizedKey, true) == true }
     }
 
@@ -180,10 +180,16 @@ object ConfigSystem {
      * Add an existing config instance
      */
     fun root(config: Config): Config {
+        require(configs.none { it.loweredName == config.loweredName }) {
+            "A config named '${config.loweredName}' is already registered"
+        }
+
         config.walkInit()
         configs.add(config)
         return config
     }
+
+    fun remove(config: Config): Boolean = configs.remove(config)
 
     /**
      * Create a ZIP file backup of configs
@@ -335,6 +341,8 @@ object ConfigSystem {
         }
 
         for (value in valueGroup.inner) {
+            if (!value.isPersistent) continue
+
             val queue = valuesByName[value.name]
                 ?: value.aliases.firstNotNullOfOrNull { valuesByName[it] }
                 ?: continue

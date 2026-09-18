@@ -1,37 +1,36 @@
 package net.ccbluex.liquidbounce.features.command.commands.ingame
 
-import net.ccbluex.liquidbounce.features.command.Command
-import net.ccbluex.liquidbounce.features.command.builder.CommandBuilder
-import net.ccbluex.liquidbounce.features.command.builder.ParameterBuilder
+import com.mojang.brigadier.CommandDispatcher
+import com.mojang.brigadier.arguments.StringArgumentType
+import com.mojang.brigadier.builder.LiteralArgumentBuilder
+import com.mojang.brigadier.builder.RequiredArgumentBuilder
+import net.ccbluex.liquidbounce.features.command.CommandRegistrar
+import net.ccbluex.liquidbounce.features.command.brigadier.ClientCommandSource
 import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 
-/** Registers the integrated pathing engine commands in LiquidBounce's command tree. */
-object CommandPathing {
+/** Registers the integrated pathing commands against the current Brigadier dispatcher. */
+object CommandPathing : CommandRegistrar {
 
-    fun createCommands(existing: Collection<Command>): List<Command> {
-        val taken = existing.flatMap { listOf(it.name) + it.aliases }
-            .toMutableSet()
+    override fun register(dispatcher: CommandDispatcher<ClientCommandSource>) {
+        PathingEngine.commandNames().forEach { name ->
+            if (dispatcher.root.children.any { it.name.equals(name, ignoreCase = true) }) {
+                return@forEach
+            }
 
-        return PathingEngine.commandNames()
-            .filter { taken.add(it.lowercase()) }
-            .map { name -> createCommand(name) }
-    }
-
-    private fun createCommand(name: String): Command = CommandBuilder
-        .begin(name)
-        .parameter(
-            ParameterBuilder
-                .begin<String>("arguments")
-                .verifiedBy(ParameterBuilder.STRING_VALIDATOR)
-                .optional()
-                .vararg()
-                .build()
-        )
-        .handler {
-            val arguments = (args[0] as? Array<*>)
-                ?.mapNotNull { it as? String }
-                ?: emptyList()
-            PathingEngine.execute(name, arguments)
+            dispatcher.register(
+                LiteralArgumentBuilder.literal<ClientCommandSource>(name)
+                    .executes { if (PathingEngine.execute(name, emptyList())) 1 else 0 }
+                    .then(
+                        RequiredArgumentBuilder.argument<ClientCommandSource, String>(
+                            "arguments", StringArgumentType.greedyString()
+                        ).executes { context ->
+                            val arguments = StringArgumentType.getString(context, "arguments")
+                                .split(Regex("\\s+"))
+                                .filter(String::isNotEmpty)
+                            if (PathingEngine.execute(name, arguments)) 1 else 0
+                        }
+                    )
+            )
         }
-        .build()
+    }
 }

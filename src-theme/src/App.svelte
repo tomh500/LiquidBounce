@@ -1,5 +1,5 @@
 <script lang="ts">
-    import Router, {location, push} from "svelte-spa-router";
+    import Router, {location} from "svelte-spa-router";
     import Hud from "./routes/hud/Hud.svelte";
     import {getMetadata, getTheme, getVirtualScreen} from "./integration/rest";
     import {cleanupListeners, listenAlways} from "./integration/ws";
@@ -14,6 +14,7 @@
     import ProxyManager from "./routes/menu/proxymanager/ProxyManager.svelte";
     import None from "./routes/none/None.svelte";
     import Disconnected from "./routes/menu/disconnected/Disconnected.svelte";
+    import BasicMenu from "./routes/menu/basicmenu/BasicMenu.svelte";
     import Browser from "./routes/browser/Browser.svelte";
     import TabbedClickGui from "./routes/clickgui/TabbedClickGui.svelte";
     import {intToRgba, rgbaToHex} from "./integration/util";
@@ -21,6 +22,7 @@
     import Menu from "./routes/menu/common/Menu.svelte";
     import MenuContent from "./routes/menu/common/MenuContent.svelte";
     import RikkaMusic from "./routes/rikkamusic/RikkaMusic.svelte";
+    import {push} from "./integration/router";
 
     const menuRoutes = {
         "/title": Title,
@@ -36,8 +38,9 @@
         "/inventory": Inventory,
         "/none": None,
         "/disconnected": Disconnected,
-        "/browser": Browser
-        ,"/rikkamusic": RikkaMusic
+        "/basicmenu": BasicMenu,
+        "/browser": Browser,
+        "/rikkamusic": RikkaMusic
     };
 
     const SURFACE_TINT_MIX = 18;
