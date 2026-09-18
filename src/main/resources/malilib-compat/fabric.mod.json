@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "malilib",
+  "name": "MaLiLib (LiquidBounce integrated)",
+  "version": "0.29.4-sakura.11",
+  "description": "MaLiLib is integrated into LiquidBounce.",
+  "environment": "client",
+  "depends": {
+    "minecraft": "~26.2-"
+  }
+}

@@ -17,8 +17,10 @@
   "license": "GNU General Public License v3.0",
   "icon": "resources/liquidbounce/icon_64x64.png",
   "environment": "client",
-  "provides": [
-    "malilib"
+  "jars": [
+    {
+      "file": "META-INF/jars/malilib-compat.jar"
+    }
   ],
   "entrypoints": {
     "main": [],

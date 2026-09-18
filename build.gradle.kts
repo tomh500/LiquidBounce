@@ -38,6 +38,11 @@ plugins {
 val upstreamModVersion = providers.gradleProperty("mod_version")
 val buildTimestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmm"))
 val clientVersion = providers.provider { "${upstreamModVersion.get()}-XuanRikka$buildTimestamp" }
+val malilibCompatJar = tasks.register<Jar>("malilibCompatJar") {
+    archiveFileName.set("malilib-compat.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("generated/malilib-compat"))
+    from("src/main/resources/malilib-compat")
+}
 
 base {
     archivesName = project.property("archives_base_name") as String
@@ -160,6 +165,7 @@ dependencies {
     api(libs.lithium)
     runtimeOnly(libs.immediatelyFast)
     runtimeOnly(libs.iris)
+    compileOnly(libs.iris)
 
     // ViaFabricPlus
     api(libs.vfp.api)
@@ -236,6 +242,7 @@ addResolvedDependencies(jij, "compileOnly", "include", "api")
 
 tasks.processResources {
     dependsOn("buildTheme")
+    exclude("malilib-compat/**")
 
     from("src-theme/dist") {
         into("resources/liquidbounce/themes/liquidbounce")
@@ -435,6 +442,10 @@ kotlin {
 }
 
 tasks.jar {
+    dependsOn(malilibCompatJar)
+    from(malilibCompatJar) {
+        into("META-INF/jars")
+    }
     val archivesBaseName = providers.gradleProperty("archives_base_name")
     val mavenGroup = providers.gradleProperty("maven_group")
 

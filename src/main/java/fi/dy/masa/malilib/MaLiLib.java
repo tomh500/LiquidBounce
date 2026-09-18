@@ -12,10 +12,17 @@ import fi.dy.masa.malilib.util.data.ModInfo;
 public class MaLiLib implements ModInitializer
 {
     public static final Logger LOGGER = LogManager.getLogger(MaLiLibReference.MOD_ID);
+    private static boolean initialized;
 
     @Override
-    public void onInitialize()
+    public synchronized void onInitialize()
     {
+        if (initialized)
+        {
+            return;
+        }
+
+        initialized = true;
         MaLiLibFabricData.onInitialize();
         InitializationHandler.getInstance().registerInitializationHandler(new MaLiLibInitHandler());
         Registry.CONFIG_SCREEN.registerConfigScreenFactory(
