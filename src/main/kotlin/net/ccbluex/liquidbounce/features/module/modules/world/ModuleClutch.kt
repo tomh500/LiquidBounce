@@ -20,15 +20,17 @@ import net.ccbluex.liquidbounce.features.global.GlobalVapeRotationSettings
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.ModuleOrigin
+import net.ccbluex.liquidbounce.features.module.modules.world.clutch.ClutchTargetPlanner
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ScaffoldBlockItemSelection
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.aiming.utils.RotationUtil
 import net.ccbluex.liquidbounce.utils.block.fallDamageMultiplier
-import net.ccbluex.liquidbounce.utils.block.hasAnySolidPlacementNeighbor
+import net.ccbluex.liquidbounce.utils.block.isUnobstructed
 import net.ccbluex.liquidbounce.utils.block.placer.BlockPlacer
 import net.ccbluex.liquidbounce.utils.block.placer.VapeBlockPlacerRotation
 import net.ccbluex.liquidbounce.utils.collection.blockSortedSetOf
+import net.ccbluex.liquidbounce.utils.client.SilentHotbar
 import net.ccbluex.liquidbounce.utils.entity.FallingPlayer
 import net.ccbluex.liquidbounce.utils.entity.getEffectiveDamage
 import net.ccbluex.liquidbounce.utils.entity.rotation
@@ -88,8 +90,11 @@ object ModuleClutch : ClientModule(
         this,
         Priority.IMPORTANT_FOR_PLAYER_LIFE,
         ::slotFinder,
-        vapeRotation = { VapeBlockPlacerRotation(speed, silentAim) },
-        vapeRotationSpeed = { _, target -> predictiveRotationSpeed(target.rotation) },
+        vapeRotation = {
+            VapeBlockPlacerRotation(speed, silentAim, ticksUntilTarget = {
+                (ticksUntilImpact - remainingPlacements + 1).coerceAtLeast(1)
+            })
+        },
         cooldownOverride = { 0 },
         supportDelayOverride = { 0 },
     )).apply {
@@ -109,6 +114,8 @@ object ModuleClutch : ClientModule(
     private var resetRotationTarget: Rotation? = null
     private var showingBlockCount = false
     private var ticksUntilImpact = 1
+    private var remainingPlacements = 0
+    private var catchTarget: BlockPos? = null
 
     override fun onEnabled() = resetState(clearRenderCount = false)
 
@@ -130,20 +137,33 @@ object ModuleClutch : ClientModule(
         resetRotationTarget = null
         previousSlot = null
         ticksUntilImpact = 1
+        remainingPlacements = 0
+        catchTarget = null
         placer.clear()
+        SilentHotbar.resetSlot(placer)
         if (clearRenderCount) EventManager.callEvent(BlockCountChangeEvent(null, null))
         showingBlockCount = false
     }
 
     @Suppress("unused")
     private val rotationHandler = handler<RotationUpdateEvent> {
+        // Plan before BlockPlacer's rotation update, so activation does not cost a fall tick.
+        if (player.onGround()) {
+            if (clutching) finishClutch()
+        } else if (!clutching) {
+            tryStartClutch()
+        }
+
         if (clutching) {
-            val targets = findPlacementTargets()
-            if (targets.isEmpty()) {
+            val plan = findPlacementPlan()
+            if (plan == null) {
                 failAttempt()
             } else {
-                queuedBlocks = targets.size
-                placer.update(targets)
+                catchTarget = plan.target.pos
+                ticksUntilImpact = plan.target.ticksUntilImpact
+                remainingPlacements = plan.placements.size
+                queuedBlocks = max(queuedBlocks, remainingPlacements)
+                placer.update(plan.placements)
             }
             return@handler
         }
@@ -181,18 +201,14 @@ object ModuleClutch : ClientModule(
             showingBlockCount = false
         }
 
-        if (player.onGround()) {
-            if (clutching) finishClutch()
-            if (staircaseTicks > 0) staircaseTicks--
-            return@handler
-        }
+        if (player.onGround() && staircaseTicks > 0) staircaseTicks--
+    }
 
-        if (clutching) return@handler
-        if (System.currentTimeMillis() - lastAttempt < failDelay) return@handler
-        if (!shouldActivate()) return@handler
-        if (slotFinder(null) == null) {
+    private fun tryStartClutch() {
+        if (System.currentTimeMillis() - lastAttempt < failDelay || !shouldActivate()) return
+        if (findBestBlockSlot() == null) {
             failAttempt()
-            return@handler
+            return
         }
 
         clutching = true
@@ -213,9 +229,7 @@ object ModuleClutch : ClientModule(
     private fun shouldActivate(): Boolean {
         if (player.isFallFlying || player.abilities.flying || mc.gui.screen() != null) return false
         if (allowStaircaseUp && staircaseTicks > 0 && mc.options.keyJump.isPressedOnAny) return true
-        if (player.deltaMovement.y >= 0.0 && player.fallDistance <= 0f) return false
-
-        val collision = FallingPlayer.fromPlayer(player).findCollision(PREDICTION_TICKS)
+        val collision = FallingPlayer.fromPlayer(player, RotationManager.movementYaw).findCollision(PREDICTION_TICKS)
         val landing = collision?.pos
         if (landing == null) return onVoid
 
@@ -228,56 +242,36 @@ object ModuleClutch : ClientModule(
         return lethal || exceedsThreshold
     }
 
-    private fun findPlacementTargets(): List<BlockPos> {
-        val result = linkedSetOf<BlockPos>()
-        val collision = FallingPlayer.fromPlayer(player).findCollision(PREDICTION_TICKS)
-        if (collision != null) {
-            ticksUntilImpact = (collision.tick + 1).coerceAtLeast(1)
-            addCatchTargets(result, collision.positionBeforeMovement.x, collision.positionBeforeMovement.y,
-                collision.positionBeforeMovement.z)
-        } else {
-            // Void catches cannot provide a collision point. Keep a short, ordered prediction window
-            // so the next tick can replace an unreachable candidate before it is too late.
-            ticksUntilImpact = 1
-            var x = player.x
-            var y = player.y
-            var z = player.z
-            var motionY = player.deltaMovement.y
-            repeat(TARGET_LOOKAHEAD_TICKS) {
-                x += player.deltaMovement.x
-                y += motionY
-                z += player.deltaMovement.z
-                motionY = (motionY - 0.08) * 0.98
-                addCatchTargets(result, x, y, z)
-            }
-        }
-        val replaceable = result.filter { world.getBlockState(it).canBeReplaced() }
-            .sortedWith(
-                compareByDescending<BlockPos> { it.hasAnySolidPlacementNeighbor() }
-                    .thenBy { it.distToCenterSqr(player.position()) }
-            )
-        val placementLimit = if (limitBlocks) maxBlocks else 1
-        return replaceable.take(placementLimit)
+    private fun findPlacementPlan(): ClutchTargetPlanner.Plan? {
+        val trajectory = FallingPlayer.fromPlayer(player, RotationManager.movementYaw)
+            .predictTrajectory(PREDICTION_TICKS)
+        val targets = ClutchTargetPlanner.catchTargets(trajectory, player.bbWidth.toDouble())
+        // Support search must not exclude a support just because it was in last tick's placement queue.
+        placer.clear()
+        val placementLimit = if (limitBlocks) maxBlocks else Int.MAX_VALUE
+        return ClutchTargetPlanner.selectPlan(targets, catchTarget, placementLimit, ::findCatchPath)
     }
 
-    private fun addCatchTargets(result: MutableSet<BlockPos>, x: Double, feetY: Double, z: Double) {
-        val halfWidth = player.bbWidth * 0.5 - TARGET_EDGE_EPSILON
-        val y = kotlin.math.floor(feetY - 1.0).toInt()
-        val minX = kotlin.math.floor(x - halfWidth).toInt()
-        val maxX = kotlin.math.floor(x + halfWidth).toInt()
-        val minZ = kotlin.math.floor(z - halfWidth).toInt()
-        val maxZ = kotlin.math.floor(z + halfWidth).toInt()
-
-        for (blockX in minX..maxX) {
-            for (blockZ in minZ..maxZ) {
-                result += BlockPos(blockX, y, blockZ)
-            }
+    private fun findCatchPath(target: BlockPos): List<BlockPos>? {
+        if (!world.getBlockState(target).canBeReplaced()) {
+            // The catch was placed successfully. Keep waiting for its predicted landing frame.
+            return if (target == catchTarget) emptyList() else null
         }
+        val reach = placer.range.toDouble() + 1.0
+        if (target.distToCenterSqr(player.eyePosition) > reach * reach || !target.isUnobstructed()) return null
+        if (placer.canClickPlace(target)) return listOf(target)
+
+        val path = placer.support.findSupport(target)?.toList()?.asReversed() ?: return null
+        // A solid neighbor alone is insufficient: its placement face must be reachable and visible.
+        return path.takeIf { it.isNotEmpty() && placer.canClickPlace(it.first()) }
     }
 
     private fun finishClutch() {
         clutching = false
         placer.clear()
+        catchTarget = null
+        remainingPlacements = 0
+        SilentHotbar.resetSlot(placer)
         staircaseTicks = if (allowStaircaseUp) STAIRCASE_WINDOW_TICKS else 0
         if (queuedBlocks > 1) moveDelayTicks = clutchMoveDelay.random()
         queuedBlocks = 0
@@ -294,6 +288,9 @@ object ModuleClutch : ClientModule(
         clutching = false
         queuedBlocks = 0
         placer.clear()
+        catchTarget = null
+        remainingPlacements = 0
+        SilentHotbar.resetSlot(placer)
         lastAttempt = System.currentTimeMillis()
         if (returnToLastSlot && previousSlot != null) returnTicks = returnDelay.random()
     }
@@ -370,17 +367,6 @@ object ModuleClutch : ClientModule(
         return max(1f, yawDistance / 90f * 5f)
     }
 
-    /**
-     * Vape's BlockIn plans rotation against the simulated landing tick. The current placer
-     * handles finding the valid face, while this keeps its turn speed tied to that same deadline.
-     */
-    private fun predictiveRotationSpeed(target: Rotation): Float {
-        val yawDistance = abs(RotationUtil.angleDifference(target.yaw, RotationManager.serverRotation.yaw))
-        val pitchDistance = abs(target.pitch - RotationManager.serverRotation.pitch)
-        val requiredSpeed = max(yawDistance, pitchDistance) / ticksUntilImpact.coerceAtLeast(1)
-        return max(speed, requiredSpeed).coerceIn(1f, 180f)
-    }
-
     private fun defaultBlacklist() = blockSortedSetOf(
         Blocks.TNT,
         Blocks.COBWEB,
@@ -397,7 +383,5 @@ object ModuleClutch : ClientModule(
     )
 
     private const val PREDICTION_TICKS = 50
-    private const val TARGET_LOOKAHEAD_TICKS = 6
-    private const val TARGET_EDGE_EPSILON = 1.0E-4
     private const val STAIRCASE_WINDOW_TICKS = 10
 }

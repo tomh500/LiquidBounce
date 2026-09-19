@@ -63,19 +63,16 @@ class NormalRotationMode(modeValueGroup: ModeValueGroup<BlockPlacerRotationMode>
     private val rotations = tree(RotationsValueGroup(this))
 
     override fun invoke(isSupport: Boolean, pos: BlockPos, placementTarget: BlockPlacementTarget): Boolean {
-        val interactedBlockPos = placementTarget.interactedBlockPos
+        val vapeRotation = placer.vapeRotation?.invoke()
+        val deadlinePlacement = vapeRotation?.ticksUntilTarget != null
         val whenReached = RestrictedSingleUseAction({
-                val raytraceResult = raytraceBlock(
-                    max(placer.range, placer.wallRange).toDouble(),
-                    RotationManager.currentRotation ?: return@RestrictedSingleUseAction false,
-                    interactedBlockPos,
-                    interactedBlockPos.stateOrEmpty
-                ) ?: return@RestrictedSingleUseAction false
-
-                raytraceResult.type == HitResult.Type.BLOCK && raytraceResult.blockPos == interactedBlockPos
+                isPlacementReady(pos, placementTarget, deadlinePlacement)
             }, {
                 PostRotationExecutor.addTask(placer.module, postMove, priority = true) {
                     if (placer.ticksToWait > 0) {
+                        return@addTask
+                    }
+                    if (deadlinePlacement && !placer.prepareVapePlacement(pos, placementTarget)) {
                         return@addTask
                     }
 
@@ -84,7 +81,6 @@ class NormalRotationMode(modeValueGroup: ModeValueGroup<BlockPlacerRotationMode>
                 }
             })
 
-        val vapeRotation = placer.vapeRotation?.invoke()
         if (vapeRotation == null) {
             RotationManager.setRotationTarget(
                 placementTarget.rotation,
@@ -99,6 +95,19 @@ class NormalRotationMode(modeValueGroup: ModeValueGroup<BlockPlacerRotationMode>
         }
 
         return true
+    }
+
+    private fun isPlacementReady(pos: BlockPos, target: BlockPlacementTarget, deadlinePlacement: Boolean): Boolean {
+        if (deadlinePlacement && pos.asLong() !in placer.blocks) return false
+        val interactedPos = target.interactedBlockPos
+        val hit = raytraceBlock(
+            max(placer.range, placer.wallRange).toDouble(),
+            RotationManager.currentRotation ?: return false,
+            interactedPos, interactedPos.stateOrEmpty,
+        ) ?: return false
+
+        return hit.type == HitResult.Type.BLOCK && hit.blockPos == interactedPos &&
+            (!deadlinePlacement || target.doesCrosshairTargetMatchRequirements(hit))
     }
 
     override fun getVerificationRotation(targetedRotation: Rotation): Rotation = RotationManager.serverRotation

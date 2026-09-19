@@ -11,10 +11,8 @@
 package net.ccbluex.liquidbounce.features.module.modules.world.scaffold.vape.movement
 
 import net.ccbluex.liquidbounce.features.module.MinecraftShortcuts
+import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
-import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.sin
 
 /** Compatibility port of Vape 4.21's MovementInputHelper.applyMovementToward. */
 internal object MovementInputHelper : MinecraftShortcuts {
@@ -24,46 +22,28 @@ internal object MovementInputHelper : MinecraftShortcuts {
         targetOffsetZ: Double,
         requireSupportedMovement: Boolean = false,
     ): DirectionalInput {
-        val headings = doubleArrayOf(
-            player.yRot.toDouble(),
-            (player.yRot + 90.0) % 360.0,
-            (player.yRot + 180.0) % 360.0,
-            (player.yRot + 270.0) % 360.0,
+        val movementYaw = VapeMovementPlanner.movementYaw(
+            player.yRot,
+            RotationManager.currentRotation?.yaw,
+            RotationManager.activeRotationTarget?.movementCorrection,
         )
-        val selected = BooleanArray(4)
-        var projectedX = player.x + player.deltaMovement.x
-        var projectedZ = player.z + player.deltaMovement.z
-        val targetX = player.x + targetOffsetX
-        val targetZ = player.z + targetOffsetZ
-        var bestDistance = hypot(targetX - projectedX, targetZ - projectedZ)
-
-        headings.forEachIndexed { index, heading ->
-            val movementStep = getMovementStep(index)
-            val radians = Math.toRadians(heading)
-            val deltaX = movementStep * -sin(radians)
-            val deltaZ = movementStep * cos(radians)
-            val candidateDistance = hypot(
-                targetX - (projectedX + deltaX),
-                targetZ - (projectedZ + deltaZ),
-            )
-            if (candidateDistance < bestDistance) {
-                selected[index] = true
-                projectedX += deltaX
-                projectedZ += deltaZ
-                bestDistance = candidateDistance
-            }
-        }
-
-        if (requireSupportedMovement && !hasSupportingCollision(projectedX, projectedZ)) {
-            selected.fill(false)
-        }
-
-        return DirectionalInput(
-            forwards = selected[0],
-            right = selected[1],
-            backwards = selected[2],
-            left = selected[3],
+        val plan = VapeMovementPlanner.plan(
+            targetOffsetX,
+            targetOffsetZ,
+            player.deltaMovement.x,
+            player.deltaMovement.z,
+            movementYaw,
+            getMovementStep(0),
+            getMovementStep(1),
         )
+
+        return if (requireSupportedMovement && !hasSupportingCollision(
+                player.x + plan.projectedX(), player.z + plan.projectedZ(),
+            )) {
+            DirectionalInput.NONE
+        } else {
+            plan.input()
+        }
     }
 
     private fun getMovementStep(keyIndex: Int): Double {

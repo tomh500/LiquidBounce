@@ -37,6 +37,7 @@ class VapeAdaptiveRotationProcessor(
     private val emulateMouseController: Boolean = false,
     private val mouseRotationState: VapeMouseRotationState = VapeMouseRotationState(),
     private val tolerance: Float = 0f,
+    private val ticksUntilTarget: (() -> Int)? = null,
 ) : RotationProcessor {
 
     override fun process(
@@ -44,16 +45,33 @@ class VapeAdaptiveRotationProcessor(
         currentRotation: Rotation,
         targetRotation: Rotation,
     ): Rotation {
-        if (emulateMouseController) {
-            return processMouseController(currentRotation, targetRotation)
+        val nextRotation = if (emulateMouseController) {
+            processMouseController(currentRotation, targetRotation)
+        } else {
+            processAdaptiveStep(currentRotation, targetRotation)
         }
+        val remainingTicks = ticksUntilTarget?.invoke() ?: return nextRotation
+        return Rotation(
+            currentRotation.yaw + VapeRotationDeadline.step(
+                RotationUtil.angleDifference(nextRotation.yaw, currentRotation.yaw),
+                RotationUtil.angleDifference(targetRotation.yaw, currentRotation.yaw),
+                remainingTicks,
+            ),
+            currentRotation.pitch + VapeRotationDeadline.step(
+                nextRotation.pitch - currentRotation.pitch,
+                targetRotation.pitch - currentRotation.pitch,
+                remainingTicks,
+            ),
+        )
+    }
 
+    private fun processAdaptiveStep(currentRotation: Rotation, targetRotation: Rotation): Rotation {
         val yawError = RotationUtil.angleDifference(targetRotation.yaw, currentRotation.yaw)
         val pitchError = RotationUtil.angleDifference(targetRotation.pitch, currentRotation.pitch)
         val absoluteYawError = abs(yawError)
         val absolutePitchError = abs(pitchError)
-        // Vape clamps its controller speed at 100 before converting it into a 0.25x mouse step.
-        // Clutch relies on this upper range to finish a landing-timed rotation.
+        // The tick-based path keeps its existing speed conversion. Time-critical placements apply
+        // their deadline after this conversion, because a controller speed is not degrees per tick.
         val baseStep = speed().coerceIn(1f, 100f) * 0.25f
 
         fun step(error: Float, otherError: Float): Float {

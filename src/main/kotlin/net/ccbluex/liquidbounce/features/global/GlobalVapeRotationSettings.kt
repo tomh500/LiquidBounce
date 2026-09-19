@@ -75,6 +75,7 @@ object GlobalVapeRotationSettings : ValueGroup("VapeRotations"), EventListener {
         tolerance: Float = 0f,
         considerInventory: Boolean = true,
         whenReached: RestrictedSingleUseAction? = null,
+        ticksUntilTarget: (() -> Int)? = null,
     ) = RotationTarget(
         rotation = rotation,
         processors = listOf(
@@ -84,6 +85,7 @@ object GlobalVapeRotationSettings : ValueGroup("VapeRotations"), EventListener {
                 emulateMouseController = emulateMouseController,
                 mouseRotationState = mouseRotationState,
                 tolerance = tolerance,
+                ticksUntilTarget = ticksUntilTarget,
             )
         ),
         ticksUntilReset = 2,

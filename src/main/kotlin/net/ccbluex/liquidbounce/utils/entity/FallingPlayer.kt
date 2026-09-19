@@ -195,6 +195,19 @@ class FallingPlayer(
         return null
     }
 
+    /** Records each movement frame, including the landing frame, using the same physics as [findCollision]. */
+    fun predictTrajectory(ticks: Int): List<MovementFrame> {
+        val rotationVec = player.lookAngle
+        return buildList {
+            for (tick in 0 until ticks) {
+                val before = Vec3(x, y, z)
+                val landed = advanceSimulation(rotationVec, forceDescending = false)
+                add(MovementFrame(tick, before, Vec3(x, y, z)))
+                if (landed) break
+            }
+        }
+    }
+
     /**
      * Checks whether a future movement tick starts with the player's feet in [targetPos] before landing.
      * This matches the block-position lookup in Minecraft 26.2 {@code LivingEntity.onClimbable()}.
@@ -336,6 +349,8 @@ class FallingPlayer(
         val tick: Int,
         val positionBeforeMovement: Vec3,
     )
+
+    class MovementFrame(val tick: Int, val before: Vec3, val after: Vec3)
 }
 
 /**

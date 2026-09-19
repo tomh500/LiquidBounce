@@ -725,7 +725,9 @@ object ModuleScaffold : ClientModule(
         val rotation = RotationManager.currentRotation ?: player.rotation
         val crosshairTarget = traceFromPlayer(
             rotation = rotation,
-            range = GlobalVapeRotationSettings.interactionRange(3.0),
+            // Vape's normal mouse-over uses block reach for blocks; 3.0 is its entity reach.
+            // At a Telly jump's apex the next bridge face is already more than 3 blocks away.
+            range = GlobalVapeRotationSettings.interactionRange(player.blockInteractionRange()),
         )
         if (!VapeScaffoldController.isValidPlacementHit(crosshairTarget)) return
 
