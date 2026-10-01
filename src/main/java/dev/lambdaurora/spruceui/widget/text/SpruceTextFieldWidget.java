@@ -27,7 +27,7 @@ import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 import org.jspecify.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.Objects;
 import java.util.function.BiFunction;
@@ -374,19 +374,19 @@ public class SpruceTextFieldWidget extends AbstractSpruceTextInputWidget<SpruceT
 		}
 
 		return switch (event.key()) {
-			case GLFW.GLFW_KEY_RIGHT -> this.onSelectionUpdate(this.cursor::moveRight, event.hasShiftDown());
-			case GLFW.GLFW_KEY_LEFT -> this.onSelectionUpdate(this.cursor::moveLeft, event.hasShiftDown());
-			case GLFW.GLFW_KEY_END -> this.onSelectionUpdate(this.cursor::toEnd, event.hasShiftDown());
-			case GLFW.GLFW_KEY_HOME -> this.onSelectionUpdate(this.cursor::toStart, event.hasShiftDown());
-			case GLFW.GLFW_KEY_BACKSPACE -> {
+			case InputConstants.KEY_RIGHT -> this.onSelectionUpdate(this.cursor::moveRight, event.hasShiftDown());
+			case InputConstants.KEY_LEFT -> this.onSelectionUpdate(this.cursor::moveLeft, event.hasShiftDown());
+			case InputConstants.KEY_END -> this.onSelectionUpdate(this.cursor::toEnd, event.hasShiftDown());
+			case InputConstants.KEY_HOME -> this.onSelectionUpdate(this.cursor::toStart, event.hasShiftDown());
+			case InputConstants.KEY_BACKSPACE -> {
 				this.eraseCharacter();
 				yield true;
 			}
-			case GLFW.GLFW_KEY_DELETE -> {
+			case InputConstants.KEY_DELETE -> {
 				this.removeCharacterForward();
 				yield true;
 			}
-			case GLFW.GLFW_KEY_D -> {
+			case InputConstants.KEY_D -> {
 				if (event.hasControlDown() && !this.text.isEmpty()) {
 					this.setText("");
 				}

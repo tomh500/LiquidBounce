@@ -45,7 +45,6 @@ import net.ccbluex.liquidbounce.integration.interop.ClientInteropServer
 import net.ccbluex.liquidbounce.integration.interop.badRequest
 import net.ccbluex.liquidbounce.integration.interop.forbidden
 import net.ccbluex.liquidbounce.utils.client.logger
-import net.ccbluex.liquidbounce.utils.kotlin.Minecraft
 import org.apache.commons.io.input.CharSequenceReader
 
 private fun ClientModule.toJsonObject() = JsonObject().apply {
@@ -104,7 +103,7 @@ private fun Route.getSettings() = get {
 private fun Route.putSettings() = put {
     val name = call.queryParameters["name"] ?: call.badRequest("Missing parameter 'name'")
     val module = ModuleManager[name] ?: call.forbidden("Module '$name' not found")
-    withContext(Dispatchers.Minecraft) {
+    withContext(Dispatchers.Main) {
         ConfigSystem.deserializeValueGroup(module, CharSequenceReader(call.receiveText()))
         ConfigSystem.store(modulesConfig)
 
@@ -113,7 +112,7 @@ private fun Route.putSettings() = put {
 }
 
 // POST /api/v1/client/modules/panic
-private fun Route.postPanic() = post("/panic") { withContext(Dispatchers.Minecraft) {
+private fun Route.postPanic() = post("/panic") { withContext(Dispatchers.Main) {
     AutoConfig.withLoading {
         runCatching {
             for (module in ModuleManager) {
@@ -142,7 +141,7 @@ private data class ModuleRequest(val name: String) {
         if (module.enabled == supposedNew) {
             call.forbidden("${this.name} already ${if (supposedNew) "enabled" else "disabled"}")
         }
-        withContext(Dispatchers.Minecraft) {
+        withContext(Dispatchers.Main) {
             try {
                 module.enabled = supposedNew
                 ConfigSystem.store(modulesConfig)

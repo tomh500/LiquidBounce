@@ -22,7 +22,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.Arrays;
 import java.util.List;
@@ -344,30 +344,30 @@ public class SpruceTextAreaWidget extends AbstractSpruceTextInputWidget<SpruceTe
 		}
 
 		return switch (event.key()) {
-			case GLFW.GLFW_KEY_RIGHT -> this.onSelectionUpdate(this.cursor::moveRight, event.hasShiftDown());
-			case GLFW.GLFW_KEY_LEFT -> this.onSelectionUpdate(this.cursor::moveLeft, event.hasShiftDown());
-			case GLFW.GLFW_KEY_UP -> this.onSelectionUpdate(this.cursor::moveUp, event.hasShiftDown());
-			case GLFW.GLFW_KEY_DOWN -> this.onSelectionUpdate(this.cursor::moveDown, event.hasShiftDown());
-			case GLFW.GLFW_KEY_END -> this.onSelectionUpdate(event.hasControlDown() ? this.cursor::toEnd : this.cursor::toRowEnd, event.hasShiftDown());
-			case GLFW.GLFW_KEY_HOME -> this.onSelectionUpdate(event.hasControlDown() ? this.cursor::toStart : this.cursor::toLineStart, event.hasShiftDown());
-			case GLFW.GLFW_KEY_PAGE_UP -> this.onSelectionUpdate(() -> this.cursor.moveVertical(-this.cursor.row), event.hasShiftDown());
-			case GLFW.GLFW_KEY_PAGE_DOWN -> this.onSelectionUpdate(() -> this.cursor.moveVertical(this.lines.size() - this.cursor.row), event.hasShiftDown());
-			case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
+			case InputConstants.KEY_RIGHT -> this.onSelectionUpdate(this.cursor::moveRight, event.hasShiftDown());
+			case InputConstants.KEY_LEFT -> this.onSelectionUpdate(this.cursor::moveLeft, event.hasShiftDown());
+			case InputConstants.KEY_UP -> this.onSelectionUpdate(this.cursor::moveUp, event.hasShiftDown());
+			case InputConstants.KEY_DOWN -> this.onSelectionUpdate(this.cursor::moveDown, event.hasShiftDown());
+			case InputConstants.KEY_END -> this.onSelectionUpdate(event.hasControlDown() ? this.cursor::toEnd : this.cursor::toRowEnd, event.hasShiftDown());
+			case InputConstants.KEY_HOME -> this.onSelectionUpdate(event.hasControlDown() ? this.cursor::toStart : this.cursor::toLineStart, event.hasShiftDown());
+			case InputConstants.KEY_PAGEUP -> this.onSelectionUpdate(() -> this.cursor.moveVertical(-this.cursor.row), event.hasShiftDown());
+			case InputConstants.KEY_PAGEDOWN -> this.onSelectionUpdate(() -> this.cursor.moveVertical(this.lines.size() - this.cursor.row), event.hasShiftDown());
+			case InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> {
 				if (this.isEditable())
 					this.insertCharacter("\n");
 				yield true;
 			}
-			case GLFW.GLFW_KEY_BACKSPACE -> {
+			case InputConstants.KEY_BACKSPACE -> {
 				if (this.isEditable())
 					this.eraseCharacter();
 				yield true;
 			}
-			case GLFW.GLFW_KEY_DELETE -> {
+			case InputConstants.KEY_DELETE -> {
 				if (this.isEditable())
 					this.removeCharacterForward();
 				yield true;
 			}
-			case GLFW.GLFW_KEY_D -> {
+			case InputConstants.KEY_D -> {
 				if (event.hasControlDown() && this.isEditable() && !this.lines.isEmpty()) {
 					this.lines.remove(this.cursor.row);
 					this.sanitize();

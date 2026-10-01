@@ -62,7 +62,7 @@ public class WidgetDirectoryNavigation extends WidgetSearchBar
                 }
                 else if (click.input() == 1 && this.navigator instanceof WidgetFileBrowserBase fb)
                 {
-                    Util.getPlatform().openPath(fb.getRootDirectory());
+                    com.mojang.blaze3d.Blaze3D.openPath(fb.getRootDirectory());
                 }
 
                 return true;
@@ -71,7 +71,7 @@ public class WidgetDirectoryNavigation extends WidgetSearchBar
             {
                 if (click.input() == 0)
                 {
-                    Util.getPlatform().openPath(this.navigator.getCurrentDirectory());
+                    com.mojang.blaze3d.Blaze3D.openPath(this.navigator.getCurrentDirectory());
                 }
 
                 return true;

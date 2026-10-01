@@ -23,24 +23,22 @@ package net.ccbluex.liquidbounce.utils.render
 
 import com.google.common.base.Suppliers
 import com.google.common.util.concurrent.Runnables
-import com.mojang.blaze3d.GpuFormat
-import com.mojang.blaze3d.buffers.GpuBuffer
-import com.mojang.blaze3d.buffers.GpuBufferSlice
+import com.mojang.renderpearl.api.GpuFormat
+import com.mojang.renderpearl.api.buffers.GpuBuffer
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice
 import com.mojang.blaze3d.buffers.Std140Builder
 import com.mojang.blaze3d.buffers.Std140SizeCalculator
-import com.mojang.blaze3d.pipeline.RenderPipeline
+import com.mojang.renderpearl.api.pipeline.RenderPipeline
 import com.mojang.blaze3d.pipeline.RenderTarget
 import com.mojang.blaze3d.platform.NativeImage
-import com.mojang.blaze3d.systems.GpuDevice
+import com.mojang.renderpearl.api.device.GpuDevice
 import com.mojang.blaze3d.systems.RenderSystem
-import com.mojang.blaze3d.textures.GpuSampler
-import com.mojang.blaze3d.textures.GpuTexture
-import com.mojang.blaze3d.textures.GpuTextureView
+import com.mojang.renderpearl.api.textures.GpuSampler
+import com.mojang.renderpearl.api.textures.GpuTexture
+import com.mojang.renderpearl.api.textures.GpuTextureView
 import com.mojang.blaze3d.vertex.BufferBuilder
 import com.mojang.blaze3d.vertex.ByteBufferBuilder
 import com.mojang.blaze3d.vertex.PoseStack
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.asExecutor
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.utils.client.gpuDevice
 import net.ccbluex.liquidbounce.utils.client.mc
@@ -50,6 +48,7 @@ import net.minecraft.client.renderer.texture.AbstractTexture
 import net.minecraft.client.renderer.texture.DynamicTexture
 import net.minecraft.resources.Identifier
 import net.minecraft.util.ARGB
+import net.minecraft.util.Util
 import okio.BufferedSource
 import okio.buffer
 import okio.source
@@ -78,24 +77,6 @@ inline fun ByteBufferBuilder.begin(pipeline: RenderPipeline): BufferBuilder =
         },
     )
 
-inline fun <T> withOutputTextureOverride(
-    color: GpuTextureView? = null,
-    depth: GpuTextureView? = null,
-    block: () -> T,
-): T {
-    val oldColor = RenderSystem.outputColorTextureOverride
-    val oldDepth = RenderSystem.outputDepthTextureOverride
-
-    try {
-        RenderSystem.outputColorTextureOverride = color
-        RenderSystem.outputDepthTextureOverride = depth
-        return block()
-    } finally {
-        RenderSystem.outputColorTextureOverride = oldColor
-        RenderSystem.outputDepthTextureOverride = oldDepth
-    }
-}
-
 inline fun GpuTexture.clearColor(color: Color4b = Color4b.TRANSPARENT) =
     gpuDevice.createCommandEncoder().clearColorTexture(this, color.toVector4f())
 
@@ -104,7 +85,7 @@ inline fun GpuTexture.clearDepth(depth: Double = 0.0) =
 
 fun RenderTarget.clearColorAndDepth(color: Color4b = Color4b.TRANSPARENT, depth: Double = 0.0) {
     val colorAttachment = colorTexture
-    val depthAttachment = depthTexture.takeIf { useDepth }
+    val depthAttachment = depthTexture.takeIf { hasDepth() }
 
     when {
         colorAttachment != null && depthAttachment != null ->
@@ -241,7 +222,7 @@ fun GpuTexture.saveToFile(file: File): CompletableFuture<*> =
     this.toNativeImage().thenAcceptAsync({ nativeImage ->
         nativeImage.writeToFile(file)
         nativeImage.close()
-    }, Dispatchers.IO.asExecutor())
+    }, Util.ioPool())
 
 private fun GpuBufferSlice.readNativeImageRGBA(
     width: Int,

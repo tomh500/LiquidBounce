@@ -30,7 +30,7 @@ val usesViaFabricPlus = runCatching {
     Class.forName("com.viaversion.viafabricplus.ViaFabricPlus")
 
     // Register ViaFabricPlus protocol version change callback
-    ViaFabricPlus.getImpl().registerOnChangeProtocolVersionCallback { _, _ ->
+    ViaFabricPlus.api().addChangeProtocolVersionListener { _, _ ->
         // Update the window title
         mc.execute {
             mc.updateTitle()
@@ -211,6 +211,14 @@ val isOlderThanOrEquals1_21_11: Boolean
         usesViaFabricPlus && VfpCompatibility.INSTANCE.isOlderThanOrEqual1_21_11
     }.onFailure {
         logger.error("Failed to check if the server is using 1.21.11", it)
+    }.getOrDefault(false)
+
+val isOlderThan26_3: Boolean
+    get() = runCatching {
+        // Check if the ViaFabricPlus mod is loaded - prevents from causing too many exceptions
+        usesViaFabricPlus && VfpCompatibility.INSTANCE.isOlderThan26_3
+    }.onFailure {
+        logger.error("Failed to check if the server is using a pre-26.3 protocol", it)
     }.getOrDefault(false)
 
 val isOlderThanOrEqual1_11_1: Boolean

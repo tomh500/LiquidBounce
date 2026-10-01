@@ -219,12 +219,12 @@ public class NbtBlockUtils
 		{
 	        if (nbt.contains(NbtKeys.FRONT_TEXT))
 	        {
-	            SignText.DIRECT_CODEC.parse(registry.createSerializationContext(NbtOps.INSTANCE), Objects.requireNonNull(nbt.get(NbtKeys.FRONT_TEXT))).resultOrPartial().ifPresent(front::set);
+	            SignText.CODEC.parse(registry.createSerializationContext(NbtOps.INSTANCE), Objects.requireNonNull(nbt.get(NbtKeys.FRONT_TEXT))).resultOrPartial().ifPresent(front::set);
 	        }
 
 	        if (nbt.contains(NbtKeys.BACK_TEXT))
 	        {
-	            SignText.DIRECT_CODEC.parse(registry.createSerializationContext(NbtOps.INSTANCE), Objects.requireNonNull(nbt.get(NbtKeys.BACK_TEXT))).resultOrPartial().ifPresent(back::set);
+	            SignText.CODEC.parse(registry.createSerializationContext(NbtOps.INSTANCE), Objects.requireNonNull(nbt.get(NbtKeys.BACK_TEXT))).resultOrPartial().ifPresent(back::set);
 	        }
 		}
 		catch (Exception ignored) { }

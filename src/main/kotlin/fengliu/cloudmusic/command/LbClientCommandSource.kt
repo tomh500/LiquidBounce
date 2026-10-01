@@ -10,6 +10,7 @@ import net.minecraft.client.Minecraft
 import net.minecraft.client.multiplayer.ClientLevel
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.commands.SharedSuggestionProvider.ElementSuggestionType
+import net.minecraft.commands.SharedSuggestionProvider
 import net.minecraft.core.Registry
 import net.minecraft.core.RegistryAccess
 import net.minecraft.network.chat.Component
@@ -21,6 +22,7 @@ import net.minecraft.world.flag.FeatureFlags
 import net.minecraft.world.level.Level
 import java.util.concurrent.CompletableFuture
 import java.util.stream.Stream
+import java.util.function.Predicate
 
 /**
  * Bridges the ported Brigadier command tree into the LiquidBounce chat, so the
@@ -60,6 +62,8 @@ class LbClientCommandSource : FabricClientCommandSource {
     override fun getAvailableSounds(): Stream<Identifier> =
         Minecraft.getInstance().soundManager.availableSounds.stream()
 
+    override fun getAvailablePostEffects(): Stream<Identifier> = Stream.empty()
+
     override fun customSuggestion(context: CommandContext<*>): CompletableFuture<Suggestions> =
         Suggestions.empty()
 
@@ -69,10 +73,11 @@ class LbClientCommandSource : FabricClientCommandSource {
 
     override fun enabledFeatures(): FeatureFlagSet = FeatureFlags.DEFAULT_FLAGS
 
-    override fun suggestRegistryElements(
-        registryRef: ResourceKey<out Registry<*>>,
+    override fun <E : Any> suggestRegistryElements(
+        registryRef: ResourceKey<out Registry<E>>,
         elementType: ElementSuggestionType,
         builder: SuggestionsBuilder,
         context: CommandContext<*>,
+        filter: Predicate<E>,
     ): CompletableFuture<Suggestions> = Suggestions.empty()
 }

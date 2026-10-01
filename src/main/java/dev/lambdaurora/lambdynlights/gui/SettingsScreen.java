@@ -193,7 +193,7 @@ public class SettingsScreen extends SpruceScreen {
 		var supportMeButton = new SpruceButtonWidget(
 				Position.of(this, 4, resetButtonPos.getRelativeY()),
 				tabsWidth - 8, 20, Component.translatable("lambdynlights.menu.support_me"),
-				btn -> Util.getPlatform().openUri("https://donate.lambdaurora.dev/")
+				btn -> com.mojang.blaze3d.Blaze3D.openUri(java.net.URI.create("https://donate.lambdaurora.dev/"))
 		);
 		supportMeButton.setTooltip(Component.translatable("lambdynlights.menu.support_me.tooltip"));
 		this.addRenderableWidget(supportMeButton);

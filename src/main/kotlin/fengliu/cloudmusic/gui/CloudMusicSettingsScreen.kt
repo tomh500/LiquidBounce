@@ -44,7 +44,7 @@ import net.minecraft.client.input.CharacterEvent
 import net.minecraft.client.input.KeyEvent
 import net.minecraft.client.input.MouseButtonEvent
 import net.minecraft.network.chat.Component
-import org.lwjgl.glfw.GLFW
+import com.mojang.blaze3d.platform.InputConstants
 import kotlin.math.roundToInt
 
 /**
@@ -250,7 +250,7 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
     override fun mouseClicked(click: MouseButtonEvent, doubled: Boolean): Boolean {
         val mouseX = localX(click.x().toFloat())
         val mouseY = localY(click.y().toFloat())
-        if (click.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (click.button() != InputConstants.MOUSE_BUTTON_LEFT) {
             return super.mouseClicked(click, doubled)
         }
 
@@ -367,7 +367,7 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
     override fun keyPressed(input: KeyEvent): Boolean {
         val capture = capturingHotkey
         if (capture != null) {
-            if (input.key() == GLFW.GLFW_KEY_ESCAPE) {
+            if (input.key() == InputConstants.KEY_ESCAPE) {
                 capturingHotkey = null
             } else {
                 capture.clearKeys()
@@ -381,9 +381,9 @@ class CloudMusicSettingsScreen : Screen("RikkaMusic Settings".asPlainText()) {
         val edit = editing
         if (edit != null) {
             when (input.key()) {
-                GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> commitEdit()
-                GLFW.GLFW_KEY_ESCAPE -> editing = null
-                GLFW.GLFW_KEY_BACKSPACE -> editing = edit.copy(buffer = edit.buffer.dropLast(1))
+                InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> commitEdit()
+                InputConstants.KEY_ESCAPE -> editing = null
+                InputConstants.KEY_BACKSPACE -> editing = edit.copy(buffer = edit.buffer.dropLast(1))
             }
             return true
         }

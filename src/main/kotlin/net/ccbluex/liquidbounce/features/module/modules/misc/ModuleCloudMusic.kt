@@ -27,7 +27,6 @@ import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.integration.screen.CustomScreenType
 import net.ccbluex.liquidbounce.integration.screen.impl.CustomStandaloneMinecraftScreen
-import org.lwjgl.glfw.GLFW
 
 /**
  * RikkaMusic module
@@ -39,7 +38,7 @@ import org.lwjgl.glfw.GLFW
 object ModuleCloudMusic : ClientModule(
     "RikkaMusic",
     ModuleCategories.FUN,
-    bind = GLFW.GLFW_KEY_UNKNOWN,
+    bind = -1,
     disableActivation = true,
     origin = ModuleOrigin.XUAN_RIKKA,
 ) {

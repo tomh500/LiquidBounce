@@ -3,7 +3,7 @@ package fi.dy.masa.malilib.hotkeys;
 import java.util.*;
 import javax.annotation.Nullable;
 import org.jetbrains.annotations.ApiStatus;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.serialization.Codec;
@@ -488,16 +488,14 @@ public class KeybindMulti implements IKeybind
             return false;
         }
 
-        long window = Minecraft.getInstance().getWindow().handle();
-
         if (keyCode >= 0)
         {
-            return GLFW.glfwGetKey(window, keyCode) == GLFW.GLFW_PRESS;
+            return InputConstants.isKeyDown(keyCode);
         }
 
         keyCode += 100;
 
-        return keyCode >= 0 && GLFW.glfwGetMouseButton(window, keyCode) == GLFW.GLFW_PRESS;
+        return keyCode >= 0 && net.ccbluex.liquidbounce.utils.input.InputTracker.INSTANCE.isMouseButtonPressed(keyCode);
     }
 
     @ApiStatus.Internal
@@ -506,7 +504,7 @@ public class KeybindMulti implements IKeybind
         if (input.key() != -1)
         {
             Integer valObj = input.key();
-            boolean state = action != GLFW.GLFW_RELEASE;
+            boolean state = action != InputConstants.RELEASE;
 
             if (state)
             {
@@ -528,7 +526,7 @@ public class KeybindMulti implements IKeybind
 
         if (MaLiLibConfigs.Debug.KEYBIND_DEBUG.getBooleanValue())
         {
-            printKeybindDebugMessage(input.key(), input.scancode(), input.modifiers(), action);
+            printKeybindDebugMessage(input.key(), input.keycode(), input.modifiers(), action);
         }
     }
 
@@ -557,13 +555,13 @@ public class KeybindMulti implements IKeybind
     private static void printKeybindDebugMessage(int keyCode, int scanCode, int modifiers, int action)
     {
         String keyName = keyCode != KeyCodes.KEY_NONE ? KeyCodes.getNameForKey(keyCode) : "<unknown>";
-        String type = action == GLFW.GLFW_PRESS ? "PRESS" : (action == GLFW.GLFW_RELEASE ? "RELEASE" : "REPEAT");
+        String type = action == InputConstants.PRESS ? "PRESS" : (action == InputConstants.RELEASE ? "RELEASE" : "REPEAT");
         String held = getActiveKeysString();
         String msg = String.format("%s %s (%d, m: %d), held: %s", type, keyName, keyCode, modifiers, held);
         String msgConsole = String.format("%s %s (keyCode: %d, scanCode: %d, modifiers: %d), held keys: %s",
                                           type, keyName, keyCode, scanCode, modifiers, held);
 
-        if (action != GLFW.GLFW_REPEAT)
+        if (action != InputConstants.REPEAT)
         {
             MaLiLib.LOGGER.info(msgConsole);
         }

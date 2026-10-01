@@ -15,7 +15,7 @@ import net.minecraft.advancements.predicates.MinMaxBounds;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
-import net.minecraft.core.RegistryCodecs;
+import net.minecraft.core.registries.codec.RegistryCodecs;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
@@ -51,7 +51,7 @@ public record LightSourceLocationPredicate(
 	public static final Codec<LightSourceLocationPredicate> CODEC = RecordCodecBuilder.create(
 			instance -> instance.group(
 							PositionPredicate.CODEC.optionalFieldOf("position").forGetter(LightSourceLocationPredicate::position),
-							RegistryCodecs.homogeneousList(Registries.BIOME).optionalFieldOf("biomes").forGetter(LightSourceLocationPredicate::biomes),
+							RegistryCodecs.holderSet(Registries.BIOME).optionalFieldOf("biomes").forGetter(LightSourceLocationPredicate::biomes),
 							ResourceKey.codec(Registries.DIMENSION).optionalFieldOf("dimension").forGetter(LightSourceLocationPredicate::dimension),
 							Codec.BOOL.optionalFieldOf("smokey").forGetter(LightSourceLocationPredicate::smokey),
 							LightSourceLightPredicate.CODEC.optionalFieldOf("light").forGetter(LightSourceLocationPredicate::light),

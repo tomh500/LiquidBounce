@@ -1545,7 +1545,7 @@ public class InventoryUtils
         // Using itemContainer.copyTo() does not preserve empty stacks.
         if (itemContainer != null)
         {
-            long defSlotCount = itemContainer.allItemsCopyStream().count();
+            long defSlotCount = itemContainer.itemCopies().count();
 
             // ContainerComponent.MAX_SLOTS = 256
             if (slotCount < 1)
@@ -1558,7 +1558,7 @@ public class InventoryUtils
             }
 
             NonNullList<ItemStack> items = NonNullList.createWithCapacity(slotCount);
-            Iterator<ItemStack> iter = itemContainer.allItemsCopyStream().iterator();
+            Iterator<ItemStack> iter = itemContainer.itemCopies().iterator();
 
             for (int i = 0; i < slotCount; i++)
             {
@@ -1652,7 +1652,7 @@ public class InventoryUtils
         {
             int maxSlots = bundleContainer.size();
             NonNullList<ItemStack> items = NonNullList.createWithCapacity(maxSlots);
-            Iterator<ItemStack> iter = bundleContainer.itemCopyStream().iterator();
+            Iterator<ItemStack> iter = bundleContainer.itemCopies().iterator();
 
             while (iter.hasNext())
             {
@@ -1695,7 +1695,7 @@ public class InventoryUtils
             }
 
             NonNullList<ItemStack> items = NonNullList.createWithCapacity(maxSlots);
-            Iterator<ItemStack> iter = bundleContainer.itemCopyStream().iterator();
+            Iterator<ItemStack> iter = bundleContainer.itemCopies().iterator();
             int limit = 0;
 
             while (iter.hasNext() && limit < maxSlots)

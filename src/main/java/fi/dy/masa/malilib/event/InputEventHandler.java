@@ -10,7 +10,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.ApiStatus;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 import fi.dy.masa.malilib.MaLiLib;
 import fi.dy.masa.malilib.MaLiLibConfigs;
 import fi.dy.masa.malilib.gui.Message;
@@ -136,7 +136,7 @@ public class InputEventHandler implements IKeybindManager, IInputManager
     @ApiStatus.Internal
     public boolean onKeyInput(KeyEvent input, int action, @Nonnull Minecraft mc)
     {
-        boolean eventKeyState = action != GLFW.GLFW_RELEASE;
+        boolean eventKeyState = action != InputConstants.RELEASE;
 
         // Update the cached pressed keys status
         KeybindMulti.onKeyInputPre(input, action);
@@ -165,7 +165,7 @@ public class InputEventHandler implements IKeybindManager, IInputManager
 
         if (click.input() != -1)
         {
-            boolean eventButtonState = action == GLFW.GLFW_PRESS;
+            boolean eventButtonState = action == InputConstants.PRESS;
 
             // Update the cached pressed keys status
 			KeybindMulti.onKeyInputPre(new KeyEvent(click.input() - 100, 0, 0), action);

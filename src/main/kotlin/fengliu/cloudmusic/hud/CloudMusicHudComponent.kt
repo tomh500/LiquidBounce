@@ -30,7 +30,7 @@ import net.ccbluex.liquidbounce.utils.render.Alignment
 import net.ccbluex.liquidbounce.utils.render.textureSetup
 import net.minecraft.client.gui.screens.ChatScreen
 import net.minecraft.client.renderer.RenderPipelines
-import org.lwjgl.glfw.GLFW
+import com.mojang.blaze3d.platform.InputConstants
 import kotlin.math.roundToLong
 
 /** Original CloudMusic information panel, adapted to the LiquidBounce font. */
@@ -86,7 +86,7 @@ object CloudMusicHudComponent : NativeHudComponent(
             drawCloudMusicText("RikkaMusic QR", x, y + size + 6f, CloudMusicGui.smallScale, CloudMusicGui.TEXT)
         }
     }
-    private val releaseHandler = handler<MouseButtonEvent> { if (it.button == GLFW.GLFW_MOUSE_BUTTON_LEFT && it.action == GLFW.GLFW_RELEASE) seeking = false }
+    private val releaseHandler = handler<MouseButtonEvent> { if (it.button == InputConstants.MOUSE_BUTTON_LEFT && it.action == InputConstants.RELEASE) seeking = false }
     private val dragHandler = handler<MouseCursorEvent> { event ->
         if (seeking && mc.gui.screen() is ChatScreen) handleChatPointer(event.x * mc.window.guiScaledWidth / mc.window.screenWidth, event.y * mc.window.guiScaledHeight / mc.window.screenHeight)
     }

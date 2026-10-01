@@ -24,7 +24,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -186,7 +186,7 @@ public class SpruceOptionListWidget extends SpruceEntryListWidget<SpruceOptionLi
 			} while (!element.mouseClicked(event, doubleClick));
 
 			this.setFocused(element);
-			if (event.button() == GLFW.GLFW_MOUSE_BUTTON_1)
+			if (event.button() == InputConstants.MOUSE_BUTTON_LEFT)
 				this.dragging = true;
 
 			return true;
@@ -202,7 +202,7 @@ public class SpruceOptionListWidget extends SpruceEntryListWidget<SpruceOptionLi
 
 		@Override
 		protected boolean onMouseDrag(MouseButtonEvent event, double deltaX, double deltaY) {
-			return this.getFocused() != null && this.dragging && event.button() == GLFW.GLFW_MOUSE_BUTTON_1
+			return this.getFocused() != null && this.dragging && event.button() == InputConstants.MOUSE_BUTTON_LEFT
 					&& this.getFocused().mouseDragged(event, deltaX, deltaY);
 		}
 

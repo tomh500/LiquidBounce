@@ -55,7 +55,6 @@ public abstract class MixinEntity implements INbtEntityInvoker
     @Shadow @Final private static EntityDataAccessor<@NotNull Boolean> DATA_NO_GRAVITY;
     @Shadow @Final private static EntityDataAccessor<@NotNull Integer> DATA_TICKS_FROZEN;
     @Shadow private int portalCooldown;
-    @Shadow private boolean invulnerable;
     @Shadow private boolean hasGlowingTag;
     @Shadow private boolean hasVisualFire;
     @Shadow @Final private Set<String> tags;
@@ -89,7 +88,7 @@ public abstract class MixinEntity implements INbtEntityInvoker
             nbt.putShort(NbtKeys.FIRE, (short) this.remainingFireTicks);
             nbt.putShort(NbtKeys.AIR, this.entityData.get(DATA_AIR_SUPPLY_ID).shortValue());
             nbt.putBoolean(NbtKeys.ON_GROUND, this.onGround);
-            nbt.putBoolean(NbtKeys.INVULNERABLE, this.invulnerable);
+            nbt.putBoolean(NbtKeys.INVULNERABLE, ((Entity) (Object) this).isInvulnerable());
             nbt.putInt(NbtKeys.PORTAL_COOLDOWN, this.portalCooldown);
             nbt.store(NbtKeys.UUID, UUIDUtil.CODEC, this.uuid);
 

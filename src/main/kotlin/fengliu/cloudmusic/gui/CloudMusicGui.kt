@@ -69,7 +69,7 @@ object CloudMusicGui {
     val smallScale get() = fontScale * 1.05f
 
     fun textWidth(text: String, scale: Float = bodyScale, shadow: Boolean = false): Float =
-        fontRenderer.getStringWidth(fontRenderer.process(text), shadow) * scale
+        fontRenderer.getStringWidth(text.asPlainText(), scale, shadow)
 
     fun truncate(text: String, maxWidth: Float, scale: Float = bodyScale): String {
         if (text.isEmpty()) {
@@ -108,12 +108,12 @@ fun drawCloudMusicText(
     horizontalAnchor: HorizontalAnchor = HorizontalAnchor.START,
     verticalAnchor: VerticalAnchor = VerticalAnchor.TOP,
 ): Float {
-    val processed = CloudMusicGui.fontRenderer.process(text, color)
-    CloudMusicGui.fontRenderer.draw(processed) {
+    CloudMusicGui.fontRenderer.draw(text.asPlainText()) {
         this.x = x
         this.y = y
         this.scale = scale
         this.shadow = shadow
+        this.color = color
         this.horizontalAnchor = horizontalAnchor
         this.verticalAnchor = verticalAnchor
     }
@@ -133,12 +133,12 @@ fun drawCloudMusicTextBold(
     verticalAnchor: VerticalAnchor = VerticalAnchor.TOP,
 ): Float {
     val component = text.asPlainText(ChatFormatting.BOLD)
-    val processed = CloudMusicGui.fontRenderer.process(component, color)
-    CloudMusicGui.fontRenderer.draw(processed) {
+    CloudMusicGui.fontRenderer.draw(component) {
         this.x = x
         this.y = y
         this.scale = scale
         this.shadow = shadow
+        this.color = color
         this.horizontalAnchor = horizontalAnchor
         this.verticalAnchor = verticalAnchor
     }

@@ -13,7 +13,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.input.KeyEvent
 import net.minecraft.client.input.MouseButtonEvent
-import org.lwjgl.glfw.GLFW
+import com.mojang.blaze3d.platform.InputConstants
 
 /** QR login uses real window coordinates; no full-screen canvas is scaled. */
 class CloudMusicLoginScreen : Screen("RikkaMusic 登录".asPlainText()) {
@@ -62,7 +62,7 @@ class CloudMusicLoginScreen : Screen("RikkaMusic 登录".asPlainText()) {
     }
 
     override fun keyPressed(input: KeyEvent): Boolean {
-        if (input.key() == GLFW.GLFW_KEY_ESCAPE) { mc.gui.setScreen(CloudMusicScreen()); return true }
+        if (input.key() == InputConstants.KEY_ESCAPE) { mc.gui.setScreen(CloudMusicScreen()); return true }
         return super.keyPressed(input)
     }
 

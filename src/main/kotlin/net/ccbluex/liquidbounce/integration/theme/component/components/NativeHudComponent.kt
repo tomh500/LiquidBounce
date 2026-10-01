@@ -19,12 +19,14 @@
 
 package net.ccbluex.liquidbounce.integration.theme.component.components
 
+import net.ccbluex.liquidbounce.features.addon.AddonApi
 import net.ccbluex.liquidbounce.integration.theme.component.HudComponent
 import net.ccbluex.liquidbounce.integration.theme.component.HudComponentManager
 import net.ccbluex.liquidbounce.integration.theme.component.HudComponentTweak
 import net.ccbluex.liquidbounce.render.engine.type.BoundingBox2f
 import net.ccbluex.liquidbounce.utils.render.Alignment
 
+@AddonApi
 abstract class NativeHudComponent(
     name: String,
     enabled: Boolean,

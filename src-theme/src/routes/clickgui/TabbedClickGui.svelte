@@ -16,6 +16,9 @@
     import type {ClickGuiValueChangeEvent, ScaleFactorChangeEvent} from "../../integration/events";
     import HudEditor from "./tabs/hud_editor/HudEditor.svelte";
     import {clientLanguage, settingsText} from "./settings_i18n";
+    import {persistentDataLoaded, setItem} from "../../integration/persistent_storage";
+
+    const TAB_KEY = "clickgui.tab";
 
     const tabs = $derived([
         {title: "ClickGUI", content: ClickGui},
@@ -24,6 +27,7 @@
     ]);
 
     let activeTab = $state(0);
+    let tabRestored = false;
     let minecraftScaleFactor = $state(2);
     let clickGuiScaleFactor = $state(1);
     let initialized = $state(false);
@@ -31,6 +35,22 @@
     $effect(() => {
         $scaleFactor = minecraftScaleFactor * clickGuiScaleFactor;
     });
+
+    $effect(() => {
+        const title = tabs[activeTab].title;
+        if (tabRestored) {
+            setItem(TAB_KEY, title);
+        }
+    });
+
+    async function restoreTab() {
+        await persistentDataLoaded;
+        const stored = tabs.findIndex(tab => tab.title === localStorage.getItem(TAB_KEY));
+        if (stored >= 0) {
+            activeTab = stored;
+        }
+        tabRestored = true;
+    }
 
     function applyValues(configurable: ConfigurableSetting) {
         const scaleValue = configurable.value.find(v => v.name === "Scale");
@@ -49,6 +69,7 @@
     onMount(async () => {
         try {
             await setHudEditorSelected(false);
+            restoreTab();
 
             const clientInfo = await getClientInfo();
             $os = clientInfo.os;

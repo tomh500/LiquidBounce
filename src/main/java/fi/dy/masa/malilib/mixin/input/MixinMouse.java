@@ -26,7 +26,8 @@ public abstract class MixinMouse
             at = @At(value = "FIELD", target = "Lnet/minecraft/client/MouseHandler;ignoreFirstMove:Z",
                      ordinal = 0,
                      opcode = Opcodes.GETFIELD))
-    private void malilib_hookOnMouseMove(long handle, double xpos, double ypos, CallbackInfo ci)
+    private void malilib_hookOnMouseMove(long handle, double xpos, double ypos,
+                                        double deltaX, double deltaY, CallbackInfo ci)
     {
 		Window clientWindow = this.minecraft.getWindow();
 		double mouseX = ((MouseHandler) (Object) this).xpos() * (double) clientWindow.getGuiScaledWidth() / (double) clientWindow.getScreenWidth();
@@ -52,9 +53,7 @@ public abstract class MixinMouse
         }
     }
 
-    @Inject(method = "onButton", cancellable = true,
-            at = @At(value = "INVOKE",
-					 target = "Lnet/minecraft/client/MouseHandler;simulateRightClick(Lnet/minecraft/client/input/MouseButtonInfo;Z)Lnet/minecraft/client/input/MouseButtonInfo;"))
+    @Inject(method = "onButton", cancellable = true, at = @At("HEAD"))
     private void malilib_hookOnMouseClick(long handle, MouseButtonInfo rawButtonInfo, int action, CallbackInfo ci)
     {
         Window clientWindow = this.minecraft.getWindow();

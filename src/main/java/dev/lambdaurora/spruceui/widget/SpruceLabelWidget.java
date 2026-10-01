@@ -21,7 +21,7 @@ import dev.lambdaurora.spruceui.util.ColorUtil;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.List;
 import java.util.Objects;
@@ -201,7 +201,7 @@ public class SpruceLabelWidget extends AbstractSpruceWidget implements Tooltipab
 
 	@Override
 	protected boolean onMouseClick(MouseButtonEvent event, boolean doubleClick) {
-		if (event.button() == GLFW.GLFW_MOUSE_BUTTON_1) {
+		if (event.button() == InputConstants.MOUSE_BUTTON_LEFT) {
 			if (this.hovered) {
 				this.onPress();
 				return true;

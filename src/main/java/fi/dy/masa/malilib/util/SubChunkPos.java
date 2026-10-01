@@ -15,7 +15,7 @@ public class SubChunkPos extends Vec3i
 {
     public static final Codec<SubChunkPos> BLOCK_POS_CODEC = RecordCodecBuilder.create(
             inst -> inst.group(
-                    BlockPos.CODEC.fieldOf("pos").forGetter(BlockPos::new)
+                    BlockPos.CODEC.fieldOf("pos").forGetter(pos -> new BlockPos(pos.getX(), pos.getY(), pos.getZ()))
             ).apply(inst, SubChunkPos::new)
     );
     public static final Codec<SubChunkPos> VEC3I_CODEC = RecordCodecBuilder.create(

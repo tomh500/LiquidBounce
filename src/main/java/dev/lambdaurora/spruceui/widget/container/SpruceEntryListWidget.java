@@ -32,7 +32,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.AbstractList;
 import java.util.Collection;
@@ -307,14 +307,14 @@ public abstract class SpruceEntryListWidget<E extends SpruceEntryListWidget.Entr
 
 	@Override
 	protected boolean onMouseClick(MouseButtonEvent event, boolean doubleClick) {
-		this.scrolling = event.button() == GLFW.GLFW_MOUSE_BUTTON_1 && event.x() >= this.getScrollbarPositionX() && event.x() < (this.getScrollbarPositionX() + 6);
+		this.scrolling = event.button() == InputConstants.MOUSE_BUTTON_LEFT && event.x() >= this.getScrollbarPositionX() && event.x() < (this.getScrollbarPositionX() + 6);
 		return super.onMouseClick(event, doubleClick) || this.scrolling;
 	}
 
 	@Override
 	protected boolean onMouseDrag(MouseButtonEvent event, double deltaX, double deltaY) {
 		if (super.onMouseDrag(event, deltaX, deltaY)) return true;
-		else if (event.button() == GLFW.GLFW_MOUSE_BUTTON_1 && this.scrolling) {
+		else if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && this.scrolling) {
 			if (event.y() < this.getY()) {
 				this.setScrollAmount(0);
 			} else if (event.y() > (this.getY() + this.getHeight())) {

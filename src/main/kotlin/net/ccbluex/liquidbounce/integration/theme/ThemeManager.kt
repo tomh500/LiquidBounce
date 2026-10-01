@@ -34,14 +34,15 @@ import net.ccbluex.liquidbounce.integration.backend.browser.BrowserSettings
 import net.ccbluex.liquidbounce.integration.backend.input.InputAcceptor
 import net.ccbluex.liquidbounce.integration.screen.CustomScreenType
 import net.ccbluex.liquidbounce.integration.screen.ScreenManager
+import net.ccbluex.liquidbounce.integration.screen.impl.CustomStandaloneMinecraftScreen
 import net.ccbluex.liquidbounce.utils.client.clientLogger
 import net.ccbluex.liquidbounce.utils.client.env
 import net.ccbluex.liquidbounce.utils.client.mc
+import net.ccbluex.liquidbounce.utils.kotlin.SimpleReloadListener
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.ChatScreen
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen
 import net.minecraft.client.gui.components.EditBox
-import net.minecraft.server.packs.resources.ResourceManagerReloadListener
 import java.io.File
 import java.util.concurrent.CompletableFuture
 
@@ -95,6 +96,7 @@ object ThemeManager : Config("theme") {
     private val takesInputHandler = InputAcceptor {
         val screen = mc.gui.screen()
         screen != null && screen !is ChatScreen &&
+            screen !is CustomStandaloneMinecraftScreen &&
             !(screen is CreativeModeInventoryScreen && screen.focused is EditBox)
     }
 
@@ -119,9 +121,15 @@ object ThemeManager : Config("theme") {
 
     val isBasicMode get() = BASIC_MODE_OVERRIDE ?: basicMode
 
-    internal val reloader = ResourceManagerReloadListener { resourceManager ->
-        themes.forEach { it.onResourceManagerReload(resourceManager) }
-        logger.info("Reloaded ${themes.size} themes.")
+    /**
+     * Reloads all loaded themes asynchronously.
+     */
+    internal val reloader = object : SimpleReloadListener.Sequenced {
+        override fun children() = themes
+
+        override fun onFinished(futures: List<*>) {
+            logger.info("Reloaded ${futures.size} themes.")
+        }
     }
 
     init {

@@ -30,10 +30,9 @@ import net.ccbluex.liquidbounce.utils.client.mc
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.KeyMapping
-import com.mojang.blaze3d.platform.InputConstants
 import net.minecraft.client.input.CharacterEvent
 import net.minecraft.client.input.KeyEvent
-import org.lwjgl.glfw.GLFW
+import com.mojang.blaze3d.platform.InputConstants
 
 class CustomStandaloneMinecraftScreen(
     val screenType: CustomScreenType
@@ -60,7 +59,7 @@ class CustomStandaloneMinecraftScreen(
         if (screenType == CustomScreenType.RIKKAMUSIC) {
             // Keep the native IME active while the browser owns the text input.
             // Minecraft otherwise disables it every tick for non-chat screens.
-            mc.textInputManager().startTextInput()
+            mc.textInputManager().startTextInput(this)
         }
         mc.mouseHandler.setPosition(mouseX, mouseY)
     }
@@ -106,7 +105,7 @@ class CustomStandaloneMinecraftScreen(
     // here keeps Minecraft's screen/keybinding handling from stealing IME
     // composition while a web input (such as the music search field) is focused.
     override fun keyPressed(event: KeyEvent): Boolean {
-        if (event.key() == GLFW.GLFW_KEY_ESCAPE) {
+        if (event.key() == InputConstants.KEY_ESCAPE) {
             mc.gui.setScreen(null)
         }
         syncInventoryMoveKey(event, true)

@@ -64,6 +64,7 @@ import net.ccbluex.liquidbounce.features.command.commands.ingame.creative.Comman
 import net.ccbluex.liquidbounce.features.command.commands.ingame.creative.CommandItemRename
 import net.ccbluex.liquidbounce.features.command.commands.ingame.creative.CommandItemSkull
 import net.ccbluex.liquidbounce.features.command.commands.ingame.creative.CommandItemStack
+import net.ccbluex.liquidbounce.features.command.commands.ingame.CommandMapImage
 import net.ccbluex.liquidbounce.features.command.commands.ingame.fakeplayer.CommandFakePlayer
 import net.ccbluex.liquidbounce.features.command.commands.module.CommandAutoAccount
 import net.ccbluex.liquidbounce.features.command.commands.module.CommandAutoDisable
@@ -141,6 +142,7 @@ object CommandManager : EventListener {
         register(CommandUsername)
         register(CommandClear)
         register(CommandCoordinates)
+        register(CommandMapImage)
         register(CommandHide)
         register(CommandPanic)
         register(CommandSay)

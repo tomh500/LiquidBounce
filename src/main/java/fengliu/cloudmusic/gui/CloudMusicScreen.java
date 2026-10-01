@@ -22,7 +22,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -428,7 +428,7 @@ public final class CloudMusicScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent e, boolean doubled) {
-        if (e.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT) return true;
+        if (e.button() != InputConstants.MOUSE_BUTTON_LEFT) return true;
         float mx = lx((float)e.x()), my = ly((float)e.y());
         if (mx < 0 || mx > DESIGN_WIDTH || my < 0 || my > DESIGN_HEIGHT) return true;
 
@@ -549,14 +549,14 @@ public final class CloudMusicScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent e) {
-        if (e.key() == GLFW.GLFW_KEY_ESCAPE) {
+        if (e.key() == InputConstants.KEY_ESCAPE) {
             if (searchActive) { searchActive = false; return true; }
             Minecraft.getInstance().gui.setScreen(null); return true;
         }
-        if (searchActive && e.key() == GLFW.GLFW_KEY_BACKSPACE && !searchText.isEmpty()) {
+        if (searchActive && e.key() == InputConstants.KEY_BACKSPACE && !searchText.isEmpty()) {
             searchText = searchText.substring(0, searchText.length()-1); return true;
         }
-        if (searchActive && e.key() == GLFW.GLFW_KEY_ENTER && !searchText.isEmpty()) {
+        if (searchActive && e.key() == InputConstants.KEY_RETURN && !searchText.isEmpty()) {
             runSearch(searchText); return true;
         }
         return super.keyPressed(e);

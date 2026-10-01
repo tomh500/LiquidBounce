@@ -26,7 +26,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import org.jspecify.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.Objects;
 
@@ -107,7 +107,7 @@ public abstract class AbstractSpruceButtonWidget extends AbstractSpruceWidget im
 	/* Input */
 
 	protected boolean isValidClickButton(int button) {
-		return button == GLFW.GLFW_MOUSE_BUTTON_1;
+		return button == InputConstants.MOUSE_BUTTON_LEFT;
 	}
 
 	@Override

@@ -33,10 +33,10 @@ import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.ModuleKi
 import net.ccbluex.liquidbounce.utils.client.clientLogger
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.io.createZipArchive
-import net.ccbluex.liquidbounce.utils.io.extractZip
 import java.io.File
 import java.io.Reader
 import java.io.Writer
+import java.util.zip.ZipFile
 
 internal fun deserializeLeafValue(value: Value<*>, jsonObject: JsonObject) {
     if (value is ChoiceListValue<*> && jsonObject.has("active")) {
@@ -211,11 +211,14 @@ object ConfigSystem {
         val zipFile = File(backupFolder, "$fileName.zip")
         check(zipFile.exists()) { "Backup file does not exist" }
 
-        // Store all configs to make sure they are up to date,
-        // before we overwrite some of them through [extractZip]
-        storeAll()
-        extractZip(zipFile, rootFolder)
-        loadAll()
+        // The backup holds the json files of the configs, which load straight from it
+        ZipFile(zipFile).use { zip ->
+            for (config in configs) {
+                val entry = zip.getEntry(config.jsonFile.name) ?: continue
+                deserializeValueGroup(config, zip.getInputStream(entry).bufferedReader())
+                store(config)
+            }
+        }
     }
 
     /**

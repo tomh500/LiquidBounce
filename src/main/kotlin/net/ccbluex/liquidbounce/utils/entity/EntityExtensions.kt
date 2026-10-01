@@ -27,24 +27,25 @@ import net.ccbluex.liquidbounce.interfaces.ClientInputAddition
 import net.ccbluex.liquidbounce.interfaces.LocalPlayerAddition
 import net.ccbluex.liquidbounce.utils.aiming.data.Rotation
 import net.ccbluex.liquidbounce.utils.block.DIRECTIONS_EXCLUDING_UP
-import net.ccbluex.liquidbounce.utils.block.collisionShape
-import net.ccbluex.liquidbounce.utils.block.getBlock
 import net.ccbluex.liquidbounce.utils.block.isBlastResistant
 import net.ccbluex.liquidbounce.utils.block.raycast
 import net.ccbluex.liquidbounce.utils.client.isBlocksAttacksExisting
 import net.ccbluex.liquidbounce.utils.client.isOlderThanOrEqual1_8
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.client.player
+import net.ccbluex.liquidbounce.utils.client.world
 import net.ccbluex.liquidbounce.utils.item.getEnchantment
 import net.ccbluex.liquidbounce.utils.item.isSword
 import net.ccbluex.liquidbounce.utils.math.allEmpty
 import net.ccbluex.liquidbounce.utils.math.anyNotEmpty
 import net.ccbluex.liquidbounce.utils.math.copy
 import net.ccbluex.liquidbounce.utils.math.fma
-import net.ccbluex.liquidbounce.utils.math.iterateBottomLayerBlockPos
+import net.ccbluex.liquidbounce.utils.math.intersects
 import net.ccbluex.liquidbounce.utils.math.minus
 import net.ccbluex.liquidbounce.utils.movement.DirectionalInput
 import net.ccbluex.liquidbounce.utils.movement.findEdgeCollision
+import net.ccbluex.liquidbounce.utils.world.anyMatched
+import net.ccbluex.liquidbounce.utils.world.findBlocksIntersects
 import net.minecraft.client.player.ClientInput
 import net.minecraft.client.player.LocalPlayer
 import net.minecraft.core.BlockPos
@@ -89,6 +90,7 @@ import net.minecraft.world.phys.Vec2
 import net.minecraft.world.phys.Vec3
 import net.minecraft.world.phys.shapes.EntityCollisionContext
 import net.minecraft.world.scores.DisplaySlot
+import net.minecraft.world.scores.PlayerTeam
 import java.lang.Math.fma
 import kotlin.math.acos
 import kotlin.math.cos
@@ -159,7 +161,7 @@ private fun LivingEntity.getBlockedDamage(source: DamageSource, damageAmount: Fl
     }
 
     val horizontalAngle = source.sourcePosition?.let { sourcePosition ->
-        val viewVector = calculateViewVector(0.0F, yHeadRot)
+        val viewVector = Entity.calculateViewVector(0.0F, yHeadRot)
         val sourceDirection = sourcePosition
             .subtract(position())
             .copy(y = 0.0)
@@ -189,6 +191,12 @@ val ClientInput.initial: Input
 
 val Player.ping: Int
     get() = mc.connection?.getPlayerInfo(uuid)?.latency ?: 0
+
+/**
+ * @see Entity.getDisplayName
+ */
+val Entity.simpleDisplayName
+    get() = this.team?.getFormattedName(this.name) ?: this.name
 
 val InteractionHand.opposite: InteractionHand
     get() = if (this === InteractionHand.MAIN_HAND) InteractionHand.OFF_HAND else InteractionHand.MAIN_HAND
@@ -865,10 +873,14 @@ fun AABB.isOnMagmaBlock(): Boolean {
     val expandedBox = inflate(0.0, 0.1, 0.0)
         .move(0.0, -0.1, 0.0)
 
-    return expandedBox.iterateBottomLayerBlockPos().any {
-        it.getBlock() is MagmaBlock &&
-            expandedBox.intersects(it.collisionShape.bounds().move(it))
-    }
+    // Scan the blocks in the bottom layer of the expanded box with the vanilla block scan API,
+    // keeping the per-block collision shape check from the original implementation.
+    return world.findBlocksIntersects(expandedBox.setMaxY(expandedBox.minY))
+        .filterState { it.block is MagmaBlock }
+        .anyMatched { pos, state ->
+            val shape = state.getCollisionShape(world, pos)
+            shape intersects expandedBox
+        }
 }
 
 val Entity?.cameraDistance: Float

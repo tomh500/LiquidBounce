@@ -50,7 +50,6 @@ import net.ccbluex.liquidbounce.render.engine.type.Color4b
 import net.ccbluex.liquidbounce.render.renderEnvironment
 import net.ccbluex.liquidbounce.render.utils.AnimatedValueGroup
 import net.ccbluex.liquidbounce.render.withPositionRelativeToCamera
-import net.ccbluex.liquidbounce.utils.text.asPlainText
 import net.ccbluex.liquidbounce.utils.client.clientStartDurationMs
 import net.ccbluex.liquidbounce.utils.text.plus
 import net.ccbluex.liquidbounce.utils.math.toRadians
@@ -61,6 +60,7 @@ import net.ccbluex.liquidbounce.utils.entity.lastRenderPos
 import net.ccbluex.liquidbounce.utils.math.minus
 import net.ccbluex.liquidbounce.utils.math.toDegrees
 import net.ccbluex.liquidbounce.utils.render.WorldToScreen.calculateScreenPos
+import net.ccbluex.liquidbounce.utils.text.withFormat
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.network.chat.Style
 import net.minecraft.util.Mth
@@ -186,8 +186,8 @@ private sealed class TargetRenderAppearance<Ctx : Any>(name: String) : Mode(name
                         translate(translationsBefore(sin, cos))
 
                         translate(-size / 2.0, -size / 2.0, 0.0)
-                        mulPose(Axis.YP.rotationDegrees(-camera.yRot()))
-                        mulPose(Axis.XP.rotationDegrees(camera.xRot()))
+                        rotate(Axis.YP.rotationDegrees(-camera.yRot()))
+                        rotate(Axis.XP.rotationDegrees(camera.xRot()))
                         translate(size / 2.0, size / 2.0, 0.0)
                     }
 
@@ -198,8 +198,8 @@ private sealed class TargetRenderAppearance<Ctx : Any>(name: String) : Mode(name
 
                     with(poseStack) {
                         translate(-size / 2.0, -size / 2.0, 0.0)
-                        mulPose(Axis.XP.rotationDegrees(-camera.xRot()))
-                        mulPose(Axis.YP.rotationDegrees(camera.yRot()))
+                        rotate(Axis.XP.rotationDegrees(-camera.xRot()))
+                        rotate(Axis.YP.rotationDegrees(camera.yRot()))
                         translate(size / 2.0, size / 2.0, 0.0)
 
                         translate(translateAfter(sin, cos))
@@ -278,8 +278,8 @@ private sealed class TargetRenderAppearance<Ctx : Any>(name: String) : Mode(name
                 val pos = entity.interpolateCurrentPosition(partialTicks).add(0.0, height, 0.0)
 
                 withPositionRelativeToCamera(pos) {
-                    poseStack.mulPose(camera.rotation())
-                    poseStack.mulPose(
+                    poseStack.rotate(camera.rotation())
+                    poseStack.rotate(
                         quaternion.scaling(1f)
                             .rotateLocalZ(rotate.current().toRadians())
                     )
@@ -512,7 +512,7 @@ private sealed class TargetRenderAppearance<Ctx : Any>(name: String) : Mode(name
                 withPositionRelativeToCamera(pos) {
                     val directionToTarget = targetPos.subtract(pos)
                     val targetYaw = atan2(directionToTarget.x, directionToTarget.z).toDegrees().toFloat()
-                    poseStack.mulPose(Axis.YP.rotationDegrees(targetYaw))
+                    poseStack.rotate(Axis.YP.rotationDegrees(targetYaw))
 
                     drawHeartSDF(color.alpha((color.a * 0.25f).toInt()), size, fill = 1f)
                     drawHeartSDF(color, size, fill)
@@ -621,7 +621,7 @@ private sealed class TargetRenderAppearance<Ctx : Any>(name: String) : Mode(name
                 val screenPos = calculateScreenPos(pos) ?: return
 
                 texts.forEachIndexed { i, text ->
-                    fontRenderer.draw(text.asPlainText(style)) {
+                    fontRenderer.draw(text.withFormat(style)) {
                         horizontalAnchor = HorizontalAnchor.CENTER
                         verticalAnchor = VerticalAnchor.MIDDLE
                         x = screenPos.x

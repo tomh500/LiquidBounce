@@ -13,7 +13,6 @@ package net.ccbluex.liquidbounce.api.services.client
 import net.ccbluex.liquidbounce.api.core.HttpClient
 import net.ccbluex.liquidbounce.api.core.HttpMethod
 import net.ccbluex.liquidbounce.api.core.parse
-import net.ccbluex.liquidbounce.api.models.client.AutoSettings
 
 /**
  * Static configuration source hosted by the CloudServer GitHub Pages site.
@@ -22,9 +21,6 @@ import net.ccbluex.liquidbounce.api.models.client.AutoSettings
 object CloudServerApi {
 
     const val BASE_URL = "https://luotiany1.top/LiquidBounce"
-
-    suspend fun requestSettingsList(): Array<AutoSettings> =
-        HttpClient.request("$BASE_URL/config/list", HttpMethod.GET).parse()
 
     suspend fun requestSettingsScript(settingId: String): String =
         HttpClient.request("$BASE_URL/config/$settingId.json", HttpMethod.GET).parse()

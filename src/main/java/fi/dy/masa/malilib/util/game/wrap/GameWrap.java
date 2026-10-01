@@ -278,7 +278,7 @@ public class GameWrap
     public static void openFile(Path file)
     {
         //OpenGlHelper.openFile(file.toFile());
-        Util.getPlatform().openPath(file);
+        com.mojang.blaze3d.Blaze3D.openPath(file);
     }
 
     @Nullable

@@ -2,14 +2,14 @@ package fi.dy.masa.malilib.mixin.render;
 
 import java.util.Map;
 
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.BlendFactor;
-import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.platform.PolygonMode;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.BlendFactor;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.PolygonMode;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
@@ -59,7 +59,8 @@ public abstract class MixinRenderPipelines
 			    RenderPipeline.builder()
 			                  .withVertexShader(getId("int_position_color"))
 			                  .withFragmentShader(getId("int_position_color"))
-			                  .withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION)
+			                  .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
+                              .withBindGroupLayout(BindGroupLayouts.PROJECTION)
 //			                  .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
 			                  .withPrimitiveTopology(PrimitiveTopology.QUADS)
 			                  .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
@@ -255,7 +256,8 @@ public abstract class MixinRenderPipelines
                               .withVertexShader(getId("position_color_lines"))
                               .withFragmentShader(getId("position_color_lines"))
 //			                  .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, VertexFormat.Mode.LINES)
-                              .withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION)
+                              .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
+                              .withBindGroupLayout(BindGroupLayouts.PROJECTION)
 			                  .withPrimitiveTopology(PrimitiveTopology.LINES)
 			                  .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH)
 			                  .buildSnippet();
@@ -423,7 +425,8 @@ public abstract class MixinRenderPipelines
 			    RenderPipeline.builder()
 			                  .withVertexShader(getId("int_position_tex_color"))
 			                  .withFragmentShader(getId("int_position_tex_color"))
-			                  .withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION)
+			                  .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
+                              .withBindGroupLayout(BindGroupLayouts.PROJECTION)
 //			                  .withSampler("Sampler0")
 //			                  .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS)
                               .withBindGroupLayout(BindGroupLayouts.SAMPLER0)
@@ -560,7 +563,8 @@ public abstract class MixinRenderPipelines
 			    RenderPipeline.builder()
                               .withVertexShader(getId("position_color_lines"))
                               .withFragmentShader(getId("position_color_lines"))
-			                  .withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION)
+			                  .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
+                              .withBindGroupLayout(BindGroupLayouts.PROJECTION)
 //			                  .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, VertexFormat.Mode.DEBUG_LINES)
 			                  .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH)
 			                  .withPrimitiveTopology(PrimitiveTopology.DEBUG_LINES)
@@ -681,7 +685,8 @@ public abstract class MixinRenderPipelines
 			    RenderPipeline.builder()
                               .withVertexShader(getId("position_color_lines"))
                               .withFragmentShader(getId("position_color_lines"))
-                              .withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION)
+                              .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
+                              .withBindGroupLayout(BindGroupLayouts.PROJECTION)
 //			                  .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, VertexFormat.Mode.DEBUG_LINE_STRIP)
 			                  .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH)
 			                  .withPrimitiveTopology(PrimitiveTopology.DEBUG_LINE_STRIP)
@@ -805,7 +810,8 @@ public abstract class MixinRenderPipelines
 			    RenderPipeline.builder()
 			                  .withVertexShader(getId("legacy_terrain"))
 			                  .withFragmentShader(getId("legacy_terrain"))
-			                  .withBindGroupLayout(BindGroupLayouts.MATRICES_PROJECTION)
+			                  .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
+                              .withBindGroupLayout(BindGroupLayouts.PROJECTION)
 			                  .withBindGroupLayout(BindGroupLayouts.FOG)
 			                  .withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER2)
 			                  .withBindGroupLayout(MaLiLibPipelines.LEGACY_TERRAIN_GROUP)

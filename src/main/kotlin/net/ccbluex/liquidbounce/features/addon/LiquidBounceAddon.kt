@@ -20,6 +20,7 @@ package net.ccbluex.liquidbounce.features.addon
 
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.tree.LiteralCommandNode
+import net.ccbluex.liquidbounce.api.models.marketplace.MarketplaceItemType
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.config.types.Config
 import net.ccbluex.liquidbounce.config.types.group.Mode
@@ -31,12 +32,16 @@ import net.ccbluex.liquidbounce.event.events.RefreshArrayListEvent
 import net.ccbluex.liquidbounce.features.command.CommandManager
 import net.ccbluex.liquidbounce.features.command.CommandRegistrar
 import net.ccbluex.liquidbounce.features.command.brigadier.ClientCommandSource
+import net.ccbluex.liquidbounce.features.marketplace.MarketplaceItemHandler
+import net.ccbluex.liquidbounce.features.marketplace.MarketplaceManager
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.MinecraftShortcuts
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.ModuleCategory
 import net.ccbluex.liquidbounce.features.module.ModuleManager
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleClickGui
+import net.ccbluex.liquidbounce.integration.backend.BrowserBackendManager
+import net.ccbluex.liquidbounce.integration.backend.BrowserBackendProvider
 import net.ccbluex.liquidbounce.utils.client.clientLogger
 import net.fabricmc.loader.api.ModContainer
 
@@ -90,6 +95,8 @@ abstract class LiquidBounceAddon : EventListener, MinecraftShortcuts {
     internal val registeredCategories = mutableListOf<ModuleCategory>()
     internal val registeredModes = mutableListOf<Pair<ModeValueGroup<*>, Mode>>()
     internal val registeredConfigs = mutableListOf<Config>()
+    internal val registeredItemHandlers = mutableListOf<Pair<MarketplaceItemType, MarketplaceItemHandler>>()
+    internal val registeredBrowserBackends = mutableListOf<BrowserBackendProvider>()
 
     /**
      * Registered for all add-ons before any [onInitialize] runs.
@@ -171,6 +178,23 @@ abstract class LiquidBounceAddon : EventListener, MinecraftShortcuts {
     fun <T : Mode> registerMode(parent: ModeValueGroup<T>, mode: T) {
         parent.addMode(mode)
         registeredModes += parent to mode
+    }
+
+    /**
+     * Takes over subscribed marketplace items of [type]; [handler] runs once the subscriptions are
+     * loaded at startup and after every install, update or removal of one.
+     */
+    fun registerMarketplaceHandler(type: MarketplaceItemType, handler: MarketplaceItemHandler) {
+        MarketplaceManager.registerHandler(type, handler)
+        registeredItemHandlers += type to handler
+    }
+
+    /**
+     * Offers a browser backend the player can choose when the client starts.
+     */
+    fun registerBrowserBackend(provider: BrowserBackendProvider) {
+        BrowserBackendManager.registerBackend(provider)
+        registeredBrowserBackends += provider
     }
 
     @JvmOverloads

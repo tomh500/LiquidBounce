@@ -6,7 +6,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.ChatFormatting;
@@ -906,22 +906,22 @@ public abstract class GuiBase extends Screen implements IMessageConsumer, IStrin
 
 	public static boolean isShiftDown()
 	{
-		return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_LEFT_SHIFT)
-				|| InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_RIGHT_SHIFT);
+		return InputConstants.isKeyDown(InputConstants.KEY_LSHIFT)
+				|| InputConstants.isKeyDown(InputConstants.KEY_RSHIFT);
 	}
 
 	public static boolean isCtrlDown()
 	{
 		return Util.getPlatform() == Util.OS.OSX
-			   ? InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_LEFT_SUPER)
-					   || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_RIGHT_SUPER)
-			   : InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_LEFT_CONTROL)
-					   || InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_RIGHT_CONTROL);
+			   ? InputConstants.isKeyDown(InputConstants.KEY_LGUI)
+					   || InputConstants.isKeyDown(InputConstants.KEY_RGUI)
+			   : InputConstants.isKeyDown(InputConstants.KEY_LCONTROL)
+					   || InputConstants.isKeyDown(InputConstants.KEY_RCONTROL);
 	}
 
 	public static boolean isAltDown()
 	{
-		return InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_LEFT_ALT)
-				|| InputConstants.isKeyDown(Minecraft.getInstance().getWindow(), GLFW.GLFW_KEY_RIGHT_ALT);
+		return InputConstants.isKeyDown(InputConstants.KEY_LALT)
+				|| InputConstants.isKeyDown(InputConstants.KEY_RALT);
 	}
 }

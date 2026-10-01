@@ -12,7 +12,7 @@ package dev.lambdaurora.spruceui.widget;
 import dev.lambdaurora.spruceui.Position;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 /**
  * Represents a pressable button widget.
@@ -36,9 +36,9 @@ public abstract class AbstractSprucePressableButtonWidget extends AbstractSpruce
 
 	@Override
 	protected boolean onKeyPress(KeyEvent event) {
-		if (event.key() == GLFW.GLFW_KEY_ENTER
-				|| event.key() == GLFW.GLFW_KEY_KP_ENTER
-				|| event.key() == GLFW.GLFW_KEY_SPACE
+		if (event.key() == InputConstants.KEY_RETURN
+				|| event.key() == InputConstants.KEY_NUMPADENTER
+				|| event.key() == InputConstants.KEY_SPACE
 		) {
 			this.onPress();
 			this.playDownSound();

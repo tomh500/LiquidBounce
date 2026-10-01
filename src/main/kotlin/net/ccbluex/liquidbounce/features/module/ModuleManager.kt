@@ -20,7 +20,6 @@ package net.ccbluex.liquidbounce.features.module
 
 import it.unimi.dsi.fastutil.objects.ObjectRBTreeSet
 import it.unimi.dsi.fastutil.objects.Reference2ObjectArrayMap
-import net.ccbluex.fastutil.mapToArray
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.config.autoconfig.AutoConfig
 import net.ccbluex.liquidbounce.config.types.VALUE_NAME_ORDER
@@ -47,7 +46,6 @@ import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleHitbox
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleKeepSprint
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleMaceKill
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleNoMissCooldown
-import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleSpearKill
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleSuperKnockback
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleSwordBlock
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleTickBase
@@ -59,6 +57,7 @@ import net.ccbluex.liquidbounce.features.module.modules.combat.criticals.ModuleC
 import net.ccbluex.liquidbounce.features.module.modules.combat.crystalaura.ModuleCrystalAura
 import net.ccbluex.liquidbounce.features.module.modules.combat.elytratarget.ModuleElytraTarget
 import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.ModuleKillAura
+import net.ccbluex.liquidbounce.features.module.modules.combat.spearkill.ModuleSpearKill
 import net.ccbluex.liquidbounce.features.module.modules.combat.tpaura.ModuleTpAura
 import net.ccbluex.liquidbounce.features.module.modules.combat.velocity.ModuleVelocity
 import net.ccbluex.liquidbounce.features.module.modules.exploit.ModuleAbortBreaking
@@ -185,6 +184,7 @@ import net.ccbluex.liquidbounce.features.module.modules.player.antivoid.ModuleAn
 import net.ccbluex.liquidbounce.features.module.modules.player.autobuff.ModuleAutoBuff
 import net.ccbluex.liquidbounce.features.module.modules.player.ModuleAutoCrafter
 import net.ccbluex.liquidbounce.features.module.modules.player.autoqueue.ModuleAutoQueue
+import net.ccbluex.liquidbounce.features.module.modules.player.autodeposit.ModuleAutoDeposit
 import net.ccbluex.liquidbounce.features.module.modules.player.autoshop.ModuleAutoShop
 import net.ccbluex.liquidbounce.features.module.modules.player.cheststealer.ModuleChestStealer
 import net.ccbluex.liquidbounce.features.module.modules.player.invcleaner.ModuleInventoryCleaner
@@ -347,7 +347,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
         } else if (event.isRepeat) {
             for (m in modulesWithOwnBinds()) {
                 if (m.bind.action != InputBind.BindAction.SMART ||
-                    !m.bind.matchesKey(event.keyCode, event.scanCode) ||
+                    !m.bind.matchesKey(event.scanCode) ||
                     m !in smartKeyboardStates
                 ) {
                     continue
@@ -406,7 +406,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
                     InputBind.BindAction.SMART -> {
                         val state = smartMouseStates.remove(m) ?: continue
 
-                        // Mouse button events do not emit GLFW_REPEAT, so SMART falls back to:
+                        // Mouse button events do not emit SDL repeat, so SMART falls back to:
                         // - hold if the press was long enough
                         // - toggle otherwise
                         val shouldFallbackToHold =
@@ -637,6 +637,7 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleBlink,
             ModuleChestCleaner,
             ModuleChestStealer,
+            ModuleAutoDeposit,
             ModuleEagle,
             ModuleFastExp,
             ModuleFastUse,
