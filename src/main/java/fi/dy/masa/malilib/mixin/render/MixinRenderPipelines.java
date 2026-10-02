@@ -2,15 +2,8 @@ package fi.dy.masa.malilib.mixin.render;
 
 import java.util.Map;
 
-import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
-import com.mojang.renderpearl.api.pipeline.BlendFunction;
-import com.mojang.renderpearl.api.pipeline.ColorTargetState;
-import com.mojang.renderpearl.api.pipeline.DepthStencilState;
-import com.mojang.renderpearl.api.pipeline.RenderPipeline;
-import com.mojang.renderpearl.api.pipeline.BlendFactor;
-import com.mojang.renderpearl.api.pipeline.CompareOp;
-import com.mojang.renderpearl.api.pipeline.PolygonMode;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.renderpearl.api.pipeline.*;
 import net.minecraft.client.renderer.BindGroupLayouts;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
@@ -23,16 +16,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import fi.dy.masa.malilib.MaLiLibReference;
+import fi.dy.masa.malilib.compat.iris.IrisCompat;
 import fi.dy.masa.malilib.render.MaLiLibPipelines;
 
-@Mixin(value = RenderPipelines.class, priority = 990)
+@Mixin(value = RenderPipelines.class)
 public abstract class MixinRenderPipelines
 {
     @Shadow @Final private static Map<Identifier, RenderPipeline> PIPELINES_BY_LOCATION;
-
-    @Shadow @Final private static RenderPipeline.Snippet GLOBALS_SNIPPET;                      // GLOBALS_SNIPPET
-    @Shadow @Final private static RenderPipeline.Snippet GUI_SNIPPET;                          // GUI
-    @Shadow @Final private static RenderPipeline.Snippet GUI_TEXTURED_SNIPPET;                 // GUI_TEXTURED
 
 	// AKA, the legacy Vanilla "default blend mode".
     @Unique private static final BlendFunction MASA_BLEND = new BlendFunction(BlendFactor.SRC_ALPHA, BlendFactor.ONE_MINUS_SRC_ALPHA, BlendFactor.ONE, BlendFactor.ZERO);
@@ -60,8 +50,7 @@ public abstract class MixinRenderPipelines
 			                  .withVertexShader(getId("int_position_color"))
 			                  .withFragmentShader(getId("int_position_color"))
 			                  .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
-                              .withBindGroupLayout(BindGroupLayouts.PROJECTION)
-//			                  .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS)
+			                  .withBindGroupLayout(BindGroupLayouts.PROJECTION)
 			                  .withPrimitiveTopology(PrimitiveTopology.QUADS)
 			                  .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR)
 			                  .buildSnippet();
@@ -255,7 +244,6 @@ public abstract class MixinRenderPipelines
 			    RenderPipeline.builder()
                               .withVertexShader(getId("position_color_lines"))
                               .withFragmentShader(getId("position_color_lines"))
-//			                  .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, VertexFormat.Mode.LINES)
                               .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
                               .withBindGroupLayout(BindGroupLayouts.PROJECTION)
 			                  .withPrimitiveTopology(PrimitiveTopology.LINES)
@@ -426,9 +414,7 @@ public abstract class MixinRenderPipelines
 			                  .withVertexShader(getId("int_position_tex_color"))
 			                  .withFragmentShader(getId("int_position_tex_color"))
 			                  .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
-                              .withBindGroupLayout(BindGroupLayouts.PROJECTION)
-//			                  .withSampler("Sampler0")
-//			                  .withVertexFormat(DefaultVertexFormat.POSITION_TEX_COLOR, VertexFormat.Mode.QUADS)
+			                  .withBindGroupLayout(BindGroupLayouts.PROJECTION)
                               .withBindGroupLayout(BindGroupLayouts.SAMPLER0)
                               .withVertexBinding(0, DefaultVertexFormat.POSITION_TEX_COLOR)
                               .withPrimitiveTopology(PrimitiveTopology.QUADS)
@@ -563,9 +549,8 @@ public abstract class MixinRenderPipelines
 			    RenderPipeline.builder()
                               .withVertexShader(getId("position_color_lines"))
                               .withFragmentShader(getId("position_color_lines"))
-			                  .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
+                              .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
                               .withBindGroupLayout(BindGroupLayouts.PROJECTION)
-//			                  .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, VertexFormat.Mode.DEBUG_LINES)
 			                  .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH)
 			                  .withPrimitiveTopology(PrimitiveTopology.DEBUG_LINES)
 			                  .buildSnippet();
@@ -687,7 +672,6 @@ public abstract class MixinRenderPipelines
                               .withFragmentShader(getId("position_color_lines"))
                               .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
                               .withBindGroupLayout(BindGroupLayouts.PROJECTION)
-//			                  .withVertexFormat(DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH, VertexFormat.Mode.DEBUG_LINE_STRIP)
 			                  .withVertexBinding(0, DefaultVertexFormat.POSITION_COLOR_LINE_WIDTH)
 			                  .withPrimitiveTopology(PrimitiveTopology.DEBUG_LINE_STRIP)
 			                  .buildSnippet();
@@ -790,101 +774,7 @@ public abstract class MixinRenderPipelines
                               .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
                               .build();
 
-	    // todo GUI
-//	    MaLiLibPipelines.GUI_OVERLAY =
-//			    RenderPipeline.builder(GUI_SNIPPET)
-//			                  .withLocation(getId("pipeline/gui_overlay"))
-//			                  .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
-//			                  .withColorTargetState(new ColorTargetState(BlendFunction.OVERLAY))
-//			                  .build();
-//
-//	    MaLiLibPipelines.GUI_TEXTURED_OVERLAY =
-//			    RenderPipeline.builder(GUI_TEXTURED_SNIPPET)
-//			                  .withLocation(getId("pipeline/gui_textured_overlay"))
-//			                  .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
-//			                  .withColorTargetState(new ColorTargetState(BlendFunction.OVERLAY))
-//			                  .build();
-
-	    // todo LEGACY_TERRAIN Snippet
-	    MaLiLibPipelines.LEGACY_TERRAIN_STAGE =
-			    RenderPipeline.builder()
-			                  .withVertexShader(getId("legacy_terrain"))
-			                  .withFragmentShader(getId("legacy_terrain"))
-			                  .withBindGroupLayout(BindGroupLayouts.DYNAMIC_TRANSFORMS)
-                              .withBindGroupLayout(BindGroupLayouts.PROJECTION)
-			                  .withBindGroupLayout(BindGroupLayouts.FOG)
-			                  .withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER2)
-			                  .withBindGroupLayout(MaLiLibPipelines.LEGACY_TERRAIN_GROUP)
-//			                  .withSampler("Sampler0")
-//			                  .withSampler("Sampler2")
-//			                  .withUniform("ChunkFix", UniformType.UNIFORM_BUFFER)
-//			                  .withVertexFormat(DefaultVertexFormat.BLOCK, VertexFormat.Mode.QUADS)
-			                  .withVertexBinding(0, DefaultVertexFormat.BLOCK)
-			                  .withPrimitiveTopology(PrimitiveTopology.QUADS)
-			                  .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true))
-			                  .buildSnippet();
-
-	    // todo LEGACY_TERRAIN
-	    MaLiLibPipelines.LEGACY_SOLID_TERRAIN =
-			    register(RenderPipeline.builder(MaLiLibPipelines.LEGACY_TERRAIN_STAGE)
-			                           .withLocation(getId("pipeline/legacy/solid"))
-			                           .build());
-
-	    MaLiLibPipelines.LEGACY_WIREFRAME =
-			    register(RenderPipeline.builder(MaLiLibPipelines.LEGACY_TERRAIN_STAGE)
-			                           .withLocation(getId("pipeline/legacy/wireframe"))
-			                           .withPolygonMode(PolygonMode.WIREFRAME)
-			                           .build());
-
-	    MaLiLibPipelines.LEGACY_CUTOUT_TERRAIN =
-			    register(RenderPipeline.builder(MaLiLibPipelines.LEGACY_TERRAIN_STAGE)
-			                           .withLocation(getId("pipeline/legacy/cutout"))
-			                           .withShaderDefine("ALPHA_CUTOUT", 0.5F)
-			                           .build());
-
-	    // todo LEGACY_TERRAIN_OFFSET --> PRE-REGISTER
-	    MaLiLibPipelines.LEGACY_SOLID_TERRAIN_OFFSET =
-			    register(RenderPipeline.builder(MaLiLibPipelines.LEGACY_TERRAIN_STAGE)
-			                           .withLocation(getId("pipeline/legacy/solid/masa/offset"))
-			                           .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true, 0.3f, 0.6f))
-			                           .build());
-
-	    MaLiLibPipelines.LEGACY_WIREFRAME_OFFSET =
-			    register(RenderPipeline.builder(MaLiLibPipelines.LEGACY_TERRAIN_STAGE)
-			                           .withLocation(getId("pipeline/legacy/wireframe/offset"))
-			                           .withPolygonMode(PolygonMode.WIREFRAME)
-			                           .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true, 0.3f, 0.6f))
-			                           .build());
-
-	    MaLiLibPipelines.LEGACY_CUTOUT_TERRAIN_OFFSET =
-			    register(RenderPipeline.builder(MaLiLibPipelines.LEGACY_TERRAIN_STAGE)
-			                           .withLocation(getId("pipeline/legacy/cutout/offset"))
-			                           .withShaderDefine("ALPHA_CUTOUT", 0.5F)
-			                           .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true, 0.3f, 0.6f))
-			                           .build());
-
-	    // todo LEGACY_TERRAIN_TRANSLUCENT Snippet
-	    MaLiLibPipelines.LEGACY_TERRAIN_TRANSLUCENT_STAGE =
-			    RenderPipeline.builder(MaLiLibPipelines.LEGACY_TERRAIN_STAGE)
-			                  .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
-			                  .buildSnippet();
-
-	    // todo LEGACY_TERRAIN_TRANSLUCENT
-	    MaLiLibPipelines.LEGACY_TRANSLUCENT =
-			    register(RenderPipeline.builder(MaLiLibPipelines.LEGACY_TERRAIN_TRANSLUCENT_STAGE)
-			                           .withLocation(getId("pipeline/legacy/translucent"))
-			                           .withShaderDefine("ALPHA_CUTOUT", 0.1F)
-			                           .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true))
-			                           .build());
-
-	    MaLiLibPipelines.LEGACY_TRANSLUCENT_OFFSET =
-			    register(RenderPipeline.builder(MaLiLibPipelines.LEGACY_TERRAIN_TRANSLUCENT_STAGE)
-			                           .withLocation(getId("pipeline/legacy/translucent/offset"))
-			                           .withShaderDefine("ALPHA_CUTOUT", 0.1F)
-			                           .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true, 0.3f, 0.6f))
-			                           .build());
-
 	    // Try registering with Iris.
-
+        IrisCompat.registerPipelines();
     }
 }

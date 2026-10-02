@@ -19,6 +19,7 @@ import fi.dy.masa.malilib.test.command.TestCommand;
 import fi.dy.masa.malilib.test.data.TestDataSyncer;
 import fi.dy.masa.malilib.test.input.TestInputHandler;
 import fi.dy.masa.malilib.test.misc.TestSelector;
+import fi.dy.masa.malilib.test.input.TestKeybindTick;
 import fi.dy.masa.malilib.test.render.TestRenderHandler;
 import fi.dy.masa.malilib.util.i18n.i18nMode;
 
@@ -46,10 +47,10 @@ public class MaLiLibInitHandler implements IInitializationHandler
             IRenderer renderer = new TestRenderHandler();
             RenderEventHandler.getInstance().registerInGameGuiRenderer(renderer);
             RenderEventHandler.getInstance().registerTooltipLastRenderer(renderer);
-            RenderEventHandler.getInstance().registerWorldPreWeatherRenderer(renderer);
             RenderEventHandler.getInstance().registerWorldLastRenderer(renderer);
 
             ClientCommandHandler.INSTANCE.registerCommand(new TestCommand());
+            TickHandler.getInstance().registerClientTickHandler(TestKeybindTick.INSTANCE);
             TickHandler.getInstance().registerClientTickHandler(TestSelector.INSTANCE);
             TickHandler.getInstance().registerClientTickHandler(TestDataSyncer.INSTANCE);
 

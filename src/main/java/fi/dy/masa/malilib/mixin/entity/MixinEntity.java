@@ -31,7 +31,7 @@ import fi.dy.masa.malilib.util.nbt.INbtEntityInvoker;
 import fi.dy.masa.malilib.util.nbt.NbtKeys;
 import fi.dy.masa.malilib.util.nbt.NbtView;
 
-@Mixin(value = Entity.class, priority = 900)
+@Mixin(value = Entity.class)
 public abstract class MixinEntity implements INbtEntityInvoker
 {
     @Shadow @Final private EntityType<?> type;
@@ -55,11 +55,15 @@ public abstract class MixinEntity implements INbtEntityInvoker
     @Shadow @Final private static EntityDataAccessor<@NotNull Boolean> DATA_NO_GRAVITY;
     @Shadow @Final private static EntityDataAccessor<@NotNull Integer> DATA_TICKS_FROZEN;
     @Shadow private int portalCooldown;
+    @Shadow private boolean permanentlyInvulnerable;
     @Shadow private boolean hasGlowingTag;
     @Shadow private boolean hasVisualFire;
     @Shadow @Final private Set<String> tags;
     @Shadow private CustomData customData;
     @Shadow protected abstract void addAdditionalSaveData(ValueOutput view);
+
+    @Shadow
+    private int invulnerableTime;
 
     @Unique
     private Optional<CompoundTag> malilib$gatherPassengerlessNbtInternal(final int expectedId)
@@ -88,8 +92,9 @@ public abstract class MixinEntity implements INbtEntityInvoker
             nbt.putShort(NbtKeys.FIRE, (short) this.remainingFireTicks);
             nbt.putShort(NbtKeys.AIR, this.entityData.get(DATA_AIR_SUPPLY_ID).shortValue());
             nbt.putBoolean(NbtKeys.ON_GROUND, this.onGround);
-            nbt.putBoolean(NbtKeys.INVULNERABLE, ((Entity) (Object) this).isInvulnerable());
+            nbt.putBoolean(NbtKeys.INVULNERABLE, this.permanentlyInvulnerable);
             nbt.putInt(NbtKeys.PORTAL_COOLDOWN, this.portalCooldown);
+            if (this.invulnerableTime > 0) { nbt.putInt(NbtKeys.INVULNERABLE_TIME, this.invulnerableTime); }
             nbt.store(NbtKeys.UUID, UUIDUtil.CODEC, this.uuid);
 
             this.entityData.get(DATA_CUSTOM_NAME).ifPresent(name -> nbt.store(NbtKeys.CUSTOM_NAME, ComponentSerialization.CODEC, name));

@@ -1,4 +1,4 @@
-accessWidener	v1	official
+accessWidener v2 official
 
 accessible field net/minecraft/world/entity/AreaEffectCloud potionContents Lnet/minecraft/world/item/alchemy/PotionContents;
 accessible field net/minecraft/client/Minecraft user Lnet/minecraft/client/User;
@@ -221,3 +221,9 @@ accessible field net/minecraft/client/renderer/rendertype/RenderSetup textureTra
 accessible field net/minecraft/client/renderer/rendertype/RenderSetup outlineProperty Lnet/minecraft/client/renderer/rendertype/RenderSetup$OutlineProperty;
 accessible field net/minecraft/client/renderer/rendertype/RenderSetup layeringTransform Lnet/minecraft/client/renderer/rendertype/LayeringTransform;
 accessible method net/minecraft/world/item/ItemStack <init> (Lnet/minecraft/core/Holder;ILnet/minecraft/core/component/PatchedDataComponentMap;)V
+transitive-accessible field net/minecraft/client/gui/GuiGraphicsExtractor scissorStack Lnet/minecraft/client/gui/GuiGraphicsExtractor$ScissorStack;
+transitive-accessible class net/minecraft/client/gui/GuiGraphicsExtractor$ScissorStack
+transitive-accessible class net/minecraft/client/gui/GuiGraphicsExtractor$RenderingTextCollector
+accessible field net/minecraft/client/Minecraft sdlEventHandler Lcom/mojang/blaze3d/platform/SDLEventHandler;
+accessible method net/minecraft/client/renderer/LevelRenderer frameHasAlwaysOnTopGizmos ()Z
+accessible method net/minecraft/client/renderer/LevelRenderer executeAlwaysOnTop (Lnet/minecraft/client/renderer/feature/FeatureRenderDispatcher$PreparedFrame;Lcom/mojang/blaze3d/pipeline/RenderTarget;Z)V

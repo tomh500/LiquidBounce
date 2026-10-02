@@ -190,7 +190,12 @@ public class ConfigBooleanHotkeyed extends ConfigBoolean implements IHotkeyToggl
         if (this.isDirty())
         {
             this.markClean();
-            this.onValueChanged();
+
+            if (!this.getLastBooleanHotkeyValue().equals(this.getBooleanHotkeyValue()))
+            {
+                this.onValueChanged();
+                this.updateLastBooleanHotkeyValue();
+            }
         }
     }
 
@@ -231,11 +236,14 @@ public class ConfigBooleanHotkeyed extends ConfigBoolean implements IHotkeyToggl
 
                 if (!this.getLastBooleanHotkeyValue().equals(this.getBooleanHotkeyValue()))
                 {
-//                    MaLiLib.LOGGER.error("[BOOL-HOTKEY/{}]: setValueFromJsonElement(): LV: [{}], OV: [{}], NV: [{}]", this.getName(),
-//                                         this.getLastBooleanHotkeyValue().toString(),
-//                                         oldValue,
-//                                         this.getBooleanHotkeyValue().toString()
-//                    );
+                    if (CONFIG_TYPE_DEBUG)
+                    {
+                        MaLiLib.LOGGER.error("[BOOL-HOTKEY/{}]: setValueFromJsonElement(): LV: [{}], OV: [{}], NV: [{}]", this.getName(),
+                                             this.getLastBooleanHotkeyValue().toString(),
+                                             oldValue,
+                                             this.getBooleanHotkeyValue().toString()
+                        );
+                    }
 
                     this.onValueChanged();
                 }

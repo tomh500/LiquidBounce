@@ -1,8 +1,13 @@
 package fi.dy.masa.malilib.test.gui;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import javax.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
 
+import fi.dy.masa.malilib.MaLiLib;
+import fi.dy.masa.malilib.MaLiLibReference;
 import fi.dy.masa.malilib.gui.*;
 import fi.dy.masa.malilib.gui.button.ButtonBase;
 import fi.dy.masa.malilib.gui.button.ButtonGeneric;
@@ -12,6 +17,10 @@ import fi.dy.masa.malilib.gui.widgets.WidgetDirectoryEntry;
 import fi.dy.masa.malilib.gui.widgets.WidgetFileBrowserBase;
 import fi.dy.masa.malilib.test.gui.widgets.WidgetTestBrowser;
 import fi.dy.masa.malilib.util.*;
+import fi.dy.masa.malilib.util.file_ops.FileCopier;
+import fi.dy.masa.malilib.util.file_ops.FileCopierMulti;
+import fi.dy.masa.malilib.util.file_ops.FileDeleter;
+import fi.dy.masa.malilib.util.file_ops.FileRenamerDualInput;
 
 public class GuiTestFileBrowser extends GuiListBase<WidgetFileBrowserBase.DirectoryEntry, WidgetDirectoryEntry, WidgetTestBrowser>
 	implements ISelectionListener<WidgetFileBrowserBase.DirectoryEntry>
@@ -79,6 +88,49 @@ public class GuiTestFileBrowser extends GuiListBase<WidgetFileBrowserBase.Direct
 		x += this.createButton(x, y, ButtonType.DELETE);
 	}
 
+	@Override
+	public boolean onMouseDropFiles(@NonNull List<Path> files)
+	{
+		if (MaLiLibReference.DEBUG_MODE)
+		{
+			MaLiLib.LOGGER.warn("GuiTestFileBrowser#onMouseDropFiles(): File Drop: {} files", files.size());
+			int count = 0;
+
+			for (Path file : files)
+			{
+				MaLiLib.LOGGER.warn("GuiTestFileBrowser#onMouseDropFiles(): [{}]: {}", count, file.toAbsolutePath().toString());
+				count++;
+			}
+		}
+
+		if (this.getListWidget() != null)
+		{
+			Path dest;
+
+			if (this.getListWidget().getLastSelectedEntry() != null && Files.isDirectory(this.getListWidget().getLastSelectedEntry().getFullPath()))
+			{
+				dest = this.getListWidget().getLastSelectedEntry().getFullPath();
+			}
+			else if (this.getListWidget().getCurrentDirectory() != null && Files.isDirectory(this.getListWidget().getCurrentDirectory()))
+			{
+				dest = this.getListWidget().getCurrentDirectory();
+			}
+			else
+			{
+				return false;
+			}
+
+			if (Files.isDirectory(dest) && Files.isWritable(dest))
+			{
+				FileCopierMulti copier = new FileCopierMulti(dest, this.getListWidget(), true);
+				GuiBase.openGui(new GuiConfirmFileDrop<>(256, files, copier, this, "malilib.message.file_drop_confirm", files.size(), dest.toAbsolutePath().toString()));
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	protected int createButton(int x, int y, ButtonType type)
 	{
 		ButtonGeneric button = new ButtonGeneric(x, y, -1, 20, type.getDisplayName());
@@ -108,7 +160,7 @@ public class GuiTestFileBrowser extends GuiListBase<WidgetFileBrowserBase.Direct
 		if (entry != null && entry.type() != WidgetFileBrowserBase.DirectoryEntryType.DIRECTORY &&
 			entry.type() != WidgetFileBrowserBase.DirectoryEntryType.INVALID)
 		{
-			this.setTextFieldText(FileNameUtils.getFileNameWithoutExtension(entry.name()));
+			this.setTextFieldText(entry.name());
 		}
 	}
 

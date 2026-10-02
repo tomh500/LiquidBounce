@@ -1,29 +1,36 @@
 package fi.dy.masa.malilib.event;
 
+import java.io.FileFilter;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nonnull;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
+import javax.annotation.Nullable;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import org.jetbrains.annotations.ApiStatus;
-import com.mojang.blaze3d.platform.InputConstants;
+import org.lwjgl.sdl.*;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+
 import fi.dy.masa.malilib.MaLiLib;
 import fi.dy.masa.malilib.MaLiLibConfigs;
+import fi.dy.masa.malilib.MaLiLibReference;
+import fi.dy.masa.malilib.gui.GuiBase;
 import fi.dy.masa.malilib.gui.Message;
-import fi.dy.masa.malilib.hotkeys.IHotkey;
-import fi.dy.masa.malilib.hotkeys.IInputManager;
-import fi.dy.masa.malilib.hotkeys.IKeybind;
-import fi.dy.masa.malilib.hotkeys.IKeybindManager;
-import fi.dy.masa.malilib.hotkeys.IKeybindProvider;
-import fi.dy.masa.malilib.hotkeys.IKeyboardInputHandler;
-import fi.dy.masa.malilib.hotkeys.IMouseInputHandler;
-import fi.dy.masa.malilib.hotkeys.KeybindCategory;
-import fi.dy.masa.malilib.hotkeys.KeybindMulti;
+import fi.dy.masa.malilib.hotkeys.*;
+import fi.dy.masa.malilib.input.gamepad.GamepadManager;
+import fi.dy.masa.malilib.input.gamepad.GamepadButtonEvent;
+import fi.dy.masa.malilib.util.FileNameUtils;
 import fi.dy.masa.malilib.util.InfoUtils;
+import fi.dy.masa.malilib.util.input.*;
+import fi.dy.masa.malilib.util.position.Vec2d;
 
 public class InputEventHandler implements IKeybindManager, IInputManager
 {
@@ -35,6 +42,10 @@ public class InputEventHandler implements IKeybindManager, IInputManager
     private final List<IKeyboardInputHandler> keyboardHandlers = new ArrayList<>();
     private final List<IMouseInputHandler> mouseHandlers = new ArrayList<>();
     private double mouseWheelDeltaSum;
+    private KeyState lastKeyState;
+    private int lastAction;
+    private int lastScanCode;
+    private Vec2d lastMousePos;
 
     private InputEventHandler() { }
 
@@ -133,14 +144,144 @@ public class InputEventHandler implements IKeybindManager, IInputManager
         this.mouseHandlers.remove(handler);
     }
 
+    @Nullable
+    public KeyState getLastKeyState()
+    {
+        return this.lastKeyState;
+    }
+
+    public int getLastScanCode()
+    {
+        return this.lastScanCode;
+    }
+
+    public int getLastActionCode()
+    {
+        return this.lastAction;
+    }
+
+    private void setLastMousePos(final double mouseX, final double mouseY)
+    {
+        this.lastMousePos = new Vec2d(mouseX, mouseY);
+    }
+
+    public Vec2d getLastMousePos()
+    {
+        return this.lastMousePos;
+    }
+
+    @ApiStatus.Internal
+    public boolean onHandleEvent(final SDL_Event event)
+    {
+        boolean cancel = false;
+
+        this.lastAction = ActionCodes.NONE;
+        this.lastScanCode = ScanCodes.SCAN_UNKNOWN;
+        this.lastKeyState = KeyState.fromEventType(event.type());
+
+        switch (event.type())
+        {
+            case EventCodes.EVENT_KEY_PRESS ->
+            {
+                SDL_KeyboardEvent keyEvent = event.key();
+                this.lastAction = keyEvent.repeat() ? ActionCodes.REPEAT : ActionCodes.PRESSED;
+                this.lastScanCode = keyEvent.scancode();
+
+                // Update the cached pressed keys status
+                KeybindMulti.onKeyInputPre(new KeyEvent(keyEvent.scancode(), keyEvent.key(), keyEvent.mod()), this.lastAction);
+            }
+            case EventCodes.EVENT_KEY_RELEASE ->
+            {
+                SDL_KeyboardEvent keyEvent = event.key();
+                this.lastAction = ActionCodes.RELEASED;
+                this.lastScanCode = keyEvent.scancode();
+
+                // Update the cached pressed keys status
+                KeybindMulti.onKeyInputPre(new KeyEvent(keyEvent.scancode(), keyEvent.key(), keyEvent.mod()), ActionCodes.RELEASED);
+            }
+            case EventCodes.EVENT_MOUSE_PRESS ->
+            {
+                SDL_MouseButtonEvent buttonEvent = event.button();
+                this.lastAction = ActionCodes.PRESSED;
+                this.lastScanCode = buttonEvent.button() - ScanCodes.OFFSET_MOUSE;
+                this.setLastMousePos(buttonEvent.x(), buttonEvent.y());
+
+                // Update the cached pressed keys status
+                KeybindMulti.onKeyInputPre(new KeyEvent(buttonEvent.button() - ScanCodes.OFFSET_MOUSE, KeyCodes.KEY_UNKNOWN, SDLKeyboard.SDL_GetModState()), ActionCodes.PRESSED);
+            }
+            case EventCodes.EVENT_MOUSE_RELEASE ->
+            {
+                SDL_MouseButtonEvent buttonEvent = event.button();
+                this.lastAction = ActionCodes.RELEASED;
+                this.lastScanCode = buttonEvent.button() - ScanCodes.OFFSET_MOUSE;
+                this.setLastMousePos(buttonEvent.x(), buttonEvent.y());
+
+                // Update the cached pressed keys status
+                KeybindMulti.onKeyInputPre(new KeyEvent(buttonEvent.button() - ScanCodes.OFFSET_MOUSE, KeyCodes.KEY_UNKNOWN, SDLKeyboard.SDL_GetModState()), ActionCodes.RELEASED);
+            }
+            case EventCodes.EVENT_GAMEPAD_ADDED -> GamepadManager.INSTANCE.onGamepadAdded(event);
+            case EventCodes.EVENT_GAMEPAD_REMOVED -> GamepadManager.INSTANCE.onGamepadRemoved(event);
+            case EventCodes.EVENT_GAMEPAD_REMAPPED -> GamepadManager.INSTANCE.onGamepadRemapped(event);
+            case EventCodes.EVENT_GAMEPAD_BUTTON_DOWN, EventCodes.EVENT_GAMEPAD_BUTTON_UP ->
+                    cancel = GamepadManager.INSTANCE.onGamepadButton(event);
+            case EventCodes.EVENT_GAMEPAD_AXIS_MOTION ->
+                    cancel = GamepadManager.INSTANCE.onGamepadAxisMotion(event);
+	        default ->
+	        {
+                this.lastAction = ActionCodes.NONE;
+                this.lastScanCode = ScanCodes.SCAN_UNKNOWN;
+            }
+        }
+
+//        if (this.lastKeyState != null &&
+//            (this.lastKeyState != KeyState.MOUSE_MOVED &&
+//             this.lastKeyState != KeyState.GAMEPAD_UPDATE_COMPLETE &&
+//             this.lastKeyState != KeyState.GAMEPAD_AXIS_MOTION))
+//        {
+//            MaLiLib.LOGGER.warn("onHandleEvent(): state: {}, scanCode: {}",
+//                                this.lastKeyState.toString(),
+//                                this.lastScanCode);
+//        }
+
+        // Cancel further processing -> true
+        return cancel;
+    }
+
+    @ApiStatus.Internal
+    public void onHandleKeymapChange()
+    {
+        if (MaLiLibReference.EXPERIMENTAL_MODE)
+        {
+            // Attempt AZERTY Detection
+            boolean isAzerty = InputUtils.isAzertyLayout();
+
+            if (isAzerty && MaLiLibConfigs.Generic.KEYBOARD_TYPE.getOptionListValue() != KeyboardType.AZERTY)
+            {
+                MaLiLibConfigs.Generic.KEYBOARD_TYPE.setOptionListValue(KeyboardType.AZERTY);
+                MaLiLib.LOGGER.warn("onHandleKeymapChange(): KEYBOARD_TYPE --> AZERTY");
+            }
+            else if (!isAzerty && MaLiLibConfigs.Generic.KEYBOARD_TYPE.getOptionListValue() != KeyboardType.QWERTY)
+            {
+                MaLiLibConfigs.Generic.KEYBOARD_TYPE.setOptionListValue(KeyboardType.QWERTY);
+                MaLiLib.LOGGER.warn("onHandleKeymapChange(): KEYBOARD_TYPE --> QWERTY");
+            }
+        }
+    }
+
+    @ApiStatus.Internal
+    public void onHandleDropStart()
+    {
+        // TODO
+//        MaLiLib.LOGGER.warn("onHandleDropStart():{}:", Thread.currentThread().getName());
+    }
+
     @ApiStatus.Internal
     public boolean onKeyInput(KeyEvent input, int action, @Nonnull Minecraft mc)
     {
-        boolean eventKeyState = action != InputConstants.RELEASE;
+//        // Update the cached pressed keys status
+//        KeybindMulti.onKeyInputPre(input, action);
 
-        // Update the cached pressed keys status
-        KeybindMulti.onKeyInputPre(input, action);
-
+        boolean eventKeyState = action != ActionCodes.RELEASED;
         boolean cancel = this.checkKeyBindsForChanges(input.key());
 
         if (this.keyboardHandlers.isEmpty() == false)
@@ -159,18 +300,74 @@ public class InputEventHandler implements IKeybindManager, IInputManager
     }
 
     @ApiStatus.Internal
-    public boolean onMouseClick(MouseButtonEvent click, int action, @Nonnull Minecraft mc)
+    public boolean onGamepadButton(GamepadButtonEvent input)
+    {
+        final int scanCode = input.scanCode() - ScanCodes.OFFSET_GAMEPAD;
+        final int action = input.action();
+        // Wrap it into a KeyEvent
+        KeyEvent key = new KeyEvent(scanCode, KeyCodes.KEY_UNKNOWN, KeyCodes.KMOD_NONE);
+        Minecraft mc = Minecraft.getInstance();
+
+        this.lastAction = action;
+        this.lastScanCode = scanCode;
+
+        // Update the cached pressed keys status
+        KeybindMulti.onKeyInputPre(key, action);
+
+        // Handle GUI clicks
+        if (mc.gui.screen() != null && mc.gui.screen() instanceof GuiBase gui)
+        {
+            if (gui.keyPressed(key))
+            {
+                this.printInputCancellationDebugMessage(InputEventHandler.class);
+                return true;
+            }
+        }
+
+        return this.onKeyInput(key, action, mc);
+    }
+
+    @ApiStatus.Internal
+    public boolean onGamepadAxisMotion(GamepadButtonEvent input, final short amount)
+    {
+        final int scanCode = input.scanCode() - ScanCodes.OFFSET_GAMEPAD_AXIS;
+        final int action = input.action();
+        // Wrap it into a KeyEvent
+        KeyEvent key = new KeyEvent(scanCode, KeyCodes.KEY_UNKNOWN, KeyCodes.KMOD_NONE);
+        Minecraft mc = Minecraft.getInstance();
+
+        this.lastAction = action;
+        this.lastScanCode = scanCode;
+
+        // Update the cached pressed keys status
+        KeybindMulti.onKeyInputPre(key, action);
+
+        // Handle GUI clicks
+        if (mc.gui.screen() != null && mc.gui.screen() instanceof GuiBase gui)
+        {
+            if (gui.keyPressed(key))
+            {
+                this.printInputCancellationDebugMessage(InputEventHandler.class);
+                return true;
+            }
+        }
+        return this.onKeyInput(key, action, mc);
+    }
+
+    @ApiStatus.Internal
+    public boolean onMouseClick(MouseButtonEvent click, int action)
     {
         boolean cancel = false;
+        this.setLastMousePos(click.x(), click.y());
 
-        if (click.input() != -1)
+        if (click.input() != ScanCodes.SCAN_UNKNOWN)
         {
-            boolean eventButtonState = action == InputConstants.PRESS;
+            boolean eventButtonState = action == ActionCodes.PRESSED;
 
-            // Update the cached pressed keys status
-			KeybindMulti.onKeyInputPre(new KeyEvent(click.input() - 100, 0, 0), action);
+//            // Update the cached pressed keys status
+//			KeybindMulti.onKeyInputPre(new KeyEvent(click.input() - ScanCodes.OFFSET_MOUSE, KeyCodes.KEY_UNKNOWN, KeyCodes.KMOD_NONE), action);
 
-            cancel = this.checkKeyBindsForChanges(click.input() - 100);
+            cancel = this.checkKeyBindsForChanges(click.input() - ScanCodes.OFFSET_MOUSE);
 
             if (this.mouseHandlers.isEmpty() == false)
             {
@@ -199,11 +396,14 @@ public class InputEventHandler implements IKeybindManager, IInputManager
     }
 
     @ApiStatus.Internal
-    public boolean onMouseScroll(final double mouseX, final double mouseY, final double xOffset, final double yOffset, @Nonnull Minecraft mc)
+    public boolean onMouseScroll(final double mouseX, final double mouseY, final double xOffset, final double yOffset)
     {
+        Minecraft mc = Minecraft.getInstance();
         boolean discrete = mc.options.discreteMouseScroll().get();
         double sensitivity = mc.options.mouseWheelSensitivity().get();
         double amount = (discrete ? Math.signum(yOffset) : yOffset) * sensitivity;
+
+        this.setLastMousePos(mouseX, mouseY);
 
         if (MaLiLibConfigs.Debug.MOUSE_SCROLL_DEBUG.getBooleanValue())
         {
@@ -243,8 +443,10 @@ public class InputEventHandler implements IKeybindManager, IInputManager
     }
 
     @ApiStatus.Internal
-    public void onMouseMove(final double mouseX, final double mouseY, @Nonnull Minecraft mc)
+    public void onMouseMove(final double mouseX, final double mouseY)
     {
+        this.setLastMousePos(mouseX, mouseY);
+
         if (this.mouseHandlers.isEmpty() == false)
         {
             for (IMouseInputHandler handler : this.mouseHandlers)
@@ -252,6 +454,65 @@ public class InputEventHandler implements IKeybindManager, IInputManager
                 handler.onMouseMove(mouseX, mouseY);
             }
         }
+    }
+
+    @ApiStatus.Internal
+    public boolean onMouseDrop(final double mouseX, final double mouseY, final List<String> filePaths)
+    {
+        this.setLastMousePos(mouseX, mouseY);
+
+        if (this.mouseHandlers.isEmpty() == false)
+        {
+            List<Path> paths = new ArrayList<>();
+
+            for (String entry : filePaths)
+            {
+                try
+                {
+                    final String sanitizedFile = FileNameUtils.generateSafeFileName(FileNameUtils.generateSimpleUnicodeSafeFileName(entry));
+                    Path path = Paths.get(sanitizedFile).normalize();
+
+                    if (Files.exists(path) && Files.isReadable(path) &&
+                        Files.isRegularFile(path))
+                    {
+                        paths.add(path);
+                    }
+                }
+                catch (InvalidPathException e)
+                {
+                    MaLiLib.LOGGER.error("Exception; not a valid path '{}'; {}", entry, e.getMessage());
+                }
+            }
+
+            for (IMouseInputHandler handler : this.mouseHandlers)
+            {
+                FileFilter filter = handler.dropFileFilter();
+                List<Path> filteredPaths = new ArrayList<>();
+
+                if (filter != null)
+                {
+                    for (Path path : paths)
+                    {
+                        if (filter.accept(path.toFile()))
+                        {
+                            filteredPaths.add(path);
+                        }
+                    }
+                }
+                else
+                {
+                    filteredPaths.addAll(paths);
+                }
+
+                if (handler.onMouseFilesDrop(mouseX, mouseY, filteredPaths))
+                {
+                    this.printInputCancellationDebugMessage(handler);
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private boolean checkKeyBindsForChanges(int eventKey)

@@ -348,4 +348,9 @@ public class GuiContext extends GuiGraphicsExtractor
 	{
 		this.tooltip(font, lines, xo, yo, positioner, style, false);
 	}
+
+	public void renderTooltip(final Font font, final List<ClientTooltipComponent> lines, final int xo, final int yo, final ClientTooltipPositioner positioner, @Nullable final Identifier style, boolean extraSpace)
+	{
+		this.tooltip(font, lines, xo, yo, positioner, style, extraSpace);
+	}
 }

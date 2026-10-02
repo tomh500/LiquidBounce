@@ -3,7 +3,7 @@ package fi.dy.masa.malilib.hotkeys;
 import java.util.*;
 import javax.annotation.Nullable;
 import org.jetbrains.annotations.ApiStatus;
-import com.mojang.blaze3d.platform.InputConstants;
+import org.jetbrains.annotations.VisibleForTesting;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.serialization.Codec;
@@ -17,7 +17,11 @@ import fi.dy.masa.malilib.MaLiLib;
 import fi.dy.masa.malilib.MaLiLibConfigs;
 import fi.dy.masa.malilib.gui.Message;
 import fi.dy.masa.malilib.hotkeys.KeybindSettings.Context;
-import fi.dy.masa.malilib.util.*;
+import fi.dy.masa.malilib.input.gamepad.GamepadManager;
+import fi.dy.masa.malilib.util.GuiUtils;
+import fi.dy.masa.malilib.util.IF3KeyStateSetter;
+import fi.dy.masa.malilib.util.InfoUtils;
+import fi.dy.masa.malilib.util.input.*;
 
 public class KeybindMulti implements IKeybind
 {
@@ -33,7 +37,7 @@ public class KeybindMulti implements IKeybind
 
     private final String defaultStorageString;
     private final KeybindSettings defaultSettings;
-    private final List<Integer> keyCodes = new ArrayList<>(4);
+    private final List<Integer> scanCodes = new ArrayList<>(4);
     private KeybindSettings settings;
     private boolean pressed;
     private boolean pressedLast;
@@ -83,7 +87,7 @@ public class KeybindMulti implements IKeybind
     @Override
     public boolean isValid()
     {
-        return this.keyCodes.isEmpty() == false || this.settings.getAllowEmpty();
+        return this.scanCodes.isEmpty() == false || this.settings.getAllowEmpty();
     }
 
 	@Override
@@ -118,14 +122,14 @@ public class KeybindMulti implements IKeybind
     @Override
     public boolean isKeybindHeld()
     {
-        return this.pressed || (this.settings.getAllowEmpty() && this.keyCodes.isEmpty());
+        return this.pressed || (this.settings.getAllowEmpty() && this.scanCodes.isEmpty());
     }
 
     @ApiStatus.Internal
     @Override
     public boolean updateIsPressed()
     {
-        if (this.keyCodes.isEmpty() ||
+        if (this.scanCodes.isEmpty() ||
             (this.settings.getContext() != KeybindSettings.Context.ANY &&
             ((this.settings.getContext() == KeybindSettings.Context.INGAME) != (GuiUtils.getCurrentScreen() == null))))
         {
@@ -137,31 +141,31 @@ public class KeybindMulti implements IKeybind
         boolean allowOutOfOrder = this.settings.isOrderSensitive() == false;
         boolean pressedLast = this.pressed;
         final int sizePressed = PRESSED_KEYS.size();
-        final int sizeRequired = this.keyCodes.size();
+        final int sizeRequired = this.scanCodes.size();
 
         if (sizePressed >= sizeRequired && (allowExtraKeys || sizePressed == sizeRequired))
         {
-            int keyCodeIndex = 0;
-            this.pressed = PRESSED_KEYS.containsAll(this.keyCodes);
+            int scanCodeIndex = 0;
+            this.pressed = PRESSED_KEYS.containsAll(this.scanCodes);
 
             for (int i = 0; i < sizePressed; ++i)
             {
-                Integer keyCodeObj = PRESSED_KEYS.get(i);
+                Integer scanCodeObj = PRESSED_KEYS.get(i);
 
-                if (this.keyCodes.get(keyCodeIndex).equals(keyCodeObj))
+                if (this.scanCodes.get(scanCodeIndex).equals(scanCodeObj))
                 {
                     // Fully matched keybind
-                    if (++keyCodeIndex >= sizeRequired)
+                    if (++scanCodeIndex >= sizeRequired)
                     {
                         break;
                     }
                 }
-                else if ((allowOutOfOrder == false && (keyCodeIndex > 0 || sizePressed == sizeRequired)) ||
-                         (this.keyCodes.contains(keyCodeObj) == false && allowExtraKeys == false))
+                else if ((allowOutOfOrder == false && (scanCodeIndex > 0 || sizePressed == sizeRequired)) ||
+                         (this.scanCodes.contains(scanCodeObj) == false && allowExtraKeys == false))
                 {
                     /*
                     System.out.printf("km fail: key: %s, ae: %s, aoo: %s, cont: %s, keys: %s, pressed: %s, triggeredCount: %d\n",
-                            keyCodeObj, allowExtraKeys, allowOutOfOrder, this.keyCodes.contains(keyCodeObj), this.keyCodes, pressedKeys, triggeredCount);
+                            scanCodeObj, allowExtraKeys, allowOutOfOrder, this.keyCodes.contains(scanCodeObj), this.keyCodes, pressedKeys, triggeredCount);
                     */
                     this.pressed = false;
                     break;
@@ -209,7 +213,7 @@ public class KeybindMulti implements IKeybind
         }
         else if (pressedLast == false && this.heldTime == 0)
         {
-            if (this.keyCodes.contains(KeyCodes.KEY_F3))
+            if (this.scanCodes.contains(ScanCodes.SCAN_F3))
             {
                 // Prevent the debug GUI from opening after the F3 key is released
                 ((IF3KeyStateSetter) Minecraft.getInstance().keyboardHandler).malilib$setF3KeyState(true);
@@ -236,18 +240,18 @@ public class KeybindMulti implements IKeybind
     @Override
     public void clearKeys()
     {
-        this.keyCodes.clear();
+        this.scanCodes.clear();
         this.pressed = false;
         this.heldTime = 0;
 		this.markDirty();
     }
 
     @Override
-    public void addKey(int keyCode)
+    public void addKey(int scanCode)
     {
-        if (this.keyCodes.contains(keyCode) == false)
+        if (this.scanCodes.contains(scanCode) == false)
         {
-            this.keyCodes.add(keyCode);
+            this.scanCodes.add(scanCode);
 	        this.markDirty();
         }
     }
@@ -264,16 +268,22 @@ public class KeybindMulti implements IKeybind
     }
 
     @Override
-    public void removeKey(int keyCode)
+    public void removeKey(int scanCode)
     {
-        this.keyCodes.remove(keyCode);
+        this.scanCodes.remove(scanCode);
 	    this.markDirty();
     }
 
     @Override
     public List<Integer> getKeys()
     {
-        return this.keyCodes;
+        return this.scanCodes;
+    }
+
+    @VisibleForTesting
+    public static boolean isPressedKey(final int scanCode)
+    {
+        return PRESSED_KEYS.contains(scanCode);
     }
 
     @Override
@@ -326,15 +336,15 @@ public class KeybindMulti implements IKeybind
     {
         StringBuilder sb = new StringBuilder(32);
 
-        for (int i = 0; i < this.keyCodes.size(); ++i)
+        for (int i = 0; i < this.scanCodes.size(); ++i)
         {
             if (i > 0)
             {
                 sb.append(",");
             }
 
-            int keyCode = this.keyCodes.get(i).intValue();
-            String name = getStorageStringForKeyCode(keyCode);
+            int scanCode = this.scanCodes.get(i).intValue();
+            String name = getStorageStringForScanCode(scanCode);
 
             if (name != null)
             {
@@ -364,11 +374,11 @@ public class KeybindMulti implements IKeybind
 
             if (keyName.isEmpty() == false)
             {
-                int keyCode = KeyCodes.getKeyCodeFromName(keyName);
+                int scanCode = ScanCodes.getScanCodeFromName(keyName);
 
-                if (keyCode != KeyCodes.KEY_NONE)
+                if (scanCode != ScanCodes.SCAN_UNKNOWN)
                 {
-                    this.addKey(keyCode);
+                    this.addKey(scanCode);
                 }
             }
         }
@@ -380,20 +390,20 @@ public class KeybindMulti implements IKeybind
     }
 
     @Override
-    public boolean matches(int keyCode)
+    public boolean matches(int scanCode)
     {
-        return this.keyCodes.size() == 1 && this.keyCodes.get(0) == keyCode;
+        return this.scanCodes.size() == 1 && this.scanCodes.getFirst() == scanCode;
     }
 
     public static int getKeyCode(KeyMapping keybind)
     {
 		if (!InputUtils.isBound(keybind))
 		{
-			return KeyCodes.KEY_NONE;
+			return ScanCodes.SCAN_UNKNOWN;
 		}
 
 	    InputConstants.Key input = InputUtils.getBoundKey(keybind);
-        return input.getType() == InputConstants.Type.MOUSE ? input.getValue() - 100 : input.getValue();
+        return input.getType() == InputConstants.Type.MOUSE ? input.getValue() - ScanCodes.OFFSET_MOUSE : input.getValue();
     }
 
     public static boolean hotkeyMatchesKeybind(IHotkey hotkey, KeyMapping keybind)
@@ -425,8 +435,8 @@ public class KeybindMulti implements IKeybind
                 return false;
             }
 
-            if ((this.settings.getAllowExtraKeys() == false && l1 < l2 && keys1.get(0) != keys2.get(0)) ||
-                (settingsOther.getAllowExtraKeys() == false && l2 < l1 && keys1.get(0) != keys2.get(0)))
+            if ((!this.settings.getAllowExtraKeys() && l1 < l2 && !Objects.equals(keys1.getFirst(), keys2.getFirst())) ||
+                (!settingsOther.getAllowExtraKeys() && l2 < l1 && !Objects.equals(keys1.getFirst(), keys2.getFirst())))
             {
                 return false;
             }
@@ -481,30 +491,57 @@ public class KeybindMulti implements IKeybind
         return keybind;
     }
 
-    public static boolean isKeyDown(int keyCode)
+    public static boolean isKeyDown(int scanCode)
     {
-        if (keyCode == -1)
+        if (scanCode == ScanCodes.SCAN_UNKNOWN) { return false; }
+
+//        long window = Minecraft.getInstance().getWindow().handle();
+
+//        if (PRESSED_KEYS.contains(scanCode))
+//        {
+//            return true;
+//        }
+
+        if (scanCode > ScanCodes.SCAN_UNKNOWN)
         {
-            return false;
+            return InputUtils.isKeyHeld(scanCode);
         }
 
-        if (keyCode >= 0)
+        if (ScanCodes.isGamepadAxis(scanCode))
         {
-            return InputConstants.isKeyDown(keyCode);
+            scanCode += ScanCodes.OFFSET_GAMEPAD_AXIS;
+            return GamepadManager.INSTANCE.isAxisTriggerDown(scanCode);
+        }
+        else if (ScanCodes.isGamepadButton(scanCode))
+        {
+            scanCode += ScanCodes.OFFSET_GAMEPAD;
+            return GamepadManager.INSTANCE.isButtonDown(scanCode);
+        }
+        else if (ScanCodes.isMouse(scanCode))
+        {
+            scanCode += ScanCodes.OFFSET_MOUSE;
+            return InputUtils.isMouseHeld(scanCode) || InputConstants.isKeyDown(scanCode);
         }
 
-        keyCode += 100;
+//        final KeyState state = ((InputEventHandler) InputEventHandler.getInputManager()).getLastKeyState();
+//        final int scanCode = ((InputEventHandler) InputEventHandler.getInputManager()).getLastScanCode();
+//        final int action = ((InputEventHandler) InputEventHandler.getInputManager()).getLastActionCode();
+//
+//        return scanCode > ScanCodes.SCAN_UNKNOWN && state != null &&
+//                (state == KeyState.MOUSE_PRESSED || state == KeyState.GAMEPAD_BUTTON_DOWN ||
+//                        (scanCode == scanCode && action == ActionCodes.PRESSED)
+//                );
 
-        return keyCode >= 0 && net.ccbluex.liquidbounce.utils.input.InputTracker.INSTANCE.isMouseButtonPressed(keyCode);
+        return false;
     }
 
     @ApiStatus.Internal
     public static void onKeyInputPre(KeyEvent input, int action)
     {
-        if (input.key() != -1)
+        if (input.key() != ScanCodes.SCAN_UNKNOWN)
         {
             Integer valObj = input.key();
-            boolean state = action != InputConstants.RELEASE;
+            boolean state = action != ActionCodes.RELEASED;
 
             if (state)
             {
@@ -537,9 +574,9 @@ public class KeybindMulti implements IKeybind
 
         while (iter.hasNext())
         {
-            int keyCode = iter.next().intValue();
+            int scanCode = iter.next().intValue();
 
-            if (isKeyDown(keyCode) == false)
+            if (isKeyDown(scanCode) == false)
             {
                 iter.remove();
             }
@@ -552,16 +589,16 @@ public class KeybindMulti implements IKeybind
         }
     }
 
-    private static void printKeybindDebugMessage(int keyCode, int scanCode, int modifiers, int action)
+    private static void printKeybindDebugMessage(int scanCode, int keyCode, int modifiers, int action)
     {
-        String keyName = keyCode != KeyCodes.KEY_NONE ? KeyCodes.getNameForKey(keyCode) : "<unknown>";
-        String type = action == InputConstants.PRESS ? "PRESS" : (action == InputConstants.RELEASE ? "RELEASE" : "REPEAT");
+        String keyName = scanCode != ScanCodes.SCAN_UNKNOWN ? ScanCodes.getNameForScanCode(scanCode) : "<unknown>";
+        String type = action == ActionCodes.PRESSED ? "PRESS" : (action == ActionCodes.RELEASED ? "RELEASE" : "REPEAT");
         String held = getActiveKeysString();
-        String msg = String.format("%s %s (%d, m: %d), held: %s", type, keyName, keyCode, modifiers, held);
-        String msgConsole = String.format("%s %s (keyCode: %d, scanCode: %d, modifiers: %d), held keys: %s",
-                                          type, keyName, keyCode, scanCode, modifiers, held);
+        String msg = String.format("%s %s (sc: %d, m: %d), held: %s", type, keyName, scanCode, modifiers, held);
+        String msgConsole = String.format("%s %s (scanCode: %d, keyCode: %d, modifiers: %d), held keys: %s",
+                                          type, keyName, scanCode, keyCode, modifiers, held);
 
-        if (action != InputConstants.REPEAT)
+        if (action != ActionCodes.RELEASED)
         {
             MaLiLib.LOGGER.info(msgConsole);
         }
@@ -586,7 +623,7 @@ public class KeybindMulti implements IKeybind
                     sb.append(" + ");
                 }
 
-                String name = getStorageStringForKeyCode(key);
+                String name = getStorageStringForScanCode(key);
 
                 if (name != null)
                 {
@@ -603,6 +640,13 @@ public class KeybindMulti implements IKeybind
     }
 
     @Nullable
+    public static String getStorageStringForScanCode(int scanCode)
+    {
+        return ScanCodes.getNameForScanCode(scanCode);
+    }
+
+    @Nullable
+    @Deprecated
     public static String getStorageStringForKeyCode(int keyCode)
     {
         return KeyCodes.getNameForKey(keyCode);

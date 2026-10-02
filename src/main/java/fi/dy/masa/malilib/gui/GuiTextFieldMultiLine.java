@@ -1,6 +1,5 @@
 package fi.dy.masa.malilib.gui;
 
-import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
 import net.minecraft.client.gui.Font;
@@ -17,8 +16,8 @@ import net.minecraft.network.chat.Component;
 import fi.dy.masa.malilib.mixin.gui.IMixinAbstractWidget;
 import fi.dy.masa.malilib.util.StringUtils;
 import fi.dy.masa.malilib.util.data.Color4f;
+import fi.dy.masa.malilib.util.input.ScanCodes;
 
-@ApiStatus.Experimental
 public class GuiTextFieldMultiLine extends MultiLineEditBox
 {
     protected int x;
@@ -51,7 +50,7 @@ public class GuiTextFieldMultiLine extends MultiLineEditBox
 
         if (this.isMouseOver((int) click.x(), (int) click.y()))
         {
-            if (click.input() == 1)
+            if (click.input() == ScanCodes.OFFSET_MOUSE_RIGHT)
             {
                 this.setValue("");
             }

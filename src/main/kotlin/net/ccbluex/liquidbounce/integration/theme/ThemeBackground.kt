@@ -109,6 +109,42 @@ sealed interface ThemeBackground : AutoCloseable, SimpleReloadListener {
     }
 
     /**
+     * The built-in cursor-following artwork can be drawn directly by the GUI renderer.
+     * This keeps the animation visible even when an off-screen shader pass cannot be sampled.
+     */
+    class CursorImage(image: NativeImage) : ThemeBackground {
+        private val texture = image.asTexture { "ThemeBackground/CursorImage" }
+        private val textureSetup = texture.textureSetup
+
+        override fun draw(
+            context: GuiGraphicsExtractor,
+            width: Int,
+            height: Int,
+            mouseX: Int,
+            mouseY: Int,
+            delta: Float,
+        ): Boolean {
+            val x = (mouseX.toFloat() / width.coerceAtLeast(1)).coerceIn(0f, 1f)
+            val y = (mouseY.toFloat() / height.coerceAtLeast(1)).coerceIn(0f, 1f)
+            val offsetX = (1f - 2f * x) * 1.93f * 2.3f * 0.001f
+            val offsetY = (2f * y - 1f) * 1.93f * 2.3f * 0.001f
+
+            context.drawTexQuad(
+                textureSetup,
+                x0 = 0f, y0 = 0f,
+                x1 = width.toFloat(), y1 = height.toFloat(),
+                u1 = offsetX, v1 = offsetY,
+                u2 = 1f + offsetX, v2 = 1f + offsetY,
+            )
+            return true
+        }
+
+        override fun close() {
+            texture.close()
+        }
+    }
+
+    /**
      * Background implementation that renders using a custom shader.
      * @param pipeline the shader render pipeline
      */

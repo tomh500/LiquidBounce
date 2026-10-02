@@ -282,22 +282,11 @@ public class NbtBlockUtils
 
         if (nbt.contains(NbtKeys.SKULL_NAME))
         {
-            /*
-            String str = nbt.getString(NbtKeys.SKULL_NAME);
-
-            try
-            {
-                name = Text.Serialization.fromJson(str, registry);
-            }
-            catch (Exception ignored) {}
-             */
-
             name = getCustomNameFromNbt(nbt, registry, NbtKeys.SKULL_NAME);
         }
 
         if (nbt.contains(NbtKeys.PROFILE))
         {
-            //ProfileComponent.CODEC.parse(NbtOps.INSTANCE, nbt.get(NbtKeys.PROFILE)).resultOrPartial().ifPresent(profile::set);
             profile = nbt.read(NbtKeys.PROFILE, ResolvableProfile.CODEC).orElse(null);
         }
 
@@ -317,15 +306,6 @@ public class NbtBlockUtils
 
         if (nbt.contains(NbtKeys.RECIPES_USED))
         {
-            /*
-            NbtCompound compound = nbt.getCompound(NbtKeys.RECIPES_USED);
-
-            for (String key : compound.getKeys())
-            {
-                list.put(RegistryKey.of(RegistryKeys.RECIPE, Identifier.of(key)), compound.getInt(key));
-            }
-             */
-
             list.putAll(nbt.read(NbtKeys.RECIPES_USED, CODEC).orElse(Map.of()));
         }
 

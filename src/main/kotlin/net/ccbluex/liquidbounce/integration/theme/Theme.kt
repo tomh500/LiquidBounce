@@ -281,12 +281,14 @@ class Theme private constructor(val origin: Origin, url: String) :
         }
 
         withContext(Dispatchers.Main) {
-            backgroundShader = ThemeBackground.Shader.build(
-                metadata,
-                background,
-                fragmentShader,
-                image,
-            ).also {
+            backgroundShader = (if (origin == Origin.RESOURCE &&
+                metadata.id == "liquidbounce" && image != null &&
+                "Iris follow-cursor background" in fragmentShader
+            ) {
+                ThemeBackground.CursorImage(image)
+            } else {
+                ThemeBackground.Shader.build(metadata, background, fragmentShader, image)
+            }).also {
                 it.reload().await()
             }
         }

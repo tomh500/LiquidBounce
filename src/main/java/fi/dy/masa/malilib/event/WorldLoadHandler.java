@@ -13,7 +13,9 @@ import fi.dy.masa.malilib.MaLiLibConfigs;
 import fi.dy.masa.malilib.MaLiLibReference;
 import fi.dy.masa.malilib.config.ConfigManager;
 import fi.dy.masa.malilib.data.CachedTagManager;
+import fi.dy.masa.malilib.input.gamepad.GamepadManager;
 import fi.dy.masa.malilib.interfaces.IWorldLoadListener;
+import fi.dy.masa.malilib.registry.Registry;
 import fi.dy.masa.malilib.test.data.TestDataSyncer;
 import fi.dy.masa.malilib.util.game.RecipeBookUtils;
 
@@ -23,7 +25,7 @@ public class WorldLoadHandler implements IWorldLoadManager
 
     private final List<IWorldLoadListener> worldLoadPreHandlers = new ArrayList<>();
     private final List<IWorldLoadListener> worldLoadPostHandlers = new ArrayList<>();
-
+    private RegistryAccess.Frozen immutable;
     public static IWorldLoadManager getInstance()
     {
         return INSTANCE;
@@ -69,6 +71,8 @@ public class WorldLoadHandler implements IWorldLoadManager
                 listener.onWorldLoadImmutable(immutable);
             }
         }
+
+        this.immutable = immutable;
     }
 
     @ApiStatus.Internal
@@ -91,14 +95,17 @@ public class WorldLoadHandler implements IWorldLoadManager
         {
             ((ConfigManager) ConfigManager.getInstance()).saveAllConfigs();
             RecipeBookUtils.clearMap();
+            Registry.ENTITY_DATA_REGISTRY.reset();
         }
         // (Re-)Load all the configs from file when entering a world
         else if (worldBefore == null && worldAfter != null)
         {
             ((ConfigManager) ConfigManager.getInstance()).loadAllConfigs();
             InputEventHandler.getKeybindManager().updateUsedKeys();
+            GamepadManager.INSTANCE.scanForMissingGamepads();
             CachedTagManager.startCache();
             MaLiLibConfigs.checkBaseLanguage();
+            Registry.ENTITY_DATA_REGISTRY.register();
 
 //            if (MaLiLibReference.DEBUG_MODE && MaLiLibReference.EXPERIMENTAL_MODE)
 //            {
@@ -118,5 +125,10 @@ public class WorldLoadHandler implements IWorldLoadManager
                 listener.onWorldLoadPost(worldBefore, worldAfter, mc);
             }
         }
+    }
+
+    public RegistryAccess.Frozen immutable()
+    {
+        return this.immutable;
     }
 }

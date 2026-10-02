@@ -1,5 +1,9 @@
 package fi.dy.masa.malilib.gui.widgets;
 
+import java.util.List;
+
+import net.minecraft.client.input.MouseButtonEvent;
+
 import fi.dy.masa.malilib.gui.interfaces.IDirectoryNavigator;
 import fi.dy.masa.malilib.gui.interfaces.IFileBrowserIconProvider;
 import fi.dy.masa.malilib.gui.interfaces.IGuiIcon;
@@ -8,7 +12,7 @@ import fi.dy.masa.malilib.gui.widgets.WidgetFileBrowserBase.DirectoryEntryType;
 import fi.dy.masa.malilib.render.GuiContext;
 import fi.dy.masa.malilib.render.RenderUtils;
 import fi.dy.masa.malilib.util.FileNameUtils;
-import net.minecraft.client.input.MouseButtonEvent;
+import fi.dy.masa.malilib.util.input.ScanCodes;
 
 public class WidgetDirectoryEntry extends WidgetListEntryBase<DirectoryEntry>
 {
@@ -38,7 +42,7 @@ public class WidgetDirectoryEntry extends WidgetListEntryBase<DirectoryEntry>
     {
         if (this.entry.type() == DirectoryEntryType.DIRECTORY)
         {
-            if (click.input() == 0)
+            if (click.input() == ScanCodes.OFFSET_MOUSE_LEFT)
             {
                 this.navigator.switchToDirectory(this.entry.getDirectory().resolve(this.entry.name()));
             }
@@ -101,6 +105,11 @@ public class WidgetDirectoryEntry extends WidgetListEntryBase<DirectoryEntry>
         this.drawString(ctx, this.x + xOffset + 2, this.y + yOffset, 0xFFFFFFFF, this.getDisplayName());
 
         super.render(ctx, mouseX, mouseY, selected);
+
+        if (this.isMouseOver(mouseX, mouseY) && this.entry.displayHoverInfo())
+        {
+            RenderUtils.drawHoverText(ctx, mouseX + 10, mouseY, List.of(this.entry.getHoverText()));
+        }
     }
 
     protected String getDisplayName()

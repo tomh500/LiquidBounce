@@ -1,7 +1,5 @@
 package fi.dy.masa.malilib.mixin.input;
 
-import org.objectweb.asm.Opcodes;
-
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -14,7 +12,7 @@ import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
 
-@Mixin(value = KeyboardHandler.class, priority = 900)
+@Mixin(value = KeyboardHandler.class)
 public abstract class MixinKeyboard implements IF3KeyStateSetter
 {
     @Shadow private boolean usedDebugKeyAsModifier;
@@ -27,9 +25,11 @@ public abstract class MixinKeyboard implements IF3KeyStateSetter
     }
 
     @Inject(method = "keyPress", cancellable = true,
-            at = @At(value = "FIELD", target = "Lnet/minecraft/client/KeyboardHandler;debugCrashKeyTime:J",
-                     ordinal = 0,
-                     opcode = Opcodes.GETFIELD))
+            at = @At(value = "INVOKE",
+                     target = "Lcom/mojang/blaze3d/platform/FramerateLimitTracker;onInputReceived()V",
+                     shift = At.Shift.AFTER
+            )
+    )
     private void malilib_onKeyboardInput(long handle, int action, KeyEvent event, CallbackInfo ci)
     {
         if (((InputEventHandler) InputEventHandler.getInputManager()).onKeyInput(event, action, this.minecraft))

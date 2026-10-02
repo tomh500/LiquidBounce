@@ -1,12 +1,12 @@
 package fi.dy.masa.malilib.gui;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 import org.jspecify.annotations.NonNull;
-import com.mojang.blaze3d.platform.InputConstants;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.ChatFormatting;
@@ -38,7 +38,7 @@ import fi.dy.masa.malilib.interfaces.IStringConsumer;
 import fi.dy.masa.malilib.render.GuiContext;
 import fi.dy.masa.malilib.render.MessageRenderer;
 import fi.dy.masa.malilib.render.RenderUtils;
-import fi.dy.masa.malilib.util.KeyCodes;
+import fi.dy.masa.malilib.util.input.ScanCodes;
 
 public abstract class GuiBase extends Screen implements IMessageConsumer, IStringConsumer
 {
@@ -291,6 +291,15 @@ public abstract class GuiBase extends Screen implements IMessageConsumer, IStrin
     }
 
     @Override
+    public void onFilesDrop(final @NonNull List<Path> files)
+    {
+        if (this.onMouseDropFiles(files) == false)
+        {
+            super.onFilesDrop(files);
+        }
+    }
+
+    @Override
     public boolean keyPressed(@NotNull KeyEvent input)
     {
         this.keyInputCount++;
@@ -426,6 +435,11 @@ public abstract class GuiBase extends Screen implements IMessageConsumer, IStrin
         return false;
     }
 
+    public boolean onMouseDropFiles(@NonNull List<Path> files)
+    {
+        return false;
+    }
+
     public boolean onMouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount)
     {
         for (ButtonBase button : this.buttons)
@@ -479,7 +493,7 @@ public abstract class GuiBase extends Screen implements IMessageConsumer, IStrin
 
             if (entry.isFocused())
             {
-                if (input.key() == KeyCodes.KEY_TAB)
+                if (input.key() == ScanCodes.SCAN_TAB)
                 {
                     entry.setFocused(false);
                     selected = i;
@@ -489,7 +503,7 @@ public abstract class GuiBase extends Screen implements IMessageConsumer, IStrin
                     entry.onKeyTyped(input);
                 }
 
-                handled = input.key() != KeyCodes.KEY_ESCAPE;
+                handled = input.key() != ScanCodes.SCAN_ESCAPE;
                 break;
             }
         }
@@ -502,7 +516,7 @@ public abstract class GuiBase extends Screen implements IMessageConsumer, IStrin
 
                 if (entry.isFocused())
                 {
-                    if (input.key() == KeyCodes.KEY_TAB)
+                    if (input.key() == ScanCodes.SCAN_TAB)
                     {
                         entry.setFocused(false);
                         selectedMultiLine = i;
@@ -512,7 +526,7 @@ public abstract class GuiBase extends Screen implements IMessageConsumer, IStrin
                         entry.onKeyTyped(input);
                     }
 
-                    handled = input.key() != KeyCodes.KEY_ESCAPE;
+                    handled = input.key() != ScanCodes.SCAN_ESCAPE;
                     break;
                 }
             }
@@ -533,7 +547,7 @@ public abstract class GuiBase extends Screen implements IMessageConsumer, IStrin
 
         if (handled == false)
         {
-            if (input.key() == KeyCodes.KEY_ESCAPE)
+            if (input.key() == ScanCodes.SCAN_ESCAPE)
             {
                 this.closeGui(input.hasShiftDown() == false);
 
@@ -906,22 +920,22 @@ public abstract class GuiBase extends Screen implements IMessageConsumer, IStrin
 
 	public static boolean isShiftDown()
 	{
-		return InputConstants.isKeyDown(InputConstants.KEY_LSHIFT)
-				|| InputConstants.isKeyDown(InputConstants.KEY_RSHIFT);
+		return InputConstants.isKeyDown(ScanCodes.SCAN_LEFT_SHIFT)
+                || InputConstants.isKeyDown(ScanCodes.SCAN_RIGHT_SHIFT);
 	}
 
 	public static boolean isCtrlDown()
 	{
 		return Util.getPlatform() == Util.OS.OSX
-			   ? InputConstants.isKeyDown(InputConstants.KEY_LGUI)
-					   || InputConstants.isKeyDown(InputConstants.KEY_RGUI)
-			   : InputConstants.isKeyDown(InputConstants.KEY_LCONTROL)
-					   || InputConstants.isKeyDown(InputConstants.KEY_RCONTROL);
+			   ? InputConstants.isKeyDown(ScanCodes.SCAN_LEFT_GUI)
+					   || InputConstants.isKeyDown(ScanCodes.SCAN_RIGHT_GUI)
+			   : InputConstants.isKeyDown(ScanCodes.SCAN_LEFT_CONTROL)
+					   || InputConstants.isKeyDown(ScanCodes.SCAN_RIGHT_CONTROL);
 	}
 
 	public static boolean isAltDown()
 	{
-		return InputConstants.isKeyDown(InputConstants.KEY_LALT)
-				|| InputConstants.isKeyDown(InputConstants.KEY_RALT);
+		return InputConstants.isKeyDown(ScanCodes.SCAN_LEFT_ALT)
+                || InputConstants.isKeyDown(ScanCodes.SCAN_RIGHT_ALT);
 	}
 }

@@ -3,8 +3,8 @@ package fi.dy.masa.malilib.gui.widgets;
 import java.nio.file.Path;
 import java.util.Collections;
 import javax.annotation.Nullable;
+
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.util.Util;
 
 import fi.dy.masa.malilib.gui.GuiBase;
 import fi.dy.masa.malilib.gui.GuiTextInputFeedback;
@@ -13,7 +13,12 @@ import fi.dy.masa.malilib.gui.interfaces.IDirectoryNavigator;
 import fi.dy.masa.malilib.gui.interfaces.IFileBrowserIconProvider;
 import fi.dy.masa.malilib.render.GuiContext;
 import fi.dy.masa.malilib.render.RenderUtils;
-import fi.dy.masa.malilib.util.*;
+import fi.dy.masa.malilib.util.file_ops.DirectoryCreator;
+import fi.dy.masa.malilib.util.FileUtils;
+import fi.dy.masa.malilib.util.GuiUtils;
+import fi.dy.masa.malilib.util.StringUtils;
+import fi.dy.masa.malilib.util.file_ops.FileOpener;
+import fi.dy.masa.malilib.util.input.ScanCodes;
 
 public class WidgetDirectoryNavigation extends WidgetSearchBar
 {
@@ -54,48 +59,53 @@ public class WidgetDirectoryNavigation extends WidgetSearchBar
         {
             WidgetIcon hoveredIcon = this.getHoveredIcon((int) click.x(), (int) click.y());
 
-            if (hoveredIcon == this.iconRoot)
+            if (this.navigator instanceof WidgetFileBrowserBase fb)
             {
-                if (click.input() == 0)
-                {
-                    this.navigator.switchToRootDirectory();
-                }
-                else if (click.input() == 1 && this.navigator instanceof WidgetFileBrowserBase fb)
-                {
-                    com.mojang.blaze3d.Blaze3D.openPath(fb.getRootDirectory());
-                }
+                FileOpener o = new FileOpener(fb.getRootDirectory());       // Chroot Jail
 
-                return true;
-            }
-            else if (hoveredIcon == this.iconOpenDir)
-            {
-                if (click.input() == 0)
+                if (hoveredIcon == this.iconRoot)
                 {
-                    com.mojang.blaze3d.Blaze3D.openPath(this.navigator.getCurrentDirectory());
-                }
+                    if (click.input() == ScanCodes.OFFSET_MOUSE_LEFT)
+                    {
+                        this.navigator.switchToRootDirectory();
+                    }
+                    else if (click.input() == ScanCodes.OFFSET_MOUSE_RIGHT)
+                    {
+                        o.openPath(fb.getRootDirectory());
+                    }
 
-                return true;
-            }
-            else if (hoveredIcon == this.iconUp)
-            {
-                if (click.input() == 0)
+                    return true;
+                }
+                else if (hoveredIcon == this.iconOpenDir)
                 {
-                    this.navigator.switchToParentDirectory();
-                }
+                    if (click.input() == ScanCodes.OFFSET_MOUSE_LEFT)
+                    {
+                        o.openPath(this.navigator.getCurrentDirectory());
+                    }
 
-                return true;
-            }
-            else if (hoveredIcon == this.iconCreateDir)
-            {
-                if (click.input() == 0)
+                    return true;
+                }
+                else if (hoveredIcon == this.iconUp)
                 {
-                    String title = "malilib.gui.title.create_directory";
-                    DirectoryCreator creator = new DirectoryCreator(this.currentDir, this.navigator, false);
-                    GuiTextInputFeedback gui = new GuiTextInputFeedback(256, title, "", GuiUtils.getCurrentScreen(), creator);
-                    GuiBase.openGui(gui);
-                }
+                    if (click.input() == ScanCodes.OFFSET_MOUSE_LEFT)
+                    {
+                        this.navigator.switchToParentDirectory();
+                    }
 
-                return true;
+                    return true;
+                }
+                else if (hoveredIcon == this.iconCreateDir)
+                {
+                    if (click.input() == ScanCodes.OFFSET_MOUSE_LEFT)
+                    {
+                        String title = "malilib.gui.title.create_directory";
+                        DirectoryCreator creator = new DirectoryCreator(this.currentDir, this.navigator, false);
+                        GuiTextInputFeedback gui = new GuiTextInputFeedback(256, title, "", GuiUtils.getCurrentScreen(), creator);
+                        GuiBase.openGui(gui);
+                    }
+
+                    return true;
+                }
             }
         }
 

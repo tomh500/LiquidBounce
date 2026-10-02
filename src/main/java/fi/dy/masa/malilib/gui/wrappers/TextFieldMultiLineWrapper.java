@@ -1,6 +1,5 @@
 package fi.dy.masa.malilib.gui.wrappers;
 
-import org.jetbrains.annotations.ApiStatus;
 import org.jspecify.annotations.NonNull;
 
 import net.minecraft.client.input.CharacterEvent;
@@ -10,9 +9,8 @@ import net.minecraft.client.input.MouseButtonEvent;
 import fi.dy.masa.malilib.gui.GuiTextFieldMultiLine;
 import fi.dy.masa.malilib.gui.interfaces.ITextFieldMultiLineListener;
 import fi.dy.masa.malilib.render.GuiContext;
-import fi.dy.masa.malilib.util.KeyCodes;
+import fi.dy.masa.malilib.util.input.ScanCodes;
 
-@ApiStatus.Experimental
 public class TextFieldMultiLineWrapper<T extends GuiTextFieldMultiLine>
 {
 	private final T textField;
@@ -111,7 +109,7 @@ public class TextFieldMultiLineWrapper<T extends GuiTextFieldMultiLine>
 		if (this.textField.isFocused() && this.textField.keyPressed(input))
 		{
 			if (this.listener != null &&
-				(input.key() == KeyCodes.KEY_ENTER || input.key() == KeyCodes.KEY_TAB ||
+				(input.key() == ScanCodes.SCAN_RETURN || input.key() == ScanCodes.SCAN_TAB ||
 				 this.textField.getValue().equals(textPre) == false))
 			{
 				this.listener.onTextChange(this.textField);

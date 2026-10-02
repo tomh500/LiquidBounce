@@ -7,12 +7,11 @@ import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.ApiStatus;
-import org.joml.Matrix4fc;
 import org.joml.Vector4f;
 import org.jspecify.annotations.NonNull;
 
-import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -39,6 +38,7 @@ import fi.dy.masa.malilib.MaLiLibReference;
 import fi.dy.masa.malilib.config.HudAlignment;
 import fi.dy.masa.malilib.gui.GuiBase;
 import fi.dy.masa.malilib.interfaces.IRenderer;
+import fi.dy.masa.malilib.registry.Registry;
 import fi.dy.masa.malilib.render.GuiContext;
 import fi.dy.masa.malilib.render.RenderUtils;
 import fi.dy.masa.malilib.test.config.ConfigTestEnum;
@@ -169,35 +169,6 @@ public class TestRenderHandler implements IRenderer
     }
 
     @Override
-    public void onExtractWorldPreWeather(DeltaTracker deltaTracker, Camera camera, float ticks, ProfilerFiller profiler)
-    {
-        // TODO
-    }
-
-    @Override
-    public void onRenderWorldPreWeather(RenderTarget fb, Matrix4fc modelViewMatrix, CameraRenderState cameraState, Frustum culling, RenderBuffers buffers, GpuBufferSlice terrainFog, Vector4f fogColor, ProfilerFiller profiler)
-    {
-//        if (MaLiLibConfigs.Test.TEST_CONFIG_BOOLEAN.getBooleanValue())
-//        {
-//            MinecraftClient mc = MinecraftClient.getInstance();
-//
-//            profiler.push(MaLiLibReference.MOD_ID + "_test_walls");
-//
-//            if (ConfigTestEnum.TEST_WALLS_HOTKEY.getBooleanValue())
-//            {
-//                if (TestWalls.INSTANCE.needsUpdate(mc.getCameraEntity(), mc))
-//                {
-//                    TestWalls.INSTANCE.update(camera, mc.getCameraEntity(), mc);
-//                }
-//
-//                TestWalls.INSTANCE.render(camera, posMatrix, projMatrix, mc, profiler);
-//            }
-//
-//            profiler.pop();
-//        }
-    }
-
-    @Override
     public void onExtractWorldLast(DeltaTracker deltaTracker, Camera camera, float ticks, ProfilerFiller profiler)
     {
         if (MaLiLibConfigs.Test.TEST_CONFIG_BOOLEAN.getBooleanValue())
@@ -227,10 +198,8 @@ public class TestRenderHandler implements IRenderer
     }
 
     @Override
-    public void onRenderWorldLast(RenderTarget fb, Matrix4fc modelViewMatrix, CameraRenderState cameraState, Frustum culling, RenderBuffers buffers, GpuBufferSlice terrainFog, Vector4f fogColor, ProfilerFiller profiler)
+    public void onRenderWorldLast(RenderTarget fb, CameraRenderState cameraState, Frustum culling, RenderBuffers buffers, GpuBufferSlice terrainFog, Vector4f fogColor, ProfilerFiller profiler)
     {
-        boolean result = false;
-
         if (MaLiLibConfigs.Test.TEST_CONFIG_BOOLEAN.getBooleanValue())
         {
             Minecraft mc = Minecraft.getInstance();
@@ -354,6 +323,7 @@ public class TestRenderHandler implements IRenderer
                 if (player != null)
                 {
                     Pair<Entity, CompoundData> pair = TestDataSyncer.INSTANCE.requestEntity(world, player.getId());
+                    NbtInventory enderCache = Registry.ENTITY_DATA_REGISTRY.chestTracker().getEnderCache();
                     PlayerEnderChestContainer inv;
 
                     if (pair != null && pair.getRight() != null && pair.getRight().contains(NbtKeys.ENDER_ITEMS, Constants.NBT.TAG_LIST))
@@ -370,7 +340,15 @@ public class TestRenderHandler implements IRenderer
                         inv = player.getEnderChestInventory();
                     }
 
-                    if (inv != null)
+                    if (enderCache != null && !enderCache.isEmpty())
+                    {
+                        ListData list = enderCache.sorted().toDataList(world.registryAccess());
+                        CompoundData data = new CompoundData();
+
+                        data.put(NbtKeys.ENDER_ITEMS, list);
+                        RenderUtils.renderDataItemsPreview(ctx, stack, data, x, y, false);
+                    }
+                    else if (inv != null)
                     {
                         try (NbtInventory nbtInv = NbtInventory.fromInventory(inv))
                         {

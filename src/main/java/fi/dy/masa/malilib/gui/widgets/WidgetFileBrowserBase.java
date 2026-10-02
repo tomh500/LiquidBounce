@@ -9,7 +9,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
+
 import net.minecraft.client.input.KeyEvent;
+
 import fi.dy.masa.malilib.gui.interfaces.IDirectoryCache;
 import fi.dy.masa.malilib.gui.interfaces.IDirectoryNavigator;
 import fi.dy.masa.malilib.gui.interfaces.IFileBrowserIconProvider;
@@ -18,7 +20,8 @@ import fi.dy.masa.malilib.gui.widgets.WidgetFileBrowserBase.DirectoryEntry;
 import fi.dy.masa.malilib.render.GuiContext;
 import fi.dy.masa.malilib.render.RenderUtils;
 import fi.dy.masa.malilib.util.FileUtils;
-import fi.dy.masa.malilib.util.KeyCodes;
+import fi.dy.masa.malilib.util.StringUtils;
+import fi.dy.masa.malilib.util.input.ScanCodes;
 
 public abstract class WidgetFileBrowserBase extends WidgetListBase<DirectoryEntry, WidgetDirectoryEntry>
 		implements IDirectoryNavigator
@@ -61,12 +64,12 @@ public abstract class WidgetFileBrowserBase extends WidgetListBase<DirectoryEntr
             return true;
         }
 
-        if ((input.key() == KeyCodes.KEY_BACKSPACE || input.key() == KeyCodes.KEY_LEFT) && this.currentDirectoryIsRoot() == false)
+        if ((input.key() == ScanCodes.SCAN_BACKSPACE || input.key() == ScanCodes.SCAN_LEFT) && this.currentDirectoryIsRoot() == false)
         {
             this.switchToParentDirectory();
             return true;
         }
-        else if ((input.key() == KeyCodes.KEY_RIGHT || input.key() == KeyCodes.KEY_ENTER) &&
+        else if ((input.key() == ScanCodes.SCAN_RIGHT || input.key() == ScanCodes.SCAN_RETURN) &&
                   this.getLastSelectedEntry() != null && this.getLastSelectedEntry().type() == DirectoryEntryType.DIRECTORY)
         {
             this.switchToDirectory(this.getLastSelectedEntry().getDirectory().resolve(this.getLastSelectedEntry().name()));
@@ -211,7 +214,15 @@ public abstract class WidgetFileBrowserBase extends WidgetListBase<DirectoryEntr
 
                 if (filterText == null || this.matchesFilter(name, filterText))
                 {
-                    list.add(new DirectoryEntry(DirectoryEntryType.fromFile(file), dir, file.getFileName().toString(), displayNamePrefix));
+                    DirectoryEntry newEntry = new DirectoryEntry(DirectoryEntryType.fromFile(file), dir, file.getFileName().toString(), displayNamePrefix, this.displayHoverInfo());
+                    final String overrideHoverInfo = this.getEntryHoverInfoOverride(newEntry);
+
+                    if (!overrideHoverInfo.isEmpty())
+                    {
+                        newEntry.setOverrideHoverInfo(overrideHoverInfo);
+                    }
+
+                    list.add(newEntry);
                 }
             }
         }
@@ -228,7 +239,15 @@ public abstract class WidgetFileBrowserBase extends WidgetListBase<DirectoryEntr
 
                 if (filterText == null || this.matchesFilter(name, filterText))
                 {
-                    list.add(new DirectoryEntry(DirectoryEntryType.fromFile(file), dir, file.getFileName().toString(), displayNamePrefix));
+                    DirectoryEntry newEntry = new DirectoryEntry(DirectoryEntryType.fromFile(file), dir, file.getFileName().toString(), displayNamePrefix, this.displayHoverInfo());
+                    final String overrideHoverInfo = this.getEntryHoverInfoOverride(newEntry);
+
+                    if (!overrideHoverInfo.isEmpty())
+                    {
+                        newEntry.setOverrideHoverInfo(overrideHoverInfo);
+                    }
+
+                    list.add(newEntry);
                 }
             }
         }
@@ -259,6 +278,16 @@ public abstract class WidgetFileBrowserBase extends WidgetListBase<DirectoryEntr
     }
 
     protected abstract FileFilter getFileFilter();
+
+    protected boolean displayHoverInfo()
+    {
+        return false;
+    }
+
+    protected String getEntryHoverInfoOverride(DirectoryEntry entry)
+    {
+        return entry.getHoverText();
+    }
 
     @Override
     protected WidgetDirectoryEntry createListEntryWidget(int x, int y, int listIndex, boolean isOdd, DirectoryEntry entry)
@@ -316,9 +345,11 @@ public abstract class WidgetFileBrowserBase extends WidgetListBase<DirectoryEntr
 	/**
 	 * @param dir private final File dir;
 	 */
-	public record DirectoryEntry(DirectoryEntryType type, Path dir, String name, @Nullable String displayNamePrefix)
+	public record DirectoryEntry(DirectoryEntryType type, Path dir, String name, @Nullable String displayNamePrefix, boolean displayHoverInfo)
             implements Comparable<DirectoryEntry>
 	{
+        private static String overrideHoverInfo = "";
+
         public DirectoryEntryType getType()
         {
             return type;
@@ -355,6 +386,33 @@ public abstract class WidgetFileBrowserBase extends WidgetListBase<DirectoryEntr
 		{
 			return this.name.toLowerCase().compareTo(other.name().toLowerCase());
 		}
+
+        public void setOverrideHoverInfo(String hoverInfo)
+        {
+            overrideHoverInfo = hoverInfo;
+        }
+
+        public String getHoverText()
+        {
+            if (this.displayHoverInfo())
+            {
+                if (!overrideHoverInfo.isEmpty())
+                {
+                    return overrideHoverInfo;
+                }
+
+                try
+                {
+                    return StringUtils.translate("malilib.hover.file_browser.file_info", this.type().name(), this.dir().toAbsolutePath().toString(), this.name(), String.format("§b%d§r", Files.size(this.getFullPath())));
+                }
+                catch (Exception e)
+                {
+                    return StringUtils.translate("malilib.hover.file_browser.file_info", this.type().name(), this.dir().toAbsolutePath().toString(), this.name(), String.format("§cException; %s§r", e.getLocalizedMessage()));
+                }
+            }
+
+            return "";
+        }
 	}
 
     public enum DirectoryEntryType

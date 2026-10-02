@@ -14,7 +14,6 @@ import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.Util;
 import net.minecraft.util.profiling.Profiler;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Inventory;
@@ -273,12 +272,6 @@ public class GameWrap
     public static void profilerPop()
     {
         Profiler.get().pop();
-    }
-
-    public static void openFile(Path file)
-    {
-        //OpenGlHelper.openFile(file.toFile());
-        com.mojang.blaze3d.Blaze3D.openPath(file);
     }
 
     @Nullable

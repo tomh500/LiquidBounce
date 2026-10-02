@@ -1,0 +1,116 @@
+package fi.dy.masa.malilib.util.input;
+
+import java.nio.ByteBuffer;
+import org.lwjgl.sdl.SDLKeyboard;
+import org.lwjgl.sdl.SDLKeycode;
+import org.lwjgl.sdl.SDLMouse;
+import org.lwjgl.sdl.SDLScancode;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.Window;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+
+import fi.dy.masa.malilib.mixin.input.IMixinKeyBinding;
+
+public class InputUtils
+{
+    public static int getMouseX()
+    {
+        Minecraft mc = Minecraft.getInstance();
+        Window window = mc.getWindow();
+        return (int) (mc.mouseHandler.xpos() * (double) window.getGuiScaledWidth() / (double) window.getScreenWidth());
+    }
+
+    public static int getMouseY()
+    {
+        Minecraft mc = Minecraft.getInstance();
+        Window window = mc.getWindow();
+        return (int) (mc.mouseHandler.ypos() * (double) window.getGuiScaledHeight() / (double) window.getScreenHeight());
+    }
+
+	public static double getMouseXDirect()
+	{
+		return Minecraft.getInstance().mouseHandler.xpos();
+	}
+
+	public static double getMouseYDirect()
+	{
+		return Minecraft.getInstance().mouseHandler.ypos();
+	}
+
+	public static double getMouseXScaled()
+	{
+		Minecraft mc = Minecraft.getInstance();
+		Window window = mc.getWindow();
+		return (mc.mouseHandler.xpos() * ((double) window.getGuiScaledWidth() / window.getScreenWidth()));
+	}
+
+	public static double getMouseYScaled()
+	{
+		Minecraft mc = Minecraft.getInstance();
+		Window window = mc.getWindow();
+		return (mc.mouseHandler.ypos() * ((double) window.getGuiScaledHeight() / window.getScreenHeight()));
+	}
+
+	public static InputConstants.Key getDefaultKey(KeyMapping key)
+	{
+		return ((IMixinKeyBinding) key).malilib$getDefaultKey();
+	}
+
+	public static InputConstants.Key getBoundKey(KeyMapping key)
+	{
+		return ((IMixinKeyBinding) key).malilib$getBoundKey();
+	}
+
+	public static KeyMapping.Category getCategory(KeyMapping key)
+	{
+		return ((IMixinKeyBinding) key).malilib$getCategory();
+	}
+
+	public static boolean isBound(KeyMapping key)
+	{
+		return ((IMixinKeyBinding) key).malilib$getBoundKey() != null && !((IMixinKeyBinding) key).malilib$getBoundKey().equals(InputConstants.UNKNOWN);
+	}
+
+	public static void bindKey(KeyMapping key, InputConstants.Key binding)
+	{
+		key.setKey(binding);
+		KeyMapping.resetMapping();
+	}
+
+	public static void resetKeybind(KeyMapping key)
+	{
+		key.setKey(((IMixinKeyBinding) key).malilib$getDefaultKey());
+		KeyMapping.resetMapping();
+	}
+
+	public static boolean isKeyHeld(final int scanCode)
+	{
+		ByteBuffer state = SDLKeyboard.SDL_GetKeyboardState();
+		return state != null && state.get(scanCode) != 0;
+	}
+
+	public static boolean isMouseHeld(final int scanCode)
+	{
+		int buttonMask = SDLMouse.SDL_GetMouseState(null, null);
+		return (buttonMask & (1 << (scanCode - 1))) != 0;
+	}
+
+	public static int getInputModifiers()
+	{
+		return SDLKeyboard.SDL_GetModState();
+	}
+
+	public static void resetKeyboardState()
+	{
+		SDLKeyboard.SDL_ResetKeyboard();
+	}
+
+	public static boolean isAzertyLayout()
+	{
+		int scanCodeForQ = SDLKeyboard.nSDL_GetScancodeFromKey(SDLKeycode.SDLK_Q, SDLKeycode.SDL_KMOD_NONE);
+		int scanCodeForW = SDLKeyboard.nSDL_GetScancodeFromKey(SDLKeycode.SDLK_W, SDLKeycode.SDL_KMOD_NONE);
+		return scanCodeForQ == SDLScancode.SDL_SCANCODE_A && scanCodeForW == SDLScancode.SDL_SCANCODE_Z;
+	}
+}

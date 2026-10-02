@@ -162,9 +162,12 @@ public class ConfigBoolean extends ConfigBase<ConfigBoolean> implements IConfigB
 
                 if (this.getLastBooleanValue() != this.getBooleanValue())
                 {
-//                    MaLiLib.LOGGER.error("[BOOL/{}]: setValueFromJsonElement(): LV: [{}], OV: [{}], NV: [{}]", this.getName(),
-//                                         this.getLastBooleanValue(), oldValue, this.getBooleanValue()
-//                    );
+                    if (CONFIG_TYPE_DEBUG)
+                    {
+                        MaLiLib.LOGGER.error("[BOOL/{}]: setValueFromJsonElement(): LV: [{}], OV: [{}], NV: [{}]", this.getName(),
+                                             this.getLastBooleanValue(), oldValue, this.getBooleanValue()
+                        );
+                    }
 
                     this.onValueChanged();
                     this.updateLastBooleanValue();
@@ -174,6 +177,19 @@ public class ConfigBoolean extends ConfigBase<ConfigBoolean> implements IConfigB
         catch (Exception e)
         {
             MaLiLib.LOGGER.warn("Failed to set config value for '{}' from the JSON element '{}'", this.getName(), element, e);
+        }
+    }
+    @Override
+    public void checkIfClean()
+    {
+        if (this.isDirty())
+        {
+            this.markClean();
+            if (this.getBooleanValue() != this.getLastBooleanValue())
+            {
+                this.onValueChanged();
+                this.updateLastBooleanValue();
+            }
         }
     }
 

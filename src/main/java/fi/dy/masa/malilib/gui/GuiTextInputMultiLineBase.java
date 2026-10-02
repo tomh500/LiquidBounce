@@ -1,7 +1,6 @@
 package fi.dy.masa.malilib.gui;
 
 import javax.annotation.Nullable;
-import org.jetbrains.annotations.ApiStatus;
 import org.jspecify.annotations.NonNull;
 
 import net.minecraft.client.gui.screens.Screen;
@@ -14,12 +13,11 @@ import fi.dy.masa.malilib.gui.button.ButtonGeneric;
 import fi.dy.masa.malilib.gui.button.IButtonActionListener;
 import fi.dy.masa.malilib.render.GuiContext;
 import fi.dy.masa.malilib.render.RenderUtils;
-import fi.dy.masa.malilib.util.KeyCodes;
 import fi.dy.masa.malilib.util.MathUtils;
 import fi.dy.masa.malilib.util.StringUtils;
 import fi.dy.masa.malilib.util.data.Color4f;
+import fi.dy.masa.malilib.util.input.ScanCodes;
 
-@ApiStatus.Experimental
 public abstract class GuiTextInputMultiLineBase extends GuiDialogBase
 {
     protected final GuiTextFieldMultiLine textField;
@@ -133,7 +131,7 @@ public abstract class GuiTextInputMultiLineBase extends GuiDialogBase
 //            return true;
 //        }
 //        else
-        if (input.key() == KeyCodes.KEY_ESCAPE)
+        if (input.key() == ScanCodes.SCAN_ESCAPE)
         {
             GuiBase.openGui(this.getParent());
             return true;

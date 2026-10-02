@@ -1,7 +1,6 @@
 package fi.dy.masa.malilib.gui;
 
 import javax.annotation.Nullable;
-import org.jetbrains.annotations.ApiStatus;
 import org.jspecify.annotations.NonNull;
 
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -15,12 +14,11 @@ import fi.dy.masa.malilib.gui.button.ButtonGeneric;
 import fi.dy.masa.malilib.gui.button.IButtonActionListener;
 import fi.dy.masa.malilib.render.GuiContext;
 import fi.dy.masa.malilib.render.RenderUtils;
-import fi.dy.masa.malilib.util.KeyCodes;
 import fi.dy.masa.malilib.util.MathUtils;
 import fi.dy.masa.malilib.util.StringUtils;
 import fi.dy.masa.malilib.util.data.Color4f;
+import fi.dy.masa.malilib.util.input.ScanCodes;
 
-@ApiStatus.Experimental
 public abstract class GuiTextInputStackedMultiLineBase extends GuiDialogBase
 {
     protected final GuiTextFieldGeneric textField1;
@@ -152,7 +150,7 @@ public abstract class GuiTextInputStackedMultiLineBase extends GuiDialogBase
     @Override
     public boolean onKeyTyped(KeyEvent input)
     {
-        if (input.key() == KeyCodes.KEY_ENTER && this.selectedBox == 1)
+        if (input.key() == ScanCodes.SCAN_RETURN && this.selectedBox == 1)
         {
             // Only close the GUI if the value was successfully applied
             if (this.applyValues(this.textField1.getValue(), this.textField2.getValue()))
@@ -162,7 +160,7 @@ public abstract class GuiTextInputStackedMultiLineBase extends GuiDialogBase
 
             return true;
         }
-        else if (input.key() == KeyCodes.KEY_ESCAPE)
+        else if (input.key() == ScanCodes.SCAN_ESCAPE)
         {
             GuiBase.openGui(this.getParent());
             return true;

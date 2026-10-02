@@ -1,7 +1,14 @@
 #version 330
 #extension GL_ARB_separate_shader_objects : require
 
-#include <minecraft:dynamictransforms.glsl>
+// Can't moj_import in things used during startup, when resource packs don't exist.
+// This is a copy of dynamicimports.glsl
+layout(std140) uniform DynamicTransforms {
+    mat4 ModelViewMat;
+    mat4 TextureMat;
+    vec4 ColorModulator;
+    vec3 ModelOffset;
+};
 
 uniform sampler2D Sampler0;
 
