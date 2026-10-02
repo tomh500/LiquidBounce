@@ -21,6 +21,8 @@ package net.ccbluex.liquidbounce.integration.backend.backends.cef
 import net.ccbluex.liquidbounce.api.core.HttpClient
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.event.EventListener
+import net.ccbluex.liquidbounce.event.events.GameRenderEvent
+import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.integration.backend.BrowserAccelerationFlags
 import net.ccbluex.liquidbounce.integration.backend.BrowserBackend
 import net.ccbluex.liquidbounce.integration.backend.browser.BrowserSettings
@@ -64,6 +66,27 @@ private const val CACHE_CLEANUP_THRESHOLD = 1000 * 60 * 60 * 24 * 7 // 7 days
  */
 @Suppress("TooManyFunctions")
 class CefBrowserBackend : BrowserBackend, EventListener {
+
+    // GUI draw commands can still reference a browser texture after its screen has closed.
+    // Retire the native browser only after the frame that submitted those commands has finished.
+    private val pendingBrowserCloses = mutableListOf<Pair<Int, () -> Unit>>()
+
+    @Suppress("unused")
+    private val browserCloseHandler = handler<GameRenderEvent> {
+        val pending = pendingBrowserCloses.toList()
+        pendingBrowserCloses.clear()
+        pending.forEach { (framesLeft, close) ->
+            if (framesLeft <= 1) {
+                close()
+            } else {
+                pendingBrowserCloses.add(framesLeft - 1 to close)
+            }
+        }
+    }
+
+    internal fun deferBrowserClose(close: () -> Unit) {
+        pendingBrowserCloses.add(2 to close)
+    }
 
     private val mcefFolder = ConfigSystem.rootFolder.resolve("mcef")
     // The game tests keep it outside the game directory, which they wipe before every run
@@ -212,6 +235,8 @@ class CefBrowserBackend : BrowserBackend, EventListener {
     }
 
     override fun stop() {
+        pendingBrowserCloses.forEach { (_, close) -> close() }
+        pendingBrowserCloses.clear()
         MCEF.INSTANCE.shutdown()
         MCEF.INSTANCE.settings.cacheDirectory?.deleteRecursively()
     }

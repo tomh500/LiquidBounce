@@ -219,10 +219,12 @@ class CefBrowser(
         renderer.close()
         inputListener?.close()
         backend.removeBrowser(this)
-        browserApi.close()
+        backend.deferBrowserClose {
+            browserApi.close()
 
-        // Only after the browser is gone, since the context outlives nothing else.
-        requestContext?.dispose()
+            // Only after the browser is gone, since the context outlives nothing else.
+            requestContext?.dispose()
+        }
     }
 
     override fun update(width: Int, height: Int) {

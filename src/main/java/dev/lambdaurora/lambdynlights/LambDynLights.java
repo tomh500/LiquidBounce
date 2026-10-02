@@ -81,7 +81,7 @@ public class LambDynLights implements DynamicLightsContext {
 	public static final KeyMapping TOGGLE_FPS_DYNAMIC_LIGHTING = new KeyMapping(
 			LambDynLightsConstants.NAMESPACE + ".key.toggle_fps_dynamic_lighting",
 			InputConstants.Type.KEYBOARD,
-			-1,
+			InputConstants.UNKNOWN.getValue(),
 			KeyMapping.Category.MISC
 	);
 
