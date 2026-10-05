@@ -70,23 +70,20 @@ public class Lyric implements Runnable{
      * @return 歌词 Map
      */
     public static Map<Long, String> lyricToMap(String lyric){
-        Map<Long, String> lyricMap = new LinkedHashMap<>();
+        Map<Long, String> lyricMap = new java.util.TreeMap<>();
+        Pattern timestamp = Pattern.compile("\\[(\\d+:\\d{2}(?:\\.\\d+)?)\\]");
         for (String lyricRow : lyric.split("\n")) {
-            try {
-                String[] lyricRows = lyricRow.substring(1).split("]", 2);
-                if (lyricRows.length < 2){
-                    continue;
-                }
-
-                String lyricData = lyricRows[1];
-                if (METADATA_LINE.matcher(lyricData).find()){
-                    continue;
-                }
-
-                lyricMap.put(timeStrToTime(lyricRows[0]), lyricData);
-            }catch(Exception err){
-                continue;
+            var matcher = timestamp.matcher(lyricRow);
+            List<Long> times = new ArrayList<>();
+            int end = 0;
+            while (matcher.find()) {
+                times.add(timeStrToTime(matcher.group(1)));
+                end = matcher.end();
             }
+            if (times.isEmpty()) continue;
+            String text = lyricRow.substring(end).strip();
+            if (METADATA_LINE.matcher(text).find()) continue;
+            for (long time : times) lyricMap.put(time, text);
         }
         return lyricMap;
     }
@@ -268,8 +265,22 @@ public class Lyric implements Runnable{
         return window;
     }
 
+    /** Text, timestamps and highlight fraction sampled from one audio position. */
+    public record Snapshot(String original, String translation, long startMs, long endMs, float progress) { }
+
+    public Snapshot snapshot(long progressMs, long durationMs) {
+        List<Map.Entry<Long, String>> entries = new ArrayList<>(lyric.entrySet());
+        int index = currentIndex(entries, progressMs);
+        if (index < 0) return new Snapshot("", "", -1, -1, 0);
+        var entry = entries.get(index);
+        long start = entry.getKey();
+        long end = index + 1 < entries.size() ? entries.get(index + 1).getKey() : durationMs;
+        float fraction = end > start ? Math.clamp((float) (progressMs - start) / (end - start), 0f, 1f) : 0f;
+        return new Snapshot(entry.getValue(), tlyric.getOrDefault(start, ""), start, end, fraction);
+    }
+
     private static int currentIndex(List<Map.Entry<Long, String>> entries, long progressMs) {
-        int current = 0;
+        int current = -1;
         for (int i = 0; i < entries.size(); i++) {
             if (entries.get(i).getKey() > progressMs) break;
             current = i;

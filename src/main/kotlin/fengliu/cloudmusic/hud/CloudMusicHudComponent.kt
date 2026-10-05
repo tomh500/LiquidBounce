@@ -161,7 +161,8 @@ object MusicLyricsHudComponent : NativeHudComponent(
                     bodyScale,
                     lyricColor,
                     unplayedColor,
-                    player.lyricProgress(),
+                    lyrics.progress,
+                    widthSetting - 16f * scale,
                 )
             } else {
                 drawScrollingLyric(lyric, bounds.xMin + 8f * scale, bounds.yMin + 3f * scale, widthSetting - 16f * scale, bodyScale, lyricColor, font, centered = true, scrollProgress = player.scrollProgress())
@@ -179,15 +180,30 @@ object DynamicIslandHudComponent : NativeHudComponent(
     Alignment(Alignment.ScreenAxisX.CENTER_TRANSLATED, 0, Alignment.ScreenAxisY.TOP, 0),
     description = "Shows CloudMusic in an expanding Dynamic Island layout.",
 ) {
-    // The collapsed island only reserves space for the logo and cover.
-    private val minimumWidth = 104f
-    private val singleLineHeight = 22f
-    private val doubleLineHeight = 31f
-    private val collapseDurationMs = 520L
+    private val minimumWidthSetting by int("MinimumWidth", 104, 80..400)
+    private val maximumWidthSetting by int("MaximumWidth", 600, 160..1000)
+    private val textScale by float("TextScale", .92f, .5f..2f)
+    private val singleLineHeightSetting by int("SingleLineHeight", 22, 22..80)
+    private val doubleLineHeightSetting by int("DoubleLineHeight", 31, 31..100)
+    private val collapseDurationSetting by int("CollapseDuration", 520, 0..1500)
+    private val animationSpeed by float("AnimationSpeed", 16f, 2f..40f)
+    private val collapseOnLyricChange by boolean("CollapseOnLyricChange", true)
+    private val showLogo by boolean("ShowLogo", true)
+    private val showCover by boolean("ShowCover", true)
+    private val logoSize by float("LogoSize", 14f, 8f..32f)
+    private val coverSize by float("CoverSize", 20f, 8f..40f)
+    private val sidePadding by float("SidePadding", 22f, 16f..40f)
+    private val colorize by boolean("Colorize", true)
     private val showTranslation by boolean("ShowTranslation", true)
-    private val backgroundColor by color("BackgroundColor", Color4b(0, 0, 0, 255))
+    private val backgroundColor by color("BackgroundColor", Color4b(0, 0, 0, 173))
     private val lyricColor by color("LyricColor", Color4b.WHITE)
+    private val unplayedColor by color("UnplayedColor", Color4b(145, 145, 152, 255))
     private val translationColor by color("TranslationColor", Color4b(205, 205, 214, 255))
+    private val minimumWidth get() = maxOf(minimumWidthSetting.toFloat(), contentReserve + 1f)
+    private val singleLineHeight get() = maxOf(singleLineHeightSetting.toFloat(), textScale * 20f, if (showCover) coverSize else 0f, if (showLogo) logoSize else 0f)
+    private val doubleLineHeight get() = maxOf(doubleLineHeightSetting.toFloat(), textScale * 34f, singleLineHeight)
+    private val collapseDurationMs get() = collapseDurationSetting.toLong()
+    private val contentReserve get() = sidePadding * 2 + (if (showLogo) logoSize + 8f else 0f) + (if (showCover) coverSize + 8f else 0f)
     private var visibility = 0f
     private var displayedWidth = minimumWidth
     private var lastUpdate = 0L
@@ -196,7 +212,6 @@ object DynamicIslandHudComponent : NativeHudComponent(
     private var lyricContentVisible = true
     private var collapsePending = false
     private var cachedMusic: IMusic? = null
-    private var stableLyrics = CurrentLyrics(null, null)
     private var pinBounds: BoundingBox2f? = null
     override val guiScaledWidth get() = minimumWidth
     override val guiScaledHeight get() = doubleLineHeight
@@ -210,55 +225,58 @@ object DynamicIslandHudComponent : NativeHudComponent(
         return true
     }
 
-private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriorityConvention.MODEL_STATE) { event ->
+    private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriorityConvention.MODEL_STATE) { event ->
         if (SelfDestruct.isDestructed || !enabled) return@handler
         val player = MusicCommand.getPlayer()
-        val sampledLyrics = player.lyricLines()
-        val lyrics = if (sampledLyrics.original != null || sampledLyrics.translation != null) {
-            stableLyrics = sampledLyrics
-            sampledLyrics
-        } else stableLyrics
+        if (player.getPlayingMusic() !== cachedMusic) {
+            lastLyricKey = ""
+            collapsePending = false
+            lyricContentVisible = true
+            lyricTransitionStarted = 0L
+        }
+        val lyrics = player.lyricLines()
         animate(player, player.isPlaying(), player.getPlayingMusic(), lyrics)
-        val music = cachedMusic ?: return@handler
+        if (cachedMusic == null) return@handler
         if (visibility <= 0.01f) return@handler
         val islandHeight = if (showTranslation && !lyrics.translation.isNullOrBlank()) doubleLineHeight else singleLineHeight
         val bounds = getGuiScaledBounds(displayedWidth, islandHeight)
         val contentAlpha = if (lyricContentVisible) ((visibility - .12f) / .88f).coerceIn(0f, 1f) else 0f
         
         with(event.context) {
-            drawDynamicIslandShape(bounds, islandHeight, backgroundColor.with(r = 0, g = 0, b = 0, a = 173).fade(visibility))
+            drawDynamicIslandShape(bounds, islandHeight, backgroundColor.fade(visibility))
             // The logo and cover are the collapsed minimum unit; they remain
             // visible while lyric text fades out between timestamped lines.
-            val sidePadding = 22f
-            val logoSize = 14f
             val iconY = bounds.yMin + (islandHeight - logoSize) / 2f
             MusicIconTexture.loadLiquidBounceIcon()
-            if (MusicIconTexture.canUseLiquidBounceIcon()) mc.textureManager.getTexture(MusicIconTexture.LIQUID_BOUNCE_ICON_ID)?.let {
+            if (showLogo && MusicIconTexture.canUseLiquidBounceIcon()) mc.textureManager.getTexture(MusicIconTexture.LIQUID_BOUNCE_ICON_ID)?.let {
                 drawTexQuad(it.textureSetup, bounds.xMin + sidePadding, iconY, bounds.xMin + sidePadding + logoSize, iconY + logoSize)
             }
-            val coverSize = 20f
-            CloudMusicHudRender.drawCover(this, bounds.xMax - sidePadding - coverSize, bounds.yMin + (islandHeight - coverSize) / 2f, coverSize, rounded = true)
-            val textX = bounds.xMin + sidePadding + logoSize + 8f
-            val textWidth = (bounds.xMax - sidePadding - coverSize - 8f - textX).coerceAtLeast(1f)
+            if (showCover) CloudMusicHudRender.drawCover(this, bounds.xMax - sidePadding - coverSize, bounds.yMin + (islandHeight - coverSize) / 2f, coverSize, rounded = true)
+            val textX = bounds.xMin + sidePadding + (if (showLogo) logoSize + 8f else 0f)
+            val textWidth = (bounds.xMax - sidePadding - (if (showCover) coverSize + 8f else 0f) - textX).coerceAtLeast(1f)
             if (contentAlpha > 0f) {
                 val lyric = lyrics.original?.takeIf { it.isNotBlank() }
                 val translation = lyrics.translation?.takeIf { showTranslation && it.isNotBlank() }
                 
                 lyric?.let {
-                    val primaryY = if (translation == null) bounds.yMin + 5f else bounds.yMin + 2f
-                    val lyricProgress = player.lyricProgress()
-                    drawAnimatedLyric(
-                        it,
-                        textX + textWidth / 2f,
-                        primaryY,
-                        CloudMusicGui.bodyScale * .92f,
-                        lyricColor.fade(contentAlpha),
-                        lyricColor.with(r = 145, g = 145, b = 152).fade(contentAlpha),
-                        lyricProgress,
-                    )
+                    val primaryY = bounds.yMin + (islandHeight - (if (translation == null) 14f else 28f) * textScale) / 2f
+                    val lyricProgress = lyrics.progress
+                    scissorStack.withPush(getBounds(textX, bounds.yMin, textX + textWidth, bounds.yMax)) {
+                        drawAnimatedLyric(
+                            it,
+                            textX + textWidth / 2f,
+                            primaryY,
+                            CloudMusicGui.bodyScale * textScale,
+                            lyricColor.fade(contentAlpha),
+                            unplayedColor.fade(contentAlpha),
+                            if (colorize) lyricProgress else 1f,
+                            textWidth,
+                            lyricProgress,
+                        )
+                    }
                 }
                 translation?.let {
-                    drawCloudMusicText(it, textX + textWidth / 2f, bounds.yMin + 14.5f, CloudMusicGui.smallScale * .92f, translationColor.fade(contentAlpha), horizontalAnchor = HorizontalAnchor.CENTER)
+                    drawScrollingLyric(it, textX, bounds.yMin + (islandHeight - 28f * textScale) / 2f + 14f * textScale, textWidth, CloudMusicGui.smallScale * textScale, translationColor.fade(contentAlpha), centered = true, scrollProgress = player.scrollProgress())
                 }
             }
             pinBounds = bounds
@@ -279,13 +297,13 @@ private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriority
                 collapsePending = false
                 lyricTransitionStarted = 0L
                 lyricContentVisible = true
-            } else if (lastLyricKey.isNotEmpty()) {
+            } else if (collapseOnLyricChange && collapseDurationMs > 0 && lastLyricKey.isNotEmpty()) {
                 lyricTransitionStarted = now
                 lyricContentVisible = false
             }
             lastLyricKey = lyricKey
         }
-        if (target > 0f && !collapsePending) {
+        if (target > 0f && collapseOnLyricChange && collapseDurationMs > 0 && !collapsePending) {
             val times = player.getLyricWindowTimes(0, 1)
             val nextStart = times.getOrNull(1)?.takeIf { it >= player.playingProgress }
             if (nextStart != null && nextStart - player.playingProgress <= collapseDurationMs) {
@@ -294,6 +312,11 @@ private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriority
                 lyricContentVisible = false
             }
         }
+        if (!collapseOnLyricChange || collapseDurationMs == 0L) {
+            lyricContentVisible = true
+            collapsePending = false
+            lyricTransitionStarted = 0L
+        }
         if (!lyricContentVisible && lyricTransitionStarted != 0L && now - lyricTransitionStarted >= collapseDurationMs * 1_000_000L) {
             lyricContentVisible = true
             lyricTransitionStarted = 0L
@@ -301,19 +324,18 @@ private val renderHandler = handler<OverlayRenderEvent>(priority = EventPriority
         }
         
         val textWidth = maxOf(
-            lyrics.original?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.bodyScale * .92f) } ?: 0f,
-            if (showTranslation) lyrics.translation?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.smallScale * .92f) } ?: 0f else 0f,
+            lyrics.original?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.bodyScale * textScale) } ?: 0f,
+            if (showTranslation) lyrics.translation?.takeIf { it.isNotBlank() }?.let { CloudMusicGui.textWidth(it, CloudMusicGui.smallScale * textScale) } ?: 0f else 0f,
         )
-        val expandedTarget = (textWidth + 94f).coerceAtLeast(minimumWidth)
+        val expandedTarget = (textWidth + contentReserve).coerceIn(minimumWidth, maxOf(minimumWidth, maximumWidthSetting.toFloat()))
         val widthTarget = if (collapsePending || (lyricTransitionStarted != 0L && !lyricContentVisible)) minimumWidth else expandedTarget
-        displayedWidth += (widthTarget - displayedWidth) * (1f - kotlin.math.exp((-elapsed * 16f).toDouble()).toFloat())
+        displayedWidth += (widthTarget - displayedWidth) * (1f - kotlin.math.exp((-elapsed * animationSpeed).toDouble()).toFloat())
         
         if (visibility < .005f && target == 0f) {
             visibility = 0f
             displayedWidth = minimumWidth
             cachedMusic = null
             pinBounds = null
-            stableLyrics = CurrentLyrics(null, null)
             lyricContentVisible = true
             collapsePending = false
         }
@@ -402,29 +424,11 @@ private enum class LyricFont(override val tag: String) : Tagged {
     MINECRAFT("Minecraft"),
 }
 
-private data class CurrentLyrics(val original: String?, val translation: String?)
+private data class CurrentLyrics(val original: String?, val translation: String?, val progress: Float = 0f)
 
 private fun fengliu.cloudmusic.util.MusicPlayer.lyricLines(): CurrentLyrics {
-    // Read the timestamped window directly. The lyric worker's getLyric()
-    // snapshot can be empty for a few frames after a seek.
-    val current = getLyricWindow(0, 0, 0).getOrNull(0)?.takeIf { it.isNotBlank() }
-        ?: getLyric().getOrNull(0)?.takeIf { it.isNotBlank() }
-    val translation = getLyricTranslationWindow(0, 0, 0).getOrNull(0)?.takeIf { it.isNotBlank() }
-    return CurrentLyrics(current, translation)
-}
-
-private fun fengliu.cloudmusic.util.MusicPlayer.lyricProgress(): Float {
-    val times = getLyricWindowTimes(0, 1)
-    val start = times.getOrNull(0)?.takeIf { it >= 0L } ?: return 0f
-    val nextStart = times.getOrNull(1)?.takeIf { it > start }
-    // LRC exposes line starts rather than explicit ends. Keep normal lines
-    // synchronized to the next start; for a real interlude, finish the current
-    // line during its vocal section instead of waiting through the silence.
-    val end = nextStart?.let {
-        val interval = it - start
-        if (interval > 4000L) start + minOf(5000L, (interval * 0.65f).toLong()) else it
-    } ?: (start + 3000L)
-    return ((playingProgress - start).toFloat() / (end - start).toFloat()).coerceIn(0f, 1f)
+    val snapshot = lyricSnapshot
+    return CurrentLyrics(snapshot.original().takeIf { it.isNotBlank() }, snapshot.translation().takeIf { it.isNotBlank() }, snapshot.progress())
 }
 
 private fun blendColor(from: Color4b, to: Color4b, amount: Float): Color4b {
@@ -446,18 +450,23 @@ fun drawAnimatedLyric(
     playedColor: Color4b,
     pendingColor: Color4b,
     progress: Float,
+    availableWidth: Float = Float.POSITIVE_INFINITY,
+    scrollProgress: Float = progress,
 ) {
-    if (text.isEmpty()) return
+    if (text.isEmpty() || availableWidth <= 0f) return
     val widths = text.map { CloudMusicGui.textWidth(it.toString(), scale) }
     val totalWidth = widths.sum()
-    var x = centerX - totalWidth / 2f
+    val visibleWidth = minOf(totalWidth, availableWidth)
+    var x = centerX - visibleWidth / 2f - (totalWidth - visibleWidth) * scrollProgress.coerceIn(0f, 1f)
     val boundary = progress.coerceIn(0f, 1f) * text.length
-    text.forEachIndexed { index, character ->
-        val distance = boundary - index
-        val amount = distance.coerceIn(0f, 1f)
-        val color = blendColor(pendingColor, playedColor, amount)
-        drawCloudMusicText(character.toString(), x + widths[index] / 2f, y, scale, color, horizontalAnchor = HorizontalAnchor.CENTER)
-        x += widths[index]
+    ctx.scissorStack.withPush(ctx.getBounds(centerX - visibleWidth / 2f, y, centerX + visibleWidth / 2f, y + 20f)) {
+        text.forEachIndexed { index, character ->
+            val distance = boundary - index
+            val amount = distance.coerceIn(0f, 1f)
+            val color = blendColor(pendingColor, playedColor, amount)
+            drawCloudMusicText(character.toString(), x + widths[index] / 2f, y, scale, color, horizontalAnchor = HorizontalAnchor.CENTER)
+            x += widths[index]
+        }
     }
 }
 

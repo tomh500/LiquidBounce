@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import net.minecraft.network.chat.Component;
 
 import javax.sound.sampled.*;
-import java.io.EOFException;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -46,7 +45,8 @@ public class MusicPlayer implements Runnable {
     private volatile boolean load;
     private int volumePercentage;
     private volatile long playingProgress;
-    private long startPlayingTime;
+    private volatile long outputPositionBaseUs;
+    private volatile long outputProgressBaseMs;
     private volatile long seekTargetMs = -1;
     private File playFile = null;
     private String playUrl = null;
@@ -139,6 +139,8 @@ public class MusicPlayer implements Runnable {
             return;
         }
         this.playbackState = PlaybackState.LOADING;
+        this.playingProgress = 0;
+        this.seekTargetMs = -1;
         LOGGER.info("[CloudMusic][Player] 开始播放曲目, 播放列表大小={}", this.playListSize);
         // 开始播放的时候停止所有的声音(只会停止一瞬间)
         client.getSoundManager().stop();
@@ -269,15 +271,19 @@ public class MusicPlayer implements Runnable {
         }
 
         int count;
-        byte[] tempBuff = new byte[1024];
+        int outputFrameSize = Math.max(1, audioFormat.getFrameSize());
+        byte[] tempBuff = new byte[outputFrameSize * Math.max(1, 4096 / outputFrameSize)];
 
         this.load = true;
         this.playbackState = PlaybackState.PLAYING;
-        this.startPlayingTime = System.currentTimeMillis();
+        this.outputPositionBaseUs = output.getMicrosecondPosition();
+        this.outputProgressBaseMs = 0;
+        this.playingProgress = 0;
         while ((count = audioInputStream.read(tempBuff, 0, tempBuff.length)) != -1) {
             synchronized (this) {
-                while (!load)
+                while (!load && canContinue() && this.play == output)
                     wait();
+                if (!canContinue() || this.play != output) break;
             }
 
             long seekTarget = this.seekTargetMs;
@@ -295,7 +301,8 @@ public class MusicPlayer implements Runnable {
                     output.stop();
                     output.flush();
                     output.start();
-                    this.startPlayingTime = System.currentTimeMillis() - actualSeekTarget;
+                    this.outputPositionBaseUs = output.getMicrosecondPosition();
+                    this.outputProgressBaseMs = actualSeekTarget;
                     this.playingProgress = actualSeekTarget;
                 } catch (Exception err) {
                     err.printStackTrace();
@@ -306,10 +313,11 @@ public class MusicPlayer implements Runnable {
                         audioInputStream = convertForOutput(this.openAudioInputStream(), audioFormat);
                         this.activeStream = audioInputStream;
                         output.flush();
-                        this.startPlayingTime = System.currentTimeMillis();
+                        this.outputPositionBaseUs = output.getMicrosecondPosition();
+                        this.outputProgressBaseMs = 0;
                         this.playingProgress = 0;
                     } catch (Exception err2) {
-                        break;
+                        throw new IOException("Unable to reopen audio after seek", err2);
                     }
                 }
                 continue;
@@ -323,12 +331,32 @@ public class MusicPlayer implements Runnable {
                 if (this.play != output || !output.isOpen()) {
                     break;
                 }
-                output.write(tempBuff, 0, alignedCount);
+                int written = 0;
+                while (written < alignedCount) {
+                    synchronized (this) {
+                        while (!load && canContinue() && this.play == output) wait();
+                        if (!canContinue() || this.play != output || !output.isOpen()) break;
+                    }
+                    int accepted = output.write(tempBuff, written, alignedCount - written);
+                    written += accepted;
+                    if (accepted == 0 && load && this.play == output) {
+                        throw new IOException("Audio output stopped accepting samples");
+                    }
+                }
             }
-            this.playingProgress = System.currentTimeMillis() - this.startPlayingTime;
+            this.playingProgress = getPlayingProgress();
         }
 
-        this.playingProgress = 0;
+        // EOF means decoding finished, not that the queued samples were heard.
+        if (canContinue() && this.play == output && output.isOpen()) {
+            output.drain();
+            this.playingProgress = getPlayingProgress();
+        }
+        if (this.play == output) {
+            this.play = null;
+        }
+        output.close();
+        this.load = false;
         if (this.playbackState != PlaybackState.PAUSED && this.playbackState != PlaybackState.STOPPED) {
             this.playbackState = PlaybackState.ENDED;
         }
@@ -416,7 +444,7 @@ public class MusicPlayer implements Runnable {
         long bytesToSkip = (long) (targetMs / 1000.0 * bytesPerSecond);
         int frameSize = Math.max(1, format.getFrameSize());
         bytesToSkip -= bytesToSkip % frameSize;
-        byte[] buffer = new byte[65536];
+        byte[] buffer = new byte[frameSize * Math.max(1, 65536 / frameSize)];
         long skipped = 0;
         int emptyReads = 0;
         while (skipped < bytesToSkip) {
@@ -585,6 +613,7 @@ public class MusicPlayer implements Runnable {
     }
 
     private void reportPlaybackError(IMusic music, String reason, Throwable error) {
+        closeOutput();
         this.playbackState = PlaybackState.ERROR;
         this.loopPlayIn = false;
         this.load = false;
@@ -653,11 +682,14 @@ public class MusicPlayer implements Runnable {
         return volumePercentage;
     }
 
-    /**
-     * 获取当前滚动到的歌词
-     *
-     * @return 歌词
-     */
+    /** Returns synchronized lyric text and highlight timing for the HUD. */
+    public Lyric.Snapshot getLyricSnapshot() {
+        Lyric current = this.lyric;
+        IMusic music = this.playingMusic;
+        return current == null ? new Lyric.Snapshot("", "", -1, -1, 0)
+                : current.snapshot(getPlayingProgress(), music == null ? 0 : music.getDuration());
+    }
+
     public String[] getLyric() {
         if (lyric == null) {
             return new String[]{};
@@ -778,6 +810,9 @@ public class MusicPlayer implements Runnable {
             this.load = false;
             notifyAll();
         }
+        this.playingProgress = getPlayingProgress();
+        SourceDataLine line = this.play;
+        if (line != null && line.isOpen()) line.stop();
         this.loopPlayIn = false;
         this.playbackState = PlaybackState.PAUSED;
     }
@@ -807,7 +842,9 @@ public class MusicPlayer implements Runnable {
         if (this.lyric != null) {
             this.lyric.continues();
         }
-        this.startPlayingTime = System.currentTimeMillis() - this.playingProgress;
+        SourceDataLine line = this.play;
+        if (line == null || !line.isOpen()) return;
+        line.start();
 
         synchronized (this) {
             this.load = true;
@@ -825,6 +862,7 @@ public class MusicPlayer implements Runnable {
             try { line.flush(); } catch (Exception ignored) { }
             try { line.close(); } catch (Exception ignored) { }
         }
+        synchronized (this) { notifyAll(); }
         AudioInputStream stream = this.activeStream;
         this.activeStream = null;
         if (stream != null) {
@@ -872,6 +910,10 @@ public class MusicPlayer implements Runnable {
      * @return 毫秒
      */
     public long getPlayingProgress() {
+        SourceDataLine line = this.play;
+        if (line != null && line.isOpen() && this.playbackState == PlaybackState.PLAYING) {
+            return outputProgressBaseMs + Math.max(0, line.getMicrosecondPosition() - outputPositionBaseUs) / 1000L;
+        }
         return this.playingProgress;
     }
 
@@ -881,7 +923,7 @@ public class MusicPlayer implements Runnable {
      * @return 秒
      */
     public int getPlayingProgressSecond() {
-        return (int) (this.playingProgress / 1000);
+        return (int) (getPlayingProgress() / 1000);
     }
 
     /**
