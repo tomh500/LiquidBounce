@@ -68,7 +68,7 @@ public class Configs implements IConfigHandler {
         public static final ConfigBooleanHotkeyed HTTP_PROXY = ConfigUtil.addConfigBooleanHotkeyed("http.proxy", false, "");
         public static final ConfigString HTTP_PROXY_IP = ConfigUtil.addConfigString("http.proxy.ip");
         public static final ConfigInteger HTTP_PROXY_PORT = ConfigUtil.addConfigInteger("http.proxy.port", 8080);
-        public static final ConfigHotkey OPEN_CONFIG_GUI = ConfigUtil.addConfigHotkey("open.config.gui", "LEFT_CONTROL,C,M");
+        public static final ConfigHotkey OPEN_CONFIG_GUI = ConfigUtil.addConfigHotkey("open.config.gui", "");
         public static final ConfigHotkey SWITCH_PLAY_MUSIC = ConfigUtil.addConfigHotkey("switch.play.music");
         public static final ConfigHotkey PLAY_MUSIC = ConfigUtil.addConfigHotkey("play.music");
         public static final ConfigHotkey NEXT_MUSIC = ConfigUtil.addConfigHotkey("next.music");
@@ -296,10 +296,8 @@ public class Configs implements IConfigHandler {
         public static final ConfigBooleanHotkeyed ENABLE_NEARBY_MONSTER_DECREASE_VOLUME = ALL.ENABLE_NEARBY_MONSTER_DECREASE_VOLUME;
 
         public static final ImmutableList<ConfigBooleanHotkeyed> HOTKEY_LIST = ImmutableList.of(
-                MUSIC_INFO,
                 PLAY_LOOP,
                 PLAY_AUTO_RANDOM,
-                MUSIC_INFO_EFFECT_OFFSET,
                 HTTP_PROXY,
                 ENABLE_NEARBY_MONSTER_DECREASE_VOLUME
         );
@@ -323,7 +321,6 @@ public class Configs implements IConfigHandler {
         public static final ConfigHotkey PLAYLIST_RANDOM = ALL.PLAYLIST_RANDOM;
 
         public static final List<ConfigHotkey> HOTKEY_LIST = ImmutableList.of(
-                OPEN_CONFIG_GUI,
                 SWITCH_PLAY_MUSIC,
                 PLAY_MUSIC,
                 NEXT_MUSIC,

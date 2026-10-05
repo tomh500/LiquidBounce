@@ -1,7 +1,6 @@
 package fengliu.cloudmusic.event;
 
 import fengliu.cloudmusic.command.MusicCommand;
-import fengliu.cloudmusic.gui.CloudMusicScreen;
 import fengliu.cloudmusic.config.Configs;
 import fengliu.cloudmusic.music163.IMusic;
 import fengliu.cloudmusic.music163.data.Music;
@@ -52,11 +51,6 @@ public class HotkeysCallback implements IHotkeyCallback {
 
     @Override
     public boolean onKeyAction(KeyAction action, IKeybind key) {
-
-        if (key == Configs.HOTKEY.OPEN_CONFIG_GUI.getKeybind() && action == KeyAction.PRESS){
-            client.gui.setScreen(new CloudMusicScreen());
-            return true;
-        }
 
         if (key == Configs.HOTKEY.SWITCH_PLAY_MUSIC.getKeybind() && action == KeyAction.PRESS){
             MusicPlayer player = MusicCommand.getPlayer();

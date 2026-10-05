@@ -234,7 +234,8 @@ object DynamicIslandHudComponent : NativeHudComponent(
             lyricContentVisible = true
             lyricTransitionStarted = 0L
         }
-        val lyrics = player.lyricLines()
+        val sampled = player.lyricLines()
+        val lyrics = if (sampled.original == null) CurrentLyrics(player.playingMusic?.name, null, 1f) else sampled
         animate(player, player.isPlaying(), player.getPlayingMusic(), lyrics)
         if (cachedMusic == null) return@handler
         if (visibility <= 0.01f) return@handler

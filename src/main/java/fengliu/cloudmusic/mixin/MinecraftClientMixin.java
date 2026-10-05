@@ -17,7 +17,7 @@ public class MinecraftClientMixin {
      */
     @Inject(method = "disconnect(Lnet/minecraft/client/gui/screens/Screen;ZZ)V", at = @At("HEAD"))
     private void disconnect(CallbackInfo ci) {
-        if(!Configs.PLAY.NOT_PLAY_GAME_MUSIC.getBooleanValue()){
+        if(!Configs.PLAY.EXIT_GAME_STOP_MUSIC.getBooleanValue()){
             return;
         }
 

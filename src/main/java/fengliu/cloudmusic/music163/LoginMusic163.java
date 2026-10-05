@@ -73,7 +73,7 @@ public class LoginMusic163 {
      * @param countryCode 国家码
      */
     public void sendCaptcha(long phone, int countryCode) {
-        LOGGER.info("[CloudMusic][Login] 发送验证码 phone={} countryCode={}", phone, countryCode);
+        LOGGER.info("[CloudMusic][Login] 发送验证码");
         Map<String, Object> data = new HashMap<String, Object>();
         data.put("ctcode", countryCode);
         data.put("cellphone", phone);
@@ -89,7 +89,7 @@ public class LoginMusic163 {
      * @return 登录成功返回 cookie
      */
     public String cellphone(long phone, int captcha, int countryCode) {
-        LOGGER.info("[CloudMusic][Login] 验证码登录 phone={}", phone);
+        LOGGER.info("[CloudMusic][Login] 验证码登录");
         Map<String, Object> data = new HashMap<String, Object>();
         data.put("captcha", captcha);
         data.put("rememberLogin", true);
@@ -107,7 +107,7 @@ public class LoginMusic163 {
      * @return 登录成功返回 cookie
      */
     public String cellphone(long phone, String password, int countryCode) {
-        LOGGER.info("[CloudMusic][Login] 手机密码登录 phone={}", phone);
+        LOGGER.info("[CloudMusic][Login] 手机密码登录");
         Map<String, Object> data = new HashMap<String, Object>();
         data.put("password", LoginMusic163.encryption(password));
         data.put("rememberLogin", true);
@@ -124,7 +124,7 @@ public class LoginMusic163 {
      * @return 登录成功返回 cookie
      */
     public String email(String email, String password) {
-        LOGGER.info("[CloudMusic][Login] 邮箱登录 email={}", email);
+        LOGGER.info("[CloudMusic][Login] 邮箱登录");
         Map<String, Object> data = new HashMap<String, Object>();
         data.put("username", email);
         data.put("password", LoginMusic163.encryption(password));

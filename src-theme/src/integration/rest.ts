@@ -52,11 +52,16 @@ export interface RikkaMusicPlaylist {
     count: number;
     songs?: RikkaMusicSong[];
     artist?: string;
+    owned?: boolean;
 }
 
 export interface RikkaMusicLibrary {
     authenticated: boolean;
     username: string;
+    avatar?: string;
+    userId?: number;
+    artistId?: number;
+    vip?: boolean;
     liked: RikkaMusicPlaylist | null;
     playlists: RikkaMusicPlaylist[];
     error?: string;
@@ -69,6 +74,8 @@ export interface RikkaMusicState {
     song: RikkaMusicSong | null;
     theme: string;
     quality: string;
+    lyric?: string;
+    translation?: string;
 }
 
 export interface RikkaMusicSearchResult {
@@ -167,11 +174,11 @@ export async function mountRikkaMusicLocal(path: string): Promise<RikkaMusicLoca
     return await readMusicJson(response);
 }
 
-export async function controlRikkaMusic(action: string, value?: number, playlistId?: number, index?: number, query?: string, page?: number) {
+export async function controlRikkaMusic(action: string, value?: number, playlistId?: number, index?: number, query?: string, page?: number, queueToken?: string) {
     const response = await fetch(`${API_BASE}/client/music/control`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({action, value, playlistId, index, query, page})
+        body: JSON.stringify({action, value, playlistId, index, query, page, queueToken})
     });
     if (!response.ok) await readMusicJson(response);
 }
@@ -202,6 +209,44 @@ export async function updateRikkaMusicSetting(key: string, value?: string | numb
         body: JSON.stringify({key, value: value === undefined ? undefined : String(value)})
     });
     return await readMusicJson(response);
+}
+
+export interface RikkaMusicCollection {
+    kind: string;
+    name: string;
+    cover?: string;
+    description?: string;
+    artistId?: number;
+    page: number;
+    hasMore: boolean;
+    queueToken: string;
+    items: RikkaMusicPlaylist[];
+    songs: RikkaMusicSong[];
+}
+
+export async function getRikkaMusicCollection(kind: string, id = 0, page = 1): Promise<RikkaMusicCollection> {
+    return readMusicJson(await fetch(`${API_BASE}/client/music/browse?kind=${encodeURIComponent(kind)}&id=${id}&page=${page}`));
+}
+
+export async function submitRikkaMusicLogin(method: string, account: string, secret: string, countryCode: number): Promise<RikkaMusicLoginStatus> {
+    return readMusicJson(await fetch(`${API_BASE}/client/music/login/credentials`, {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({method, account, secret, countryCode})
+    }));
+}
+
+export async function sendRikkaMusicCaptcha(account: string, countryCode: number): Promise<{message: string}> {
+    return readMusicJson(await fetch(`${API_BASE}/client/music/login/captcha`, {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({method: "captcha", account, countryCode})
+    }));
+}
+
+export async function cancelRikkaMusicLogin(): Promise<void> {
+    await fetch(`${API_BASE}/client/music/login/cancel`, {method: "POST"});
+}
+
+export async function logoutRikkaMusic(): Promise<void> {
+    const response = await fetch(`${API_BASE}/client/music/logout`, {method: "POST"});
+    if (!response.ok) await readMusicJson(response);
 }
 
 export async function getMetadata(): Promise<Metadata> {

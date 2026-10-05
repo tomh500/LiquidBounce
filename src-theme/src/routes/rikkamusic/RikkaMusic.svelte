@@ -1,25 +1,27 @@
 <script lang="ts">
     import {onMount} from "svelte";
     import {
-        controlRikkaMusic, deleteScreen, getRikkaMusicCloud, getRikkaMusicLibrary, getRikkaMusicLoginStatus,
+        getRikkaMusicCollection, submitRikkaMusicLogin, sendRikkaMusicCaptcha, cancelRikkaMusicLogin, logoutRikkaMusic,
+        type RikkaMusicCollection, controlRikkaMusic, deleteScreen, getRikkaMusicCloud, getRikkaMusicLibrary, getRikkaMusicLoginStatus,
         getRikkaMusicPlaylist, getRikkaMusicQrCodeUrl, getRikkaMusicSettings, getRikkaMusicState,
         getRikkaMusicLocal, mountRikkaMusicLocal, openFileDialog, searchRikkaMusic, startRikkaMusicLogin, updateRikkaMusicSetting,
         type RikkaMusicLibrary, type RikkaMusicLoginStatus, type RikkaMusicPlaylist,
         type RikkaMusicSearchResult, type RikkaMusicSetting, type RikkaMusicSong, type RikkaMusicState
     } from "../../integration/rest";
 
-    type View = "liked" | "cloud" | "local" | "search" | "settings";
+    type View = "liked" | "cloud" | "local" | "search" | "settings" | "collection" | "playlists";
     type SettingsCategory = "account" | "playback" | "interface" | "command" | "network" | "hotkeys";
 
     const categoryLabels: Record<SettingsCategory, string> = {account: "账号", playback: "播放", interface: "界面", command: "命令", network: "网络", hotkeys: "按键"};
     const settingLabels: Record<string, string> = {
-        "gui.draggable.window": "允许拖动窗口", "gui.window.x": "窗口横坐标", "gui.window.y": "窗口纵坐标", "gui.theme": "界面主题", "volume": "音量", "play.url": "在线播放", "play.loop": "循环播放", "play.auto.random": "自动随机播放", "play.quality": "播放音质", "dj.radio.play.asc": "电台按时间升序播放", "play.not.game.music": "暂停游戏背景音乐", "play.block.note.block": "屏蔽音符盒", "play.block.jukebox": "屏蔽唱片机", "exit.game.stop.music": "退出游戏时停止音乐", "stop.play.show.ui": "停止播放时关闭界面", "cache.path": "缓存路径", "cache.max.mb": "最大缓存空间", "cache.delete.mb": "缓存清理空间", "page.limit": "每页歌曲数量", "music.info": "显示播放信息", "music.info.x": "播放信息横坐标", "music.info.y": "播放信息纵坐标", "music.info.effect.offset": "药水效果时调整信息位置", "music.info.effect.offset.x": "信息横向偏移", "music.info.effect.offset.y": "信息纵向偏移", "music.info.color": "信息背景颜色", "music.progress.bar.color": "进度条颜色", "music.player.progress.bar.color": "已播放进度条颜色", "music.progress.font.color": "进度文字颜色", "music.info.title.font.color": "歌曲标题颜色", "music.info.font.color": "歌曲副标题颜色", "lyric.style": "歌词显示样式", "lyric.color": "歌词颜色", "lyric.scale": "歌词缩放比例", "lyric.x": "歌词横坐标", "lyric.y": "歌词纵坐标", "click.run.command": "点击聊天选项执行命令", "login.country.code": "手机国家码", "login.qr.check.num": "二维码轮查次数", "login.qr.check.time": "二维码轮查间隔", "http.max.retry": "请求重试次数", "http.time.out": "请求超时时间", "http.proxy": "使用 HTTP 代理", "http.proxy.ip": "代理服务器地址", "http.proxy.port": "代理服务器端口", "open.config.gui": "打开配置界面", "switch.play.music": "暂停 / 继续播放", "play.music": "继续播放", "next.music": "下一首歌曲", "prev.music": "上一首歌曲", "stop.music": "暂停播放", "exit.play": "退出播放", "play.volume.add": "增加音量", "play.volume.down": "降低音量", "delete.play.music": "删除当前歌曲", "trash.add.play.music": "将当前歌曲移入垃圾桶", "like.music": "喜欢当前歌曲", "playlist.add.music": "添加到歌单", "playlist.del.music": "从歌单删除", "playlist.random": "随机播放队列", "enable.nearby.monster.decrease.volume": "靠近生物时降低音量", "nearby.monster.decrease.volume.value": "附近生物音量降低", "nearby.monster.decrease.volume.radius": "附近生物距离", "nearby.monster.is.survival": "仅对生存模式生物生效"
+        "gui.draggable.window": "允许拖动窗口", "gui.window.x": "窗口横坐标", "gui.window.y": "窗口纵坐标", "gui.theme": "界面主题", "volume": "音量", "play.url": "在线播放", "play.loop": "循环播放", "play.auto.random": "自动随机播放", "play.quality": "播放音质", "dj.radio.play.asc": "电台按时间升序播放", "play.not.game.music": "暂停游戏背景音乐", "play.block.note.block": "屏蔽音符盒", "play.block.jukebox": "屏蔽唱片机", "exit.game.stop.music": "离开世界时暂停音乐", "stop.play.show.ui": "停止播放时关闭界面", "cache.path": "缓存路径", "cache.max.mb": "最大缓存空间", "cache.delete.mb": "缓存清理空间", "page.limit": "每页歌曲数量", "music.info": "显示播放信息", "music.info.x": "播放信息横坐标", "music.info.y": "播放信息纵坐标", "music.info.effect.offset": "药水效果时调整信息位置", "music.info.effect.offset.x": "信息横向偏移", "music.info.effect.offset.y": "信息纵向偏移", "music.info.color": "信息背景颜色", "music.progress.bar.color": "进度条颜色", "music.player.progress.bar.color": "已播放进度条颜色", "music.progress.font.color": "进度文字颜色", "music.info.title.font.color": "歌曲标题颜色", "music.info.font.color": "歌曲副标题颜色", "lyric.style": "歌词显示样式", "lyric.color": "歌词颜色", "lyric.scale": "歌词缩放比例", "lyric.x": "歌词横坐标", "lyric.y": "歌词纵坐标", "click.run.command": "点击聊天选项执行命令", "login.country.code": "手机国家码", "login.qr.check.num": "二维码轮查次数", "login.qr.check.time": "二维码轮查间隔", "http.max.retry": "请求重试次数", "http.time.out": "请求超时时间", "http.proxy": "使用 HTTP 代理", "http.proxy.ip": "代理服务器地址", "http.proxy.port": "代理服务器端口", "open.config.gui": "打开配置界面", "switch.play.music": "暂停 / 继续播放", "play.music": "继续播放", "next.music": "下一首歌曲", "prev.music": "上一首歌曲", "stop.music": "暂停播放", "exit.play": "退出播放", "play.volume.add": "增加音量", "play.volume.down": "降低音量", "delete.play.music": "删除当前歌曲", "trash.add.play.music": "将当前歌曲移入垃圾桶", "like.music": "喜欢当前歌曲", "playlist.add.music": "添加到歌单", "playlist.del.music": "从歌单删除", "playlist.random": "随机播放队列", "enable.nearby.monster.decrease.volume": "靠近生物时降低音量", "nearby.monster.decrease.volume.value": "附近生物音量降低", "nearby.monster.decrease.volume.radius": "附近生物距离", "nearby.monster.is.survival": "仅对生存模式生物生效"
     };
 
     let library: RikkaMusicLibrary | null = null;
     let selected: RikkaMusicPlaylist | null = null;
     let state: RikkaMusicState = {playing: false, progress: 0, volume: 70, song: null, theme: "LiquidBounce", quality: "exhigh"};
     let view: View = "liked";
+    let loginPolling = false;
     let search = "";
     let searchResults: RikkaMusicSong[] = [];
     let searchPlaylists: RikkaMusicPlaylist[] = [];
@@ -42,23 +44,71 @@
     let localSongs: RikkaMusicSong[] = [];
     let viewportScale = 1;
     let expandedSettingKey = "";
+    let collection: RikkaMusicCollection | null = null;
+    let collectionId = 0;
+    let collectionLoading = false;
+    let loginMethod: "password" | "captcha" | "qr" = "password";
+    let loginAccount = "";
+    let loginSecret = "";
+    let countryCode = 86;
+    let accountBusy = false;
+    let captchaUntil = 0;
+    let captchaRemaining = 0;
+    let windowX = -1;
+    let windowY = -1;
+    let dragStart: {x: number; y: number; left: number; top: number} | null = null;
+    let recordingKey = "";
+    let recordedKeys: string[] = [];
+    let showLyrics = false;
 
-    $: songs = view === "search" ? searchResults : view === "cloud" ? cloudSongs : view === "local" ? localSongs : selected?.songs ?? [];
+    $: songs = view === "collection" ? collection?.songs ?? [] : view === "search" ? searchResults : view === "cloud" ? cloudSongs : view === "local" ? localSongs : selected?.songs ?? [];
     $: title = view === "search" ? `搜索 “${search}”` : selected?.name ?? "我喜欢的音乐";
     $: progressRatio = state.song && state.song.duration > 0 ? Math.min(1, state.progress / state.song.duration) : 0;
 
     onMount(() => {
         void initialize();
-        const stateTimer = window.setInterval(() => void refreshState(), 750);
+        const stateTimer = window.setInterval(() => { void refreshState(); captchaRemaining = Math.max(0, Math.ceil((captchaUntil - Date.now()) / 1000)); }, 750);
         const loginTimer = window.setInterval(() => void refreshLogin(), 1200);
         updateScale();
         window.addEventListener("resize", updateScale);
-        return () => { window.clearInterval(stateTimer); window.clearInterval(loginTimer); window.removeEventListener("resize", updateScale); };
+        return () => { if (loginPolling) void cancelRikkaMusicLogin(); window.clearInterval(stateTimer); window.clearInterval(loginTimer); window.removeEventListener("resize", updateScale); };
     });
 
-    function updateScale() { viewportScale = Math.min(1, window.innerWidth / 2560, window.innerHeight / 1440); }
-
-    async function initialize() { await Promise.all([refreshLibrary(), refreshState(), refreshLocal()]); }
+    function updateScale() {
+        viewportScale = Math.min(1, window.innerWidth / 2560, window.innerHeight / 1440);
+        windowX = Math.max(0, Math.min(windowX < 0 ? (window.innerWidth - 1320 * viewportScale) / 2 : windowX, window.innerWidth - 1320 * viewportScale));
+        windowY = Math.max(0, Math.min(windowY < 0 ? (window.innerHeight - 960 * viewportScale) / 2 : windowY, window.innerHeight - 960 * viewportScale));
+    }
+    function startDrag(event: PointerEvent) {
+        if (event.button !== 0) return;
+        dragStart = {x: event.clientX, y: event.clientY, left: windowX, top: windowY};
+        event.preventDefault();
+    }
+    function moveDrag(event: PointerEvent) {
+        if (!dragStart) return;
+        windowX = dragStart.left + event.clientX - dragStart.x;
+        windowY = dragStart.top + event.clientY - dragStart.y;
+        updateScale();
+    }
+    async function finishDrag() {
+        if (!dragStart) return;
+        dragStart = null;
+        await saveWindowPosition();
+    }
+    async function saveWindowPosition() {
+        try { await updateRikkaMusicSetting("gui.window.x", Math.round(windowX)); await updateRikkaMusicSetting("gui.window.y", Math.round(windowY)); }
+        catch { error = "窗口位置保存失败"; }
+    }
+    async function centerWindow() { windowX = -1; windowY = -1; updateScale(); await saveWindowPosition(); }
+    async function initialize() {
+        await Promise.all([refreshLibrary(), refreshState(), refreshLocal()]);
+        try {
+            const all = (await getRikkaMusicSettings("all")).settings;
+            windowX = Number(all.find(s => s.key === "gui.window.x")?.value ?? -1);
+            windowY = Number(all.find(s => s.key === "gui.window.y")?.value ?? -1);
+            updateScale();
+        } catch { /* Keep the default centered position. */ }
+    }
     async function refreshLibrary() {
         loading = true;
         try {
@@ -71,17 +121,78 @@
     }
     async function refreshState() { try { state = await getRikkaMusicState(); } catch { /* The theme browser can outlive the REST server during shutdown. */ } }
     async function refreshLogin() {
-        if (!showLogin) return;
+        if (!showLogin || library?.authenticated || !loginPolling) return;
         try {
             login = await getRikkaMusicLoginStatus();
             if (login.status === "waiting" && !qrCodeUrl) qrCodeUrl = getRikkaMusicQrCodeUrl();
-            if (login.status === "success") { await refreshLibrary(); window.setTimeout(() => showLogin = false, 750); }
+            if (login.status === "success") { loginPolling = false; loginSecret = ""; await refreshLibrary(); }
         } catch { /* Keep the last known status while the QR file is written. */ }
     }
     async function openLogin() {
-        showLogin = true; qrCodeUrl = "";
-        try { login = await startRikkaMusicLogin(); }
-        catch (e) { login = {status: "error", message: e instanceof Error ? e.message : "无法启动登录"}; }
+        showLogin = true;
+        loginMethod = "password";
+        loginPolling = false;
+        loginSecret = "";
+        qrCodeUrl = "";
+        login = {status: "idle", message: library?.authenticated ? "" : "请选择登录方式"};
+    }
+    async function closeLogin() { showLogin = false; loginPolling = false; loginSecret = ""; await cancelRikkaMusicLogin(); }
+    async function chooseLoginMethod(method: typeof loginMethod) {
+        loginPolling = false;
+        await cancelRikkaMusicLogin();
+        loginMethod = method;
+        loginSecret = "";
+        qrCodeUrl = "";
+        login = {status: "idle", message: ""};
+        if (method === "qr") {
+            try { login = await startRikkaMusicLogin(); loginPolling = true; }
+            catch { login = {status: "error", message: "二维码获取失败，请重试"}; }
+        }
+    }
+    async function submitLogin() {
+        accountBusy = true;
+        try { login = await submitRikkaMusicLogin(loginMethod, loginAccount.trim(), loginSecret, countryCode); loginPolling = true; }
+        catch (e) { login = {status: "error", message: e instanceof Error ? e.message : "登录失败"}; }
+        finally { loginSecret = ""; accountBusy = false; }
+    }
+    async function sendCaptcha() {
+        accountBusy = true;
+        try { const result = await sendRikkaMusicCaptcha(loginAccount.trim(), countryCode); login.message = result.message; captchaUntil = Date.now() + 60000; captchaRemaining = 60; }
+        catch (e) { login = {status: "error", message: e instanceof Error ? e.message : "验证码发送失败"}; }
+        finally { accountBusy = false; }
+    }
+    async function logout() {
+        accountBusy = true;
+        try { await logoutRikkaMusic(); library = null; selected = null; collection = null; view = "liked"; login = {status: "idle", message: "已退出账号"}; await refreshLibrary(); }
+        catch { login = {status: "error", message: "退出账号失败"}; }
+        finally { accountBusy = false; }
+    }
+    async function openCollection(kind: string, id = 0, page = 1) {
+        view = "collection";
+        collectionLoading = true;
+        try { collection = await getRikkaMusicCollection(kind, id, page); collectionId = id; error = ""; }
+        catch (e) { collection = null; error = e instanceof Error ? e.message : "无法读取列表"; }
+        finally { collectionLoading = false; }
+    }
+    async function openProfile() { await closeLogin(); if (library?.userId) await openCollection("profile", library.userId); }
+    async function openArtist(id: number) { showLogin = false; await openCollection("artist", id); }
+    function keyLabel(keys: string) {
+        const labels: Record<string, string> = {LEFT_CONTROL: "左 Ctrl", RIGHT_CONTROL: "右 Ctrl", LEFT_SHIFT: "左 Shift", RIGHT_SHIFT: "右 Shift", LEFT_ALT: "左 Alt", RIGHT_ALT: "右 Alt", LEFT_SUPER: "左 Win", RIGHT_SUPER: "右 Win", SPACE: "空格", ENTER: "回车", TAB: "Tab", BACKSPACE: "退格", DELETE: "删除", UP: "↑", DOWN: "↓", LEFT: "←", RIGHT: "→", ESCAPE: "Esc", MOUSE_LEFT: "鼠标左键", MOUSE_RIGHT: "鼠标右键", MOUSE_MIDDLE: "鼠标中键", BUTTON_1: "鼠标左键", BUTTON_2: "鼠标右键", BUTTON_3: "鼠标中键", BUTTON_4: "鼠标后退", BUTTON_5: "鼠标前进", RETURN: "回车", CAPS_LOCK: "大写锁定", NUM_LOCK: "数字锁定", PAGE_UP: "上一页", PAGE_DOWN: "下一页", PRINT_SCREEN: "截屏", SCROLL_LOCK: "滚动锁定", KP_ENTER: "小键盘回车"};
+        return keys.split(/[,+]/).map(key => labels[key.trim()] ?? key.trim()).filter(Boolean).join(" + ") || "未绑定";
+    }
+    function captureKey(event: KeyboardEvent) {
+        if (!recordingKey) return;
+        event.preventDefault(); event.stopPropagation();
+        if (event.code === "Escape") { recordingKey = ""; return; }
+        const names: Record<string, string> = {ControlLeft: "LEFT_CONTROL", ControlRight: "RIGHT_CONTROL", ShiftLeft: "LEFT_SHIFT", ShiftRight: "RIGHT_SHIFT", AltLeft: "LEFT_ALT", AltRight: "RIGHT_ALT", MetaLeft: "LEFT_SUPER", MetaRight: "RIGHT_SUPER", ArrowUp: "UP", ArrowDown: "DOWN", ArrowLeft: "LEFT", ArrowRight: "RIGHT", CapsLock: "CAPS_LOCK", NumLock: "NUM_LOCK", ScrollLock: "SCROLL_LOCK", PageUp: "PAGE_UP", PageDown: "PAGE_DOWN", PrintScreen: "PRINT_SCREEN", BracketLeft: "LEFT_BRACKET", BracketRight: "RIGHT_BRACKET", Backquote: "GRAVE_ACCENT", Equal: "EQUALS", Quote: "APOSTROPHE", NumpadAdd: "KP_PLUS", NumpadSubtract: "KP_MINUS", NumpadMultiply: "KP_MULTIPLY", NumpadDivide: "KP_DIVIDE", NumpadEnter: "KP_ENTER", NumpadDecimal: "KP_PERIOD", ContextMenu: "APPLICATION"};
+        const key = names[event.code] ?? event.code.replace(/^Key|^Digit/, "").replace(/^Numpad/, "KP_").toUpperCase();
+        if (!recordedKeys.includes(key)) recordedKeys = [...recordedKeys, key];
+    }
+    async function finishKey() {
+        if (!recordingKey || !recordedKeys.length) return;
+        const setting = settings.find(s => s.key === recordingKey);
+        recordingKey = "";
+        if (setting) await saveSetting(setting, recordedKeys.join(","));
     }
     async function openPlaylist(playlist: RikkaMusicPlaylist) { view = "liked"; selected = playlist.songs ? playlist : await getRikkaMusicPlaylist(playlist.id); }
     function searchType(): "song" | "playlist" | "artist" { return searchTab === "歌单" ? "playlist" : searchTab === "歌手" ? "artist" : "song"; }
@@ -115,7 +226,8 @@
     }
     async function playPlaylist(index: number) {
         try {
-            if (view === "search") await controlRikkaMusic("play-search", undefined, undefined, index, search, searchPage);
+            if (view === "collection" && collection) await controlRikkaMusic(collection.kind === "fm" ? "play-fm" : "play-browse", undefined, undefined, index, undefined, undefined, collection.queueToken);
+            else if (view === "search") await controlRikkaMusic("play-search", undefined, undefined, index, search, searchPage);
             else if (view === "cloud") await controlRikkaMusic("play-cloud", undefined, undefined, index);
             else if (view === "local") await controlRikkaMusic("play-local", undefined, undefined, index);
             else if (selected) await controlRikkaMusic("play-playlist", undefined, selected.id, index);
@@ -150,30 +262,39 @@
     function labelFor(setting: RikkaMusicSetting) { return settingLabels[setting.key] ?? setting.key; }
 </script>
 
+<svelte:window on:pointermove={moveDrag} on:pointerup={finishDrag} on:blur={finishDrag} />
 <div class="rikkamusic-stage">
-    <div class="rikkamusic-scale" style={`width: ${1320 * viewportScale}px; height: ${960 * viewportScale}px;`}>
+    <div class="rikkamusic-scale" style={`position: absolute; left: ${windowX}px; top: ${windowY}px; width: ${1320 * viewportScale}px; height: ${960 * viewportScale}px;`}>
     <div class:light={state.theme === "Light"} class="rikkamusic-shell" style={`transform: scale(${viewportScale});`}>
         <header class="top-header">
-            <div class="logo-section"><div class="logo-icon">♪</div><span class="logo-title">RikkaMusic</span></div>
+            <button class="logo-section drag-handle" on:pointerdown={startDrag} on:dblclick={centerWindow} title="拖动窗口，双击居中"><span class="logo-icon">♪</span><span class="logo-title">RikkaMusic</span></button>
             <div class="search-section"><button class="nav-btn" on:click={() => view = "liked"} aria-label="返回音乐库">‹</button><div class="search-bar"><span>⌕</span><input lang="zh-CN" inputmode="text" autocomplete="off" spellcheck="false" bind:value={search} on:keydown={(event) => event.key === "Enter" && runSearch()} placeholder="搜索歌手、歌曲、歌单" aria-label="搜索歌曲、歌手、歌单" />{#if search}<button on:click={() => { search = ""; view = "liked"; }} aria-label="清除搜索">×</button>{/if}</div></div>
-            <div class="user-section"><button class="account-button" on:click={openLogin}><span class="avatar">♙</span><span>{library?.authenticated ? library.username : "登录"}</span>{#if library?.authenticated}<span class="badge">VIP</span>{/if}</button><div class="window-controls"><button on:click={openSettings} title="设置" aria-label="设置">⚙</button><button on:click={toggleTheme} title="切换主题" aria-label="切换主题">◐</button><button on:click={deleteScreen} title="关闭" aria-label="关闭">×</button></div></div>
+            <div class="user-section"><button class="account-button" on:click={openLogin}><span class="avatar">{#if library?.avatar}<img src={library.avatar} alt="用户头像" referrerpolicy="no-referrer" />{:else}♙{/if}</span><span>{library?.authenticated ? library.username : "登录"}</span>{#if library?.vip}<span class="badge">VIP</span>{/if}</button><div class="window-controls"><button on:click={openSettings} title="设置" aria-label="设置">⚙</button><button on:click={toggleTheme} title="切换主题" aria-label="切换主题">◐</button><button on:click={deleteScreen} title="关闭" aria-label="关闭">×</button></div></div>
         </header>
 
         <div class="main-body">
-            <aside class="sidebar"><div class="menu-group"><div class="menu-title">我的</div><button class:active={view === "liked" && selected?.id === library?.liked?.id} class="menu-item" on:click={() => library?.liked && openPlaylist(library.liked)}><span>♥</span>我喜欢的音乐</button><button class:active={view === "cloud"} class="menu-item" on:click={openCloud}><span>☁</span>我的音乐云盘</button><button class:active={view === "local"} class="menu-item" on:click={() => { view = "local"; void refreshLocal(); }}><span>▣</span>本地挂载歌单</button></div>{#if (library?.playlists?.length ?? 0) > 0}<div class="menu-group playlist-group"><div class="menu-title">创建的歌单</div>{#each library?.playlists ?? [] as playlist (playlist.id)}<button class:active={selected?.id === playlist.id && view === "liked"} class="menu-item playlist-item" on:click={() => openPlaylist(playlist)}><span>♫</span>{playlist.name}</button>{/each}</div>{/if}</aside>
+            <aside class="sidebar"><div class="menu-group"><div class="menu-title">发现</div><button class="menu-item" on:click={() => openCollection("daily")}>每日推荐</button><button class="menu-item" on:click={() => openCollection("fm")}>个人 FM</button><button class="menu-item" on:click={() => openCollection("recommend")}>推荐歌单</button><div class="menu-title">我的</div><button class="menu-item" on:click={() => openCollection("playlists", library?.userId ?? 0)}>全部歌单</button><button class="menu-item" on:click={() => openCollection("podcasts")}>收藏的播客</button><button class:active={view === "liked" && selected?.id === library?.liked?.id} class="menu-item" on:click={() => library?.liked && openPlaylist(library.liked)}><span>♥</span>我喜欢的音乐</button><button class:active={view === "cloud"} class="menu-item" on:click={openCloud}><span>☁</span>我的音乐云盘</button><button class:active={view === "local"} class="menu-item" on:click={() => { view = "local"; void refreshLocal(); }}><span>▣</span>本地挂载歌单</button></div>{#if (library?.playlists?.length ?? 0) > 0}<div class="menu-group playlist-group"><div class="menu-title">我的歌单与收藏</div>{#each library?.playlists ?? [] as playlist (playlist.id)}<button class:active={selected?.id === playlist.id && view === "liked"} class="menu-item playlist-item" on:click={() => openPlaylist(playlist)}><span>♫</span>{playlist.name}</button>{/each}</div>{/if}</aside>
             <main class="content-area">
                 {#if error}<div class="notice"><span>{error}</span><button on:click={() => error = ""} aria-label="关闭提示">×</button></div>{/if}
                 {#if loading}<div class="placeholder loading"><span class="spinner"></span>正在加载音乐库</div>
-                {:else if !library?.authenticated}<section class="login-empty"><div class="cover-art">♪</div><h2>登录网易云音乐</h2><p>登录后即可同步我喜欢的音乐和已创建的歌单。</p><button class="btn btn-primary" on:click={openLogin}>扫码登录</button></section>
+                {:else if !library?.authenticated && view !== "settings" && view !== "local" && view !== "search"}<section class="login-empty"><div class="cover-art">♪</div><h2>登录网易云音乐</h2><p>登录后即可同步我喜欢的音乐和已创建的歌单。</p><button class="btn btn-primary" on:click={openLogin}>登录账号</button></section>
+                {:else if view === "playlists"}<section class="view-page"><h2>我的歌单</h2><div class="playlist-grid">{#each [library?.liked, ...(library?.playlists ?? [])].filter(Boolean) as playlist}{#if playlist}<button class="playlist-card" on:click={() => openPlaylist(playlist)}><img src={playlist.cover} alt="" /><strong>{playlist.name}</strong><small>{playlist.owned === false ? "收藏" : "创建"} · {playlist.count} 首</small></button>{/if}{:else}<p>暂无歌单</p>{/each}</div></section>
+                {:else if view === "collection"}<section class="view-page">{#if collectionLoading}<div class="placeholder"><span class="spinner"></span>正在加载</div>{:else if collection}<div class="collection-heading">{#if collection.cover}<img src={collection.cover} alt="" />{/if}<div><h2>{collection.name}</h2><p>{collection.description ?? ""}</p></div></div><div class="collection-actions">{#if collection.songs.length}<button class="btn btn-primary" on:click={() => playPlaylist(0)}>播放全部</button>{/if}{#if collection.kind === "fm"}<button class="btn btn-secondary" on:click={() => openCollection("fm")}>换一批</button>{/if}{#if collection.artistId}<button class="btn btn-secondary" on:click={() => collection?.artistId && openArtist(collection.artistId)}>音乐人主页</button>{/if}</div><div class="playlist-grid">{#each collection.items as item (item.id)}<button class="playlist-card" on:click={() => collection?.kind === "podcasts" ? openCollection("podcast", item.id) : openPlaylist(item)}><img src={item.cover} alt="" /><strong>{item.name}</strong><small>{item.owned === false ? "收藏 · " : item.owned === true ? "创建 · " : ""}{item.count} {collection.kind === "podcasts" ? "期节目" : "首歌曲"}</small></button>{/each}</div><div class="song-table">{#each collection.songs as song, index}<button class="song-row" class:playing={state.song?.id === song.id} on:click={() => playPlaylist(index)}><span>{index + 1}</span><span class="song-title">{song.name}</span><span>{song.artist}</span><span>{song.album}</span><span>{formatTime(song.duration)}</span></button>{/each}</div>{#if !collection.items.length && !collection.songs.length}<p class="empty-cell">暂无内容</p>{/if}<div class="search-pages">{#if collection.page > 1}<button on:click={() => collection && openCollection(collection.kind, collectionId, collection.page - 1)}>上一页</button>{/if}{#if collection.hasMore}<button on:click={() => collection && openCollection(collection.kind, collectionId, collection.page + 1)}>下一页</button>{/if}</div>{/if}</section>
                 {:else if view === "cloud"}<section class="view-page"><h2>我的音乐云盘</h2><div class="cloud-bar"><span>{cloudLoading ? "正在读取云盘歌曲" : `${cloudSongs.length} 首歌曲`}</span></div>{#if cloudLoading}<div class="placeholder loading"><span class="spinner"></span>正在加载云盘</div>{:else}<div class="song-table"><div class="song-row song-head"><span>#</span><span>标题</span><span>歌手</span><span>专辑</span><span>时长</span></div>{#each songs as song, index (song.id)}<button class:playing={state.song?.id === song.id} class="song-row" on:click={() => playPlaylist(index)}><span>{state.song?.id === song.id ? "▶" : index + 1}</span><span class="song-title">{song.name}</span><span>{song.artist || "未知歌手"}</span><span>{song.album || "未知专辑"}</span><span>{formatTime(song.duration)}</span></button>{:else}<div class="empty-cell">云盘暂无歌曲</div>{/each}</div>{/if}</section>
                 {:else if view === "local"}<section class="view-page"><h2>挂载本地音乐歌单</h2><div class="mount-panel"><div class="mount-options"><span>本地挂载目录</span><input aria-label="本地挂载目录" value={localPath || "未配置"} readonly /><button class="btn btn-secondary" on:click={openLocal}>选择本地文件夹</button></div></div><div class="mount-result"><div class="result-header"><h3>本地解析出的歌曲列表 ({localSongs.length})</h3><button class="btn btn-secondary" disabled={!localSongs.length} on:click={() => playPlaylist(0)}>播放本地全部</button></div><div class="song-table">{#each localSongs as song, index (song.id)}<button class="song-row" on:click={() => playPlaylist(index)}><span>{index + 1}</span><span class="song-title">{song.name}</span><span>{song.artist || "本地文件"}</span><span>{song.album || ""}</span><span>{formatTime(song.duration)}</span></button>{:else}<div class="empty-cell">未挂载文件夹或未读取到音频文件</div>{/each}</div></div></section>
-                {:else if view === "settings"}<section class="settings-page"><h2>设置</h2><div class="setting-tabs">{#each Object.entries(categoryLabels) as [category, label]}<button class:active={settingsCategory === category} on:click={() => selectSettingsCategory(category as SettingsCategory)}>{label}</button>{/each}</div>{#if settingsLoading}<div class="placeholder loading"><span class="spinner"></span>正在读取设置</div>{:else}<div class="setting-group"><h3>{categoryLabels[settingsCategory]}设置</h3>{#if settingsCategory === "account"}<p class="settings-note">账号 Cookie 不会显示在网页中。请通过右上角的扫码登录更新账号。</p>{/if}{#each settings as setting (setting.key)}<div class="setting-item"><span class="setting-label">{labelFor(setting)}{#if setting.hotkey}<small>快捷键 {setting.hotkey}</small>{/if}</span>{#if setting.type === "boolean"}<input aria-label={labelFor(setting)} class="switch" type="checkbox" checked={Boolean(setting.value)} on:change={(event) => saveSetting(setting, event.currentTarget.checked)} />{:else if setting.type === "option"}<div class="setting-select" class:expanded={expandedSettingKey === setting.key}><button type="button" class="select-like" aria-haspopup="listbox" aria-expanded={expandedSettingKey === setting.key} on:click={() => expandedSettingKey = expandedSettingKey === setting.key ? "" : setting.key}>{String(setting.value)}<span class="select-arrow">⌄</span></button>{#if expandedSettingKey === setting.key}<div class="select-options" role="listbox">{#each setting.options ?? [String(setting.value)] as option}<button type="button" role="option" aria-selected={option === String(setting.value)} class:active={option === String(setting.value)} on:click={() => saveSetting(setting, option)}>{option}</button>{/each}</div>{/if}</div>{:else if (setting.type === "integer" || setting.type === "double") && setting.min !== undefined && setting.max !== undefined}<div class="range-control"><input aria-label={labelFor(setting)} type="range" min={setting.min} max={setting.max} step={setting.type === "double" ? "0.01" : "1"} value={setting.value} on:change={(event) => saveSetting(setting, Number(event.currentTarget.value))}/><output>{setting.value}</output></div>{:else if setting.type === "color"}<div class="color-control"><input aria-label={labelFor(setting)} type="color" value={String(setting.value).slice(0, 7)} on:change={(event) => saveSetting(setting, event.currentTarget.value.replace("#", "#FF"))}/><input aria-label={`${labelFor(setting)} 色值`} value={setting.value} on:change={(event) => saveSetting(setting, event.currentTarget.value)} /></div>{:else}<input aria-label={labelFor(setting)} class="value-input" value={setting.value} on:change={(event) => saveSetting(setting, event.currentTarget.value)} />{/if}</div>{:else}<p class="placeholder-text">此分类没有可配置项</p>{/each}</div>{/if}</section>
-                {:else}<section class="view-page"><div class="playlist-header"><div class="cover-art"><img src={selected?.cover || ""} alt="" /><span>♥</span></div><div class="playlist-info"><h2>{title}</h2><p class="meta">{library.username} 创建 · {songs.length} 首歌曲</p><button class="btn btn-primary" disabled={!songs.length} on:click={() => playPlaylist(0)}>▶ 播放全部</button></div></div>{#if view === "search"}<h2 class="search-title">搜索 “{search}”</h2><div class="sub-tabs">{#each ["综合", "单曲", "歌单", "歌手"] as tab}<button class:active={searchTab === tab} class="tab" on:click={() => selectSearchTab(tab as typeof searchTab)}>{tab}</button>{/each}</div><div class="search-pages"><button disabled={searchPage <= 1} on:click={() => runSearch(searchPage - 1)}>上一页</button><span>{searchPage} / {searchPageCount} · {searchTotal}</span><button disabled={searchPage >= searchPageCount} on:click={() => runSearch(searchPage + 1)}>下一页</button></div>{/if}<div class="song-table"><div class="song-row song-head"><span>#</span><span>标题</span><span>歌手</span><span>专辑</span><span>时长</span></div>{#if view === "search" && searchTab === "歌单"}{#each searchPlaylists as playlist, index (playlist.id)}<button class="song-row" on:click={() => openPlaylist(playlist)}><span>{index + 1}</span><span class="song-title">{playlist.name}</span><span>{playlist.artist || ""}</span><span>{playlist.count} 首歌曲</span><span>歌单</span></button>{/each}{:else if view === "search" && searchTab === "歌手"}{#each searchArtists as artist, index (artist.id)}<div class="song-row"><span>{index + 1}</span><span class="song-title">{artist.name}</span><span>歌手</span><span>{artist.count ? `${artist.count} 首歌曲` : ""}</span><span>歌手</span></div>{:else}<div class="empty-cell">暂无歌曲</div>{/each}{:else}{#each songs as song, index (song.id)}<button class:playing={state.song?.id === song.id} class="song-row" on:click={() => playPlaylist(index)}><span>{state.song?.id === song.id ? "▶" : index + 1}</span><span class="song-title">{song.name}</span><span>{song.artist || "未知歌手"}</span><span>{song.album || "未知专辑"}</span><span>{formatTime(song.duration)}</span></button>{:else}<div class="empty-cell">暂无歌曲</div>{/each}{/if}</div></section>{/if}
+                {:else if view === "settings"}<section class="settings-page"><h2>设置</h2><div class="setting-tabs">{#each Object.entries(categoryLabels) as [category, label]}<button class:active={settingsCategory === category} on:click={() => selectSettingsCategory(category as SettingsCategory)}>{label}</button>{/each}</div>{#if settingsLoading}<div class="placeholder loading"><span class="spinner"></span>正在读取设置</div>{:else}<div class="setting-group"><h3>{categoryLabels[settingsCategory]}设置</h3>{#if settingsCategory === "account"}<p class="settings-note">账号 Cookie 不会显示在网页中。请通过右上角的账号入口登录或退出。密码和验证码不会保存。</p>{/if}{#each settings as setting (setting.key)}<div class="setting-item"><span class="setting-label">{labelFor(setting)}{#if setting.hotkey}<small>快捷键 {keyLabel(setting.hotkey)}</small>{/if}</span>{#if setting.type === "hotkey"}<div class="hotkey-control"><button class="btn btn-secondary" on:click={() => { recordingKey = setting.key; recordedKeys = []; }} on:keydown={captureKey} on:keyup={finishKey}>{recordingKey === setting.key ? (recordedKeys.length ? keyLabel(recordedKeys.join(",")) : "按下组合键，松开保存") : keyLabel(String(setting.value))}</button><button class="btn btn-secondary" on:click={() => saveSetting(setting, "")}>清除</button></div>{:else if setting.type === "boolean"}<input aria-label={labelFor(setting)} class="switch" type="checkbox" checked={Boolean(setting.value)} on:change={(event) => saveSetting(setting, event.currentTarget.checked)} />{:else if setting.type === "option"}<div class="setting-select" class:expanded={expandedSettingKey === setting.key}><button type="button" class="select-like" aria-haspopup="listbox" aria-expanded={expandedSettingKey === setting.key} on:click={() => expandedSettingKey = expandedSettingKey === setting.key ? "" : setting.key}>{String(setting.value)}<span class="select-arrow">⌄</span></button>{#if expandedSettingKey === setting.key}<div class="select-options" role="listbox">{#each setting.options ?? [String(setting.value)] as option}<button type="button" role="option" aria-selected={option === String(setting.value)} class:active={option === String(setting.value)} on:click={() => saveSetting(setting, option)}>{option}</button>{/each}</div>{/if}</div>{:else if (setting.type === "integer" || setting.type === "double") && setting.min !== undefined && setting.max !== undefined}<div class="range-control"><input aria-label={labelFor(setting)} type="range" min={setting.min} max={setting.max} step={setting.type === "double" ? "0.01" : "1"} value={setting.value} on:change={(event) => saveSetting(setting, Number(event.currentTarget.value))}/><output>{setting.value}</output></div>{:else if setting.type === "color"}<div class="color-control"><input aria-label={labelFor(setting)} type="color" value={String(setting.value).slice(0, 7)} on:change={(event) => saveSetting(setting, event.currentTarget.value.replace("#", "#FF"))}/><input aria-label={`${labelFor(setting)} 色值`} value={setting.value} on:change={(event) => saveSetting(setting, event.currentTarget.value)} /></div>{:else}<input aria-label={labelFor(setting)} class="value-input" value={setting.value} on:change={(event) => saveSetting(setting, event.currentTarget.value)} />{/if}</div>{:else}<p class="placeholder-text">此分类没有可配置项</p>{/each}</div>{/if}</section>
+                {:else}<section class="view-page"><div class="playlist-header"><div class="cover-art"><img src={selected?.cover || ""} alt="" /><span>♥</span></div><div class="playlist-info"><h2>{title}</h2><p class="meta">{selected?.artist || library?.username || "网易云音乐"} · {songs.length} 首歌曲</p><button class="btn btn-primary" disabled={!songs.length} on:click={() => playPlaylist(0)}>▶ 播放全部</button></div></div>{#if view === "search"}<h2 class="search-title">搜索 “{search}”</h2><div class="sub-tabs">{#each ["综合", "单曲", "歌单", "歌手"] as tab}<button class:active={searchTab === tab} class="tab" on:click={() => selectSearchTab(tab as typeof searchTab)}>{tab}</button>{/each}</div><div class="search-pages"><button disabled={searchPage <= 1} on:click={() => runSearch(searchPage - 1)}>上一页</button><span>{searchPage} / {searchPageCount} · {searchTotal}</span><button disabled={searchPage >= searchPageCount} on:click={() => runSearch(searchPage + 1)}>下一页</button></div>{/if}<div class="song-table"><div class="song-row song-head"><span>#</span><span>标题</span><span>歌手</span><span>专辑</span><span>时长</span></div>{#if view === "search" && searchTab === "歌单"}{#each searchPlaylists as playlist, index (playlist.id)}<button class="song-row" on:click={() => openPlaylist(playlist)}><span>{index + 1}</span><span class="song-title">{playlist.name}</span><span>{playlist.artist || ""}</span><span>{playlist.count} 首歌曲</span><span>歌单</span></button>{/each}{:else if view === "search" && searchTab === "歌手"}{#each searchArtists as artist, index (artist.id)}<button class="song-row" on:click={() => openArtist(artist.id)}><span>{index + 1}</span><span class="song-title">{artist.name}</span><span>歌手</span><span>{artist.count ? `${artist.count} 首歌曲` : ""}</span><span>主页 ›</span></button>{:else}<div class="empty-cell">暂无歌曲</div>{/each}{:else}{#each songs as song, index (song.id)}<button class:playing={state.song?.id === song.id} class="song-row" on:click={() => playPlaylist(index)}><span>{state.song?.id === song.id ? "▶" : index + 1}</span><span class="song-title">{song.name}</span><span>{song.artist || "未知歌手"}</span><span>{song.album || "未知专辑"}</span><span>{formatTime(song.duration)}</span></button>{:else}<div class="empty-cell">暂无歌曲</div>{/each}{/if}</div></section>{/if}
             </main>
         </div>
 
-        <footer class="player-bar"><div class="track-info"><div class="small-cover"><img src={state.song?.cover || ""} alt="" /></div><div class="track-text"><strong>{state.song?.name ?? "未选择播放歌曲"}</strong><small>{state.song?.artist ?? "--"}</small></div></div><div class="player-center"><div class="player-controls"><button title="随机播放" aria-label="随机播放">⌘</button><button on:click={() => control("previous")} title="上一首" aria-label="上一首">◀◀</button><button class="play-btn" on:click={() => control("toggle")} aria-label="播放或暂停">{state.playing ? "Ⅱ" : "▶"}</button><button on:click={() => control("next")} title="下一首" aria-label="下一首">▶▶</button><button title="歌词" aria-label="歌词">♬</button></div><div class="progress-container"><span>{formatTime(state.progress)}</span><input type="range" min="0" max={state.song?.duration ?? 1} value={state.progress} on:change={(event) => control("seek", Number(event.currentTarget.value))} /><span>{formatTime(state.song?.duration ?? 0)}</span></div></div><div class="extra-controls"><button class="quality-tag" on:click={cycleQuality} title="切换播放音质">{qualityLabel(state.quality)}</button><div class="volume-container"><span>🔊</span><input type="range" min="0" max="100" value={state.volume} on:change={(event) => control("volume", Number(event.currentTarget.value))} /></div></div></footer>
-        {#if showLogin}<div class="dialog-backdrop"><section class="login-dialog"><button class="dialog-close" on:click={() => showLogin = false} aria-label="关闭登录">×</button><div class="dialog-logo">♪</div><h2>网易云音乐登录</h2><p>{login.message || "正在准备登录"}</p><div class="qr-wrap">{#if qrCodeUrl}<img src={qrCodeUrl} alt="网易云音乐登录二维码" />{:else}<span class="spinner"></span>{/if}</div>{#if login.status === "error"}<button class="btn btn-primary" on:click={openLogin}>重新获取二维码</button>{/if}</section></div>{/if}
+        {#if showLyrics}<section class="lyrics-overlay"><button on:click={() => showLyrics = false} aria-label="关闭歌词">×</button><h3>{state.song?.name || "未播放"}</h3><p>{state.lyric || "♪"}</p><small>{state.translation || ""}</small></section>{/if}
+        <footer class="player-bar"><div class="track-info"><div class="small-cover"><img src={state.song?.cover || ""} alt="" /></div><div class="track-text"><strong>{state.song?.name ?? "未选择播放歌曲"}</strong><small>{state.song?.artist ?? "--"}</small></div></div><div class="player-center"><div class="player-controls"><button on:click={() => control("shuffle")} title="随机播放" aria-label="随机播放">⌘</button><button on:click={() => control("previous")} title="上一首" aria-label="上一首">◀◀</button><button class="play-btn" on:click={() => control("toggle")} aria-label="播放或暂停">{state.playing ? "Ⅱ" : "▶"}</button><button on:click={() => control("next")} title="下一首" aria-label="下一首">▶▶</button><button on:click={() => showLyrics = !showLyrics} title="歌词" aria-label="歌词">♬</button></div><div class="progress-container"><span>{formatTime(state.progress)}</span><input type="range" min="0" max={state.song?.duration ?? 1} value={state.progress} on:change={(event) => control("seek", Number(event.currentTarget.value))} /><span>{formatTime(state.song?.duration ?? 0)}</span></div></div><div class="extra-controls"><button class="quality-tag" on:click={cycleQuality} title="切换播放音质">{qualityLabel(state.quality)}</button><div class="volume-container"><span>🔊</span><input type="range" min="0" max="100" value={state.volume} on:change={(event) => control("volume", Number(event.currentTarget.value))} /></div></div></footer>
+        {#if showLogin}<div class="dialog-backdrop"><section class="login-dialog"><button class="dialog-close" on:click={closeLogin} aria-label="关闭账号窗口">×</button>
+            {#if library?.authenticated}<img class="profile-avatar" src={library.avatar || ""} alt="用户头像" /><h2>{library.username}</h2><p>已登录网易云音乐{library.vip ? " · VIP" : ""}</p><div class="account-actions"><button class="btn btn-primary" disabled={!library.userId} on:click={openProfile}>个人主页</button>{#if library.artistId}<button class="btn btn-secondary" on:click={() => library?.artistId && openArtist(library.artistId)}>音乐人主页</button>{/if}<button class="btn btn-secondary" disabled={accountBusy} on:click={logout}>退出账号</button></div>
+            {:else}<div class="dialog-logo">♪</div><h2>登录网易云音乐</h2><div class="login-tabs"><button class:active={loginMethod === "password"} on:click={() => chooseLoginMethod("password")}>账号密码</button><button class:active={loginMethod === "captcha"} on:click={() => chooseLoginMethod("captcha")}>验证码</button><button class:active={loginMethod === "qr"} on:click={() => chooseLoginMethod("qr")}>扫码</button></div>
+            {#if loginMethod === "qr"}<div class="qr-wrap">{#if qrCodeUrl}<img src={qrCodeUrl} alt="网易云音乐登录二维码" />{:else}<span class="spinner"></span>{/if}</div><button class="btn btn-secondary" on:click={() => chooseLoginMethod("qr")}>刷新二维码</button>
+            {:else}<form class="login-form" on:submit|preventDefault={submitLogin}><label>{loginMethod === "password" ? "手机号或邮箱" : "手机号"}<input autocomplete="username" bind:value={loginAccount} required /></label>{#if !loginAccount.includes("@")}<label>国家码<input type="number" min="1" max="999" bind:value={countryCode} required /></label>{/if}<label>{loginMethod === "password" ? "密码" : "验证码"}<input type={loginMethod === "password" ? "password" : "text"} autocomplete={loginMethod === "password" ? "current-password" : "one-time-code"} bind:value={loginSecret} required /></label>{#if loginMethod === "captcha"}<button type="button" class="btn btn-secondary" disabled={accountBusy || captchaRemaining > 0 || !loginAccount.trim()} on:click={sendCaptcha}>{captchaRemaining > 0 ? `${captchaRemaining} 秒后重试` : "发送验证码"}</button>{/if}<button class="btn btn-primary" disabled={accountBusy || login.status === "loading"} type="submit">登录</button></form>{/if}{/if}<p class:error-text={login.status === "error"}>{login.message}</p>
+        </section></div>{/if}
     </div>
     </div>
 </div>
@@ -227,5 +348,16 @@
     .quality-tag { min-width: 62px; min-height: 34px; padding: 6px 9px; border-radius: 5px; font-size: 13px; }
     .volume-container { gap: 8px; font-size: 17px; }
     .volume-container input { width: 100px; }
-    @media (max-width: 760px), (max-height: 590px) { .rikkamusic-shell { width: 100vw; height: 100vh; min-height: 0; border-radius: 0; }.rikkamusic-stage { background: transparent; }.logo-section { width: auto; }.logo-title, .account-button > span:not(.avatar), .badge, .extra-controls { display: none; }.user-section { width: auto; }.sidebar { width: 160px; }.content-area { padding: 16px; }.song-row { grid-template-columns: 28px minmax(120px, 1fr) 78px 48px; }.song-row > :nth-child(4) { display: none; }.track-info { width: 170px; }.player-center { width: min(320px, 48vw); }.player-controls { gap: 12px; }.search-bar { width: 160px; } }
+
+    .drag-handle { background: transparent; cursor: move; touch-action: none; }
+    .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .playlist-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+    .playlist-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; text-align: left; background: var(--hover); border-radius: 8px; }
+    .playlist-card img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }
+    .playlist-card strong { line-height: 1.4; }.playlist-card small { color: var(--muted); }
+    .collection-heading { display: flex; gap: 20px; align-items: center; }.collection-heading img { width: 100px; height: 100px; object-fit: cover; border-radius: 10px; }.collection-heading p { white-space: pre-wrap; color: var(--muted); }
+    .collection-actions, .account-actions, .login-tabs, .hotkey-control { display: flex; gap: 10px; flex-wrap: wrap; }
+    .login-dialog { width: 420px; padding: 32px; }.login-tabs { justify-content: center; margin: 20px 0; }.login-tabs button { padding: 10px 15px; background: var(--hover); border-radius: 6px; }.login-tabs button.active { background: var(--accent); color: white; }
+    .login-form { display: grid; gap: 16px; text-align: left; }.login-form label { display: grid; gap: 7px; }.login-form input { width: 100%; box-sizing: border-box; padding: 12px; background: var(--hover); color: var(--text); border: 1px solid var(--line); border-radius: 6px; }.login-dialog p { margin-top: 18px; }.profile-avatar { width: 90px; height: 90px; object-fit: cover; border-radius: 50%; margin-bottom: 16px; }.account-actions { justify-content: center; }.error-text { color: #ff8585 !important; }
+    .lyrics-overlay { position: absolute; left: 25%; right: 5%; bottom: 100px; padding: 36px; z-index: 25; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; text-align: center; box-shadow: 0 12px 40px #0006; }.lyrics-overlay button { float: right; background: transparent; }.lyrics-overlay p { font-size: 24px; }.lyrics-overlay small { color: var(--dim); }
 </style>

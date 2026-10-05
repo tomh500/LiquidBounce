@@ -48,14 +48,14 @@ public class PlayList extends Music163Obj implements IMusicList, ICanSubscribe, 
         this.count = playlist.get("trackCount").getAsInt();
         this.playCount = playlist.get("playCount").getAsLong();
         this.creator = playlist.get("creator").getAsJsonObject();
-        if(!playlist.get("description").isJsonNull()){
+        if(playlist.has("description") && !playlist.get("description").isJsonNull()){
             this.description = playlist.get("description").getAsString().split("\n");
         } else {
             this.description = null;
         }
-        this.tags = playlist.get("tags").getAsJsonArray();
+        this.tags = playlist.has("tags") && playlist.get("tags").isJsonArray() ? playlist.getAsJsonArray("tags") : new JsonArray();
 
-        if (!playlist.get("tracks").isJsonNull()) {
+        if (playlist.has("tracks") && playlist.get("tracks").isJsonArray()) {
             this.tracks = playlist.get("tracks").getAsJsonArray();
         } else {
             this.tracks = new JsonArray();

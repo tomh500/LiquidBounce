@@ -23,6 +23,8 @@ public class User extends Music163Obj implements IPrint {
     protected final HttpClient api;
     public final long id;
     public final String name;
+    public final String avatarUrl;
+    public final long artistId;
     public final String signature;
     public final int level;
     /**
@@ -44,6 +46,8 @@ public class User extends Music163Obj implements IPrint {
 
         this.id = profile.get("userId").getAsLong();
         this.name = profile.get("nickname").getAsString();
+        this.avatarUrl = profile.has("avatarUrl") && !profile.get("avatarUrl").isJsonNull() ? profile.get("avatarUrl").getAsString() : "";
+        this.artistId = profile.has("artistId") && !profile.get("artistId").isJsonNull() ? profile.get("artistId").getAsLong() : 0;
         this.signature = profile.get("signature").getAsString();
         this.vip = profile.get("vipType").getAsInt();
         this.playlistCount = profile.get("playlistCount").getAsInt();

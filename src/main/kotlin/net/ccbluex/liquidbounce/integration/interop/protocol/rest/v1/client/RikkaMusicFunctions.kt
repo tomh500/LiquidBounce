@@ -5,8 +5,11 @@ package net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.client
 
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import fengliu.cloudmusic.gui.RikkaMusicAccount
+import fengliu.cloudmusic.gui.RikkaMusicBrowse
 import fengliu.cloudmusic.CloudMusicClient
 import fengliu.cloudmusic.command.MusicCommand
+import fengliu.cloudmusic.config.RikkaMusicSettingsPolicy
 import fengliu.cloudmusic.config.Configs
 import fengliu.cloudmusic.music163.IMusic
 import fengliu.cloudmusic.music163.data.Music
@@ -33,50 +36,7 @@ import net.ccbluex.liquidbounce.integration.interop.badRequest
 import net.ccbluex.liquidbounce.utils.kotlin.Minecraft
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.Executors
 import java.util.Locale
-
-private object RikkaMusicLogin {
-    private val executor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "RikkaMusic QR Login").apply { isDaemon = true }
-    }
-
-    @Volatile private var status = "idle"
-    @Volatile private var message = "未开始登录"
-    @Volatile private var running: CompletableFuture<*>? = null
-
-    fun start(): JsonObject = synchronized(this) {
-        if (running?.isDone == false) return json()
-
-        status = "loading"
-        message = "正在获取二维码"
-        running = CompletableFuture.runAsync({
-            try {
-                val login = MusicCommand.getLoginMusic163()
-                val key = login.qrKey()
-                login.getQRCodeTexture(key)
-                status = "waiting"
-                message = "请使用网易云音乐 App 扫码登录"
-
-                MusicCommand.setCookie(login.qrLogin(key))
-                status = "success"
-                message = "登录成功，正在刷新音乐库"
-            } catch (error: Throwable) {
-                status = "error"
-                message = error.message ?: "二维码登录失败，请重新尝试"
-            }
-        }, executor)
-        return json()
-    }
-
-    fun json(): JsonObject = JsonObject().apply {
-        addProperty("status", status)
-        addProperty("message", message)
-    }
-
-    fun qrCodeFile(): File = CloudMusicClient.MC_PATH.resolve("cloud_music_qrcode.png").toFile()
-}
 
 private object RikkaMusicLocal {
     private val directory = AtomicReference<File?>(null)
@@ -117,6 +77,7 @@ private fun playlistJson(playlist: PlayList, includeSongs: Boolean): JsonObject 
     result.addProperty("name", playlist.name)
     result.addProperty("cover", playlist.cover)
     result.addProperty("count", playlist.count)
+    result.addProperty("artist", playlist.creator.stringOrEmpty("nickname"))
     if (includeSongs) {
         result.add("songs", JsonArray().apply { playlist.musics.forEach { add(musicJson(it)) } })
     }
@@ -124,14 +85,20 @@ private fun playlistJson(playlist: PlayList, includeSongs: Boolean): JsonObject 
 }
 
 private fun libraryJson(my: My): JsonObject {
-    val liked = runCatching { my.likeMusicPlayList() }.getOrNull()
+    val liked = runCatching { MusicCommand.getMusic163().playlist(my.likeMusicPlayList().id) }.getOrNull()
     val playlists = runCatching { my.playLists(0, 100) }.getOrDefault(emptyList())
     val result = JsonObject()
     result.addProperty("authenticated", true)
     result.addProperty("username", my.name)
+    result.addProperty("avatar", my.avatarUrl)
+    result.addProperty("userId", my.id)
+    result.addProperty("artistId", my.artistId)
+    result.addProperty("vip", my.vip > 0)
     result.add("liked", liked?.let { playlistJson(it, true) })
     result.add("playlists", JsonArray().apply {
-        playlists.drop(if (liked == null) 0 else 1).forEach { add(playlistJson(it, false)) }
+        playlists.filter { it.id != liked?.id }.forEach {
+            add(playlistJson(it, false).apply { addProperty("owned", it.creator.get("userId")?.asLong == my.id) })
+        }
     })
     return result
 }
@@ -160,13 +127,13 @@ private fun Route.getMusicLibrary() = get("/library") {
     val result = runCatching {
         withContext(Dispatchers.IO) { libraryJson(MusicCommand.getMy(false)) }
     }.getOrElse { error ->
-        call.respond(unavailableLibrary(error.message ?: "无法读取网易云账号信息", authenticated = true))
+        call.respond(unavailableLibrary(error.message ?: "无法读取网易云账号信息", authenticated = false))
         return@get
     }
     call.respond(result)
 }
 
-private fun configKey(config: IConfigBase): String = config.name.removePrefix("cloudmusic.config.")
+private fun configKey(config: IConfigBase): String = RikkaMusicSettingsPolicy.key(config.name)
 
 private fun settingJson(config: IConfigBase): JsonObject? {
     val key = configKey(config)
@@ -179,7 +146,7 @@ private fun settingJson(config: IConfigBase): JsonObject? {
                 addProperty("type", "boolean")
                 addProperty("value", config.booleanValue)
                 if (config is fi.dy.masa.malilib.config.options.ConfigBooleanHotkeyed) {
-                    addProperty("hotkey", config.keybind.keysDisplayString)
+                    addProperty("hotkey", config.keybind.stringValue)
                 }
             }
             is ConfigInteger -> {
@@ -217,22 +184,24 @@ private fun settingJson(config: IConfigBase): JsonObject? {
             }
             is ConfigHotkey -> {
                 addProperty("type", "hotkey")
-                addProperty("value", config.keybind.keysDisplayString)
+                addProperty("value", config.keybind.stringValue)
             }
             else -> return null
         }
     }
 }
 
-private fun settingsFor(category: String): List<IConfigBase> = when (category) {
+private fun activeMusicSetting(config: IConfigBase): Boolean = RikkaMusicSettingsPolicy.active(config.name)
+
+private fun settingsFor(category: String): List<IConfigBase> = (when (category) {
     "playback" -> Configs.PLAY.OPTIONS
-    "interface" -> Configs.GUI.OPTIONS
+    "interface" -> listOf(Configs.GUI.GUI_THEME)
     "command" -> Configs.COMMAND.OPTIONS
     "account" -> Configs.LOGIN.OPTIONS
     "network" -> Configs.HTTP.OPTIONS
     "hotkeys" -> Configs.HOTKEY.HOTKEY_LIST
     else -> Configs.ALL.OPTIONS
-}
+}).filter(::activeMusicSetting)
 
 private fun settingsJson(category: String): JsonObject = JsonObject().apply {
     addProperty("category", category)
@@ -251,7 +220,7 @@ private fun Route.getMusicSettings() = get("/settings") {
 private fun Route.updateMusicSettings() = post("/settings") {
     val request = call.receive<MusicSettingRequest>()
     val config = Configs.ALL.OPTIONS.firstOrNull { configKey(it) == request.key } ?: call.badRequest("Unknown music setting")
-    if (request.key == "login.cookie") call.badRequest("Use QR login to update the account")
+    if (!activeMusicSetting(config)) call.badRequest("This music setting has been retired")
 
     val value = request.value ?: ""
     when (config) {
@@ -271,7 +240,13 @@ private fun Route.updateMusicSettings() = post("/settings") {
             if (!found) call.badRequest("Unknown music option value")
             config.setOptionListValue(option)
         }
-        is ConfigHotkey -> config.setValueFromString(value)
+        is ConfigHotkey -> withContext(Dispatchers.Minecraft) {
+            if (value.split(',').map { it.trim() }.filter { it.isNotEmpty() }.any {
+                fi.dy.masa.malilib.util.input.ScanCodes.getScanCodeFromName(it) == fi.dy.masa.malilib.util.input.ScanCodes.SCAN_UNKNOWN
+            }) call.badRequest("无法识别该按键，请重新录入")
+            config.setValueFromString(value)
+            fi.dy.masa.malilib.event.InputEventHandler.getKeybindManager().updateUsedKeys()
+        }
         else -> call.badRequest("Unsupported music setting")
     }
 
@@ -282,12 +257,43 @@ private fun Route.updateMusicSettings() = post("/settings") {
     call.respond(settingsJson("all"))
 }
 
-private fun Route.startMusicLogin() = post("/login/start") { call.respond(RikkaMusicLogin.start()) }
+private fun Route.startMusicLogin() = post("/login/start") { call.respond(RikkaMusicAccount.start("qr", "", "", 86)) }
 
-private fun Route.getMusicLoginStatus() = get("/login/status") { call.respond(RikkaMusicLogin.json()) }
+private data class MusicLoginRequest(val method: String, val account: String = "", val secret: String = "", val countryCode: Int = 86)
+
+private fun Route.musicAccountRoutes() {
+    post("/login/credentials") {
+        val request = call.receive<MusicLoginRequest>()
+        if (request.method !in setOf("password", "captcha")) call.badRequest("Invalid login method")
+        if (request.account.isBlank() || request.secret.isBlank() || request.countryCode !in 1..999) call.badRequest("请填写完整的登录信息")
+        if (!request.account.contains("@") && request.account.toLongOrNull() == null) call.badRequest("请输入有效手机号")
+        if (request.method == "captcha" && request.secret.toIntOrNull() == null) call.badRequest("请输入有效验证码")
+        call.respond(RikkaMusicAccount.start(request.method, request.account.trim(), request.secret, request.countryCode))
+    }
+    post("/login/captcha") {
+        val request = call.receive<MusicLoginRequest>()
+        if (request.account.toLongOrNull() == null || request.countryCode !in 1..999) call.badRequest("请输入有效手机号及国家码")
+        withContext(Dispatchers.IO) { RikkaMusicAccount.sendCaptcha(request.account, request.countryCode) }
+        call.respond(JsonObject().apply { addProperty("message", "验证码已发送") })
+    }
+    post("/login/cancel") { call.respond(RikkaMusicAccount.cancel()) }
+    post("/logout") {
+        withContext(Dispatchers.IO) { RikkaMusicAccount.logout() }
+        call.respond(io.ktor.http.HttpStatusCode.NoContent)
+    }
+    get("/browse") {
+        val kind = call.request.queryParameters["kind"].orEmpty()
+        if (kind !in setOf("daily", "fm", "recommend", "podcasts", "podcast", "artist", "profile", "playlists")) call.badRequest("Unknown collection")
+        val id = call.request.queryParameters["id"]?.toLongOrNull() ?: 0
+        val page = call.request.queryParameters["page"]?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+        call.respond(withContext(Dispatchers.IO) { RikkaMusicBrowse.load(kind, id, page) })
+    }
+}
+
+private fun Route.getMusicLoginStatus() = get("/login/status") { call.respond(RikkaMusicAccount.state()) }
 
 private fun Route.getMusicLoginQrCode() = get("/login/qr") {
-    val file = RikkaMusicLogin.qrCodeFile()
+    val file = CloudMusicClient.MC_PATH.resolve("cloud_music_qrcode.png").toFile()
     if (!file.isFile) call.badRequest("QR code is still being generated")
     call.respondFile(file)
 }
@@ -383,6 +389,9 @@ private fun Route.getMusicState() = get("/state") {
             addProperty("volume", player.volumePercentage)
             addProperty("quality", Configs.PLAY.PLAY_QUALITY.optionListValue.stringValue)
             addProperty("theme", Configs.GUI.GUI_THEME.getStringValue())
+            val lyrics = player.lyricSnapshot
+            addProperty("lyric", lyrics.original())
+            addProperty("translation", lyrics.translation())
             add("song", song?.let(::musicJson))
         }
     }
@@ -396,11 +405,22 @@ private data class MusicControlRequest(
     val index: Int? = null,
     val query: String? = null,
     val page: Int? = null,
+    val queueToken: String? = null,
 )
 
 private fun Route.controlMusic() = post("/control") {
     val request = call.receive<MusicControlRequest>()
     when (request.action.lowercase(Locale.ROOT)) {
+        "play-browse", "play-fm" -> {
+            val songs = RikkaMusicBrowse.queue(request.queueToken ?: call.badRequest("Missing collection"))
+            val index = request.index ?: 0
+            if (index !in songs.indices) call.badRequest("Invalid song index")
+            withContext(Dispatchers.Minecraft) {
+                if (request.action == "play-fm") MusicCommand.playPersonalFm(songs, index)
+                else MusicCommand.playMusicsFrom(songs, index)
+            }
+        }
+        "shuffle" -> withContext(Dispatchers.Minecraft) { MusicCommand.getPlayer().randomPlay() }
         "play-playlist" -> {
             val playlistId = request.playlistId ?: call.badRequest("Missing playlist id")
             val playlist = loadPlaylist(playlistId)
@@ -450,6 +470,7 @@ private fun Route.controlMusic() = post("/control") {
 }
 
 internal fun Route.rikkaMusicRoutes() = route("/music") {
+    musicAccountRoutes()
     getMusicLibrary()
     getMusicPlaylist()
     getMusicCloud()

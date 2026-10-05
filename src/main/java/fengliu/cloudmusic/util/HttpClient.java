@@ -127,7 +127,7 @@ public class HttpClient {
         }
 
         if(code != 200){
-            throw new ActionException(Component.translatable("cloudmusic.exception.login.err.code", json.toString()));
+            throw new ActionException(Component.translatable("cloudmusic.exception.login.err.code", code));
         }
 
         return result.getSetCookie();

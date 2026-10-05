@@ -307,17 +307,24 @@ public class MusicCommand {
         resetPlayer(musics);
     }
 
-    private static void resetCookie(String cookie) {
-        if (cookie == null || music163.getHttpClient().getCookies().equals(cookie)) {
-            return;
-        }
-
+    private static synchronized void resetCookie(String cookie) {
+        if (cookie == null || music163.getHttpClient().getCookies().equals(cookie)) return;
+        Music163 updated = new Music163(cookie);
+        My updatedUser = cookie.isBlank() ? null : updated.my();
+        music163 = updated;
+        my = updatedUser;
         Configs.LOGIN.COOKIE.setValueFromString(cookie);
-        music163 = new Music163(cookie);
-        getMy(true);
-
         Configs.INSTANCE.save();
     }
+
+    public static void playPersonalFm(List<IMusic> songs, int index) {
+        if (songs.isEmpty()) return;
+        var fm = new fengliu.cloudmusic.util.PersonalFmPlayer(songs);
+        resetPlayer(fm);
+        fm.startFrom(index);
+    }
+
+    public static void logout() { resetCookie(""); }
 
     public interface Job {
         void fun(CommandContext<FabricClientCommandSource> context) throws Exception;

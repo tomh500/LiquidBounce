@@ -81,6 +81,7 @@ public class MusicPlayer implements Runnable {
                         break;
                     }
 
+                    if (this.playIn == this.playListSize - 1) extendQueue();
                     if (this.playIn == this.playListSize - 1 && !Configs.PLAY.PLAY_LOOP.getBooleanValue()) {
                         this.loopPlayIn = false;
                     }
@@ -99,6 +100,9 @@ public class MusicPlayer implements Runnable {
             }
         }
     }
+
+    /** Streaming queues can append a fresh batch before reaching their end. */
+    protected void extendQueue() { }
 
     /**
      * 启动歌曲播放
