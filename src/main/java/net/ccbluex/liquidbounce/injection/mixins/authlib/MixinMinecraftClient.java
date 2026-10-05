@@ -42,8 +42,8 @@ public abstract class MixinMinecraftClient {
     private Proxy hookClientProxy(Proxy proxy) {
         // We only want to use the proxy when connecting to a server
         // Can be null on init stage
-        var client = Minecraft.getInstance();
-        if (client == null || client.gui == null || !(client.gui.screen() instanceof ConnectScreen)) {
+        var mc = Minecraft.getInstance();
+        if (mc == null || mc.gui == null || !(mc.gui.screen() instanceof ConnectScreen)) {
             return Proxy.NO_PROXY;
         }
 

@@ -7,9 +7,10 @@
         content: Component;
     };
 
-    let {tabs, activeTab = $bindable(0)} = $props<{
+    let {tabs, activeTab = $bindable(0), label = (tab: Tab) => tab.title} = $props<{
         tabs: Tab[];
         activeTab?: number;
+        label?: (tab: Tab) => string;
     }>();
 
     const Active = $derived(tabs[activeTab]?.content);
@@ -24,7 +25,7 @@
                     onclick={() => (activeTab = index)}
                     type="button"
             >
-                {tab.title}
+                {label(tab)}
             </button>
         {/each}
     </div>

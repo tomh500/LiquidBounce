@@ -33,9 +33,6 @@ import net.ccbluex.liquidbounce.event.sequenceHandler
 import net.ccbluex.liquidbounce.event.tickUntil
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleAimbot
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleAutoClicker
-import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleNoItemRelease
-import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleRightClicker
-import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleTriggerbot
 import net.ccbluex.liquidbounce.features.module.modules.world.automobheal.AutoMobHeal
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleAutoLeave
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleAutoRod
@@ -100,8 +97,6 @@ import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleAutoConfig
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleAutoPearl
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleBetterTab
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleBookBot
-import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleCloudMusic
-import net.ccbluex.liquidbounce.features.global.GlobalSettingsClientChat
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleEasyPearl
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleElytraSwap
 import net.ccbluex.liquidbounce.features.module.modules.misc.ModuleFlagCheck
@@ -223,7 +218,6 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNoFov
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNoHurtCam
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleNoSwing
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleParticles
-import net.ccbluex.liquidbounce.features.module.modules.render.ModuleRikkaDynamicLights
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleProphuntESP
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleProtectionZones
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleQuickPerspectiveSwap
@@ -252,14 +246,10 @@ import net.ccbluex.liquidbounce.features.module.modules.render.totemeffect.Modul
 import net.ccbluex.liquidbounce.features.module.modules.render.trajectories.ModuleTrajectories
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAirPlace
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAutoDisable
-import net.ccbluex.liquidbounce.features.module.modules.world.ModuleRikkaMine
-import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleRikkaKAHelper
-import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaDeathReturn
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleAutoTool
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleBedDefender
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleBlockIn
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleBlockTrap
-import net.ccbluex.liquidbounce.features.module.modules.world.ModuleClutch
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleExtinguish
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleFastBreak
 import net.ccbluex.liquidbounce.features.module.modules.world.ModuleFastPlace
@@ -279,13 +269,7 @@ import net.ccbluex.liquidbounce.features.module.modules.world.nuker.ModuleNuker
 import net.ccbluex.liquidbounce.features.module.modules.world.packetmine.ModulePacketMine
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ModuleScaffold
 import net.ccbluex.liquidbounce.features.module.modules.world.traps.ModuleAutoTrap
-import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaBuild
-import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaExplore
-import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaFollow
-import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaGoto
-import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaPause
-import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaResume
-import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaStop
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.XuanRikkaModules
 import net.ccbluex.liquidbounce.features.addon.AddonApi
 import net.ccbluex.liquidbounce.utils.client.clientStartDurationMs
 import net.ccbluex.liquidbounce.utils.client.inGame
@@ -479,9 +463,6 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleAutoArmor,
             ModuleAutoBow,
             ModuleAutoClicker,
-            ModuleTriggerbot,
-            ModuleNoItemRelease,
-            ModuleRightClicker,
             ModuleAutoLeave,
             ModuleAutoBuff,
             ModuleAutoRod,
@@ -570,8 +551,6 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleDebugRecorder,
             ModuleAntiCheatDetect,
             ModuleEasyPearl,
-            ModuleCloudMusic,
-            GlobalSettingsClientChat,
 
             // Movement
             ModuleAirJump,
@@ -612,15 +591,6 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleTargetStrafe,
             ModuleAnchor,
             ModuleSnapTap,
-
-            // Rikka modules are registered in the dedicated XuanRikka section below.
-            // Their original primary-category registrations are intentionally retained
-            // as comments for future reactivation, but are not used currently.
-            // ModuleRikkaFollow,
-            // ModuleRikkaGoto,
-            // ModuleRikkaPause,
-            // ModuleRikkaResume,
-            // ModuleRikkaStop,
 
             // Player
             ModuleAntiVoid,
@@ -664,7 +634,6 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleClickGui,
             ModuleDamageParticles,
             ModuleParticles,
-            ModuleRikkaDynamicLights,
             ModuleESP,
             ModuleLogoffSpot,
             ModuleFreeCam,
@@ -719,9 +688,6 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleAirPlace,
             ModuleAutoBuild,
             ModuleAutoDisable,
-            // ModuleRikkaMine,
-            // ModuleRikkaBuild,
-            // ModuleRikkaExplore,
             ModuleAutoFarm,
             ModuleAutoTool,
             ModuleCrystalAura,
@@ -740,29 +706,14 @@ object ModuleManager : EventListener, Collection<ClientModule> by modules {
             ModuleExtinguish,
             ModuleBedDefender,
             ModuleBlockIn,
-            ModuleClutch,
             ModuleSurround,
             ModulePacketMine,
             ModuleHoleFiller,
             ModuleStrongholdFinder,
             ModuleNoInterpolation,
-
-            // Dedicated XuanRikka registration. Each Rikka module is registered
-            // exactly once here so it remains available without appearing in
-            // the original LiquidBounce category sections above.
-            ModuleRikkaMine,
-            ModuleRikkaBuild,
-            ModuleRikkaExplore,
-            ModuleRikkaFollow,
-            ModuleRikkaGoto,
-            ModuleRikkaPause,
-            ModuleRikkaResume,
-            ModuleRikkaStop,
-            ModuleRikkaDeathReturn,
-            ModuleRikkaKAHelper,
         )
 
-        builtin.forEach { module ->
+        (builtin.asList() + XuanRikkaModules.builtins()).forEach { module ->
             addModule(module)
             module.walkKeyPath()
             module.verifyFallbackDescription()

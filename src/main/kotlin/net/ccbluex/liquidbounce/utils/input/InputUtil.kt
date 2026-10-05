@@ -50,7 +50,7 @@ fun inputByName(name: String): InputConstants.Key {
         }
 
     return try {
-        InputConstants.getKey(translationKey)
+        InputConstants.getKey(InputKeyNames.canonicalName(translationKey))
     } catch (_: IllegalArgumentException) {
         // Unnamed keys are looked up by their number, so a name that is neither known nor numeric
         // leaves `getKey` throwing a NumberFormatException instead of reporting an unknown key.
@@ -101,7 +101,7 @@ val availableMouseKeys: Set<String>
         .map { key -> reduceInputName(key.name) }
         .toSet()
 
-val availableInputKeys: Set<String> = availableKeyboardKeys + availableMouseKeys + "none"
+val availableInputKeys: Set<String> = availableKeyboardKeys + availableMouseKeys + InputKeyNames.aliases() + "none"
 
 /**
  * Try to parse the key into [InputBind.Modifier] instance.

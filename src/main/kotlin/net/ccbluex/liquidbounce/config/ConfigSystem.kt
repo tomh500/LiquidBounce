@@ -21,6 +21,7 @@ package net.ccbluex.liquidbounce.config
 import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
+import net.ccbluex.liquidbounce.config.compat.LegacyValueMigration
 import net.ccbluex.liquidbounce.LiquidBounce
 import net.ccbluex.liquidbounce.config.gson.fileGson
 import net.ccbluex.liquidbounce.config.gson.util.parseTree
@@ -43,7 +44,7 @@ internal fun deserializeLeafValue(value: Value<*>, jsonObject: JsonObject) {
         // Migrate choices that were previously stored as a ModeValueGroup.
         value.setByString(jsonObject["active"].asString)
     } else {
-        value.deserializeFrom(fileGson, jsonObject["value"])
+        value.deserializeFrom(fileGson, LegacyValueMigration.normalize(value, jsonObject["value"]))
     }
 }
 

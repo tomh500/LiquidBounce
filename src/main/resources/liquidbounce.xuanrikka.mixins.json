@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.ccbluex.liquidbounce.injection.mixins.xuanrikka",
+  "plugin": "net.ccbluex.liquidbounce.injection.mixins.xuanrikka.XuanRikkaMixinPlugin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "MixinCefBrowserLifetime",
+    "MixinCefBackendShutdown",
+    "MixinBrowserFirstPaint",
+    "MixinBrowserFrameRetirement"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

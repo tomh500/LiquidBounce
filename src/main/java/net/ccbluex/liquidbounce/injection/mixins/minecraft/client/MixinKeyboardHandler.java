@@ -27,6 +27,7 @@ import net.ccbluex.liquidbounce.event.EventManager;
 import net.ccbluex.liquidbounce.event.events.KeyEvent;
 import net.ccbluex.liquidbounce.event.events.KeyboardCharEvent;
 import net.ccbluex.liquidbounce.event.events.KeyboardKeyEvent;
+import net.ccbluex.liquidbounce.utils.input.KeyboardInputCompatibility;
 import net.ccbluex.liquidbounce.features.module.modules.movement.inventorymove.ModuleInventoryMove;
 import net.minecraft.client.KeyboardHandler;
 import net.minecraft.client.Minecraft;
@@ -50,14 +51,15 @@ public abstract class MixinKeyboardHandler {
     /**
      * Hook key event
      */
-    @Inject(method = "keyPress", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;screen()Lnet/minecraft/client/gui/screens/Screen;", shift = At.Shift.BEFORE, ordinal = 0))
+    @Inject(method = "keyPress", at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/platform/FramerateLimitTracker;onInputReceived()V"))
     private void hookKeyboardKey(long l, int action, net.minecraft.client.input.KeyEvent keyEvent, CallbackInfo ci) {
-        // does if (window == this.client.getWindow().getHandle())
-        var inputKey = InputConstants.getKey(keyEvent);
+        // Vanilla has validated the window here. Observe input before integrated libraries
+        // can consume it, so module binds and the GUI's bind recorder receive the same events.
+        var inputKey = KeyboardInputCompatibility.key(keyEvent);
 
         EventManager.INSTANCE.callEvent(new KeyboardKeyEvent(
             inputKey, keyEvent.keycode(),
-            keyEvent.key(), action,
+            inputKey.getValue(), action,
             keyEvent.modifiers(), this.minecraft.gui.screen()
         ));
         if (minecraft.gui.screen() == null) {
