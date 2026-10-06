@@ -198,7 +198,8 @@ export interface RikkaQqLoginState {
     method: string;
     expiresAt: number;
     storageError: string;
-    status: "idle" | "loading" | "waiting" | "confirming" | "success" | "expired" | "refused" | "error";
+    status: "idle" | "loading" | "waiting" | "confirming" | "success" | "expired" | "refused" | "error" | "consent_required";
+    authorizationUrl?: string;
     message: string;
     qrMethod: "qq" | "wx";
     qrVersion: number;

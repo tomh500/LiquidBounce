@@ -1,7 +1,7 @@
 <script lang="ts">
     import {onMount} from "svelte";
     import {
-        getRikkaMixedLibrary, updateRikkaMixedLibrary, rikkaQqSession, rikkaQqLogin, getRikkaQqQrUrl,
+        browse, getRikkaMixedLibrary, updateRikkaMixedLibrary, rikkaQqSession, rikkaQqLogin, getRikkaQqQrUrl,
         type RikkaMixedLibrary, type RikkaQqLoginState,
         getRikkaMusicCollection, submitRikkaMusicLogin, sendRikkaMusicCaptcha, cancelRikkaMusicLogin, logoutRikkaMusic,
         type RikkaMusicCollection, controlRikkaMusic, deleteScreen, getRikkaMusicCloud, getRikkaMusicLibrary, getRikkaMusicLoginStatus,
@@ -449,7 +449,8 @@
                 {#if qqLogin?.storageError}<p class="error-text">{qqLogin.storageError}</p>{/if}
                 <p>扫码后请在手机确认。登录凭据仅保存在本机，下次启动自动读取。</p>
                 <div class="collection-actions account-actions">
-                    {#if qqLogin && ["waiting", "confirming", "expired", "refused", "error"].includes(qqLogin.status)}<button class="btn btn-secondary" disabled={qqBusy} on:click={() => startQqLogin(qqLogin?.qrMethod ?? "qq")}>刷新二维码</button>{/if}
+                    {#if qqLogin?.status === "consent_required"}<button class="btn btn-primary" on:click={() => browse("https://y.qq.com/")}>打开 QQ 音乐官网完成授权</button>{/if}
+                    {#if qqLogin && ["waiting", "confirming", "expired", "refused", "error", "consent_required"].includes(qqLogin.status)}<button class="btn btn-secondary" disabled={qqBusy} on:click={() => startQqLogin(qqLogin?.qrMethod ?? "qq")}>{qqLogin.status === "consent_required" ? "已在官网授权，重新扫码" : "刷新二维码"}</button>{/if}
                     {#if qqConfigured || qqLogin?.storageError}<button class="btn btn-secondary" disabled={qqBusy} on:click={logoutQq}>退出并清除本机凭据</button>{/if}
                 </div>
             </section></div>

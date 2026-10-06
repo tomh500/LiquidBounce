@@ -26,6 +26,11 @@ public final class QqLoginFlow implements QqMusicLogin.Attempt {
 
     public record QrImage(byte[] bytes, String contentType) { }
     public record Poll(String status, JsonObject credential) { }
+    static final class ConsentRequiredException extends IllegalStateException {
+        ConsentRequiredException() {
+            super("QQ 扫码已确认，还需网页授权。请先在 QQ 音乐官网使用同一 QQ 登录并确认授权，再返回这里重新扫码。");
+        }
+    }
 
     public QrImage createQr() throws IOException, InterruptedException {
         if (method.equals("qq")) {
@@ -115,13 +120,57 @@ public final class QqLoginFlow implements QqMusicLogin.Attempt {
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(encode(form))).build(), HttpResponse.BodyHandlers.ofByteArray());
         String location = response.headers().firstValue("Location").orElse("");
-        URI uri = URI.create(location);
-        if (!"y.qq.com".equals(uri.getHost()) || !"https".equals(uri.getScheme()))
-            throw new IllegalStateException("QQ 音乐授权未完成，请在手机确认后重试");
+        return exchange("QQConnectLogin.LoginServer", "QQLogin",
+                Map.of("code", authorizationCode(response.statusCode(), location, oauthState)), 2);
+    }
+
+    static String authorizationCode(int status, String location, String expectedState) {
+        if (location.isBlank())
+            throw new IllegalStateException("QQ 扫码已确认，但音乐授权接口未返回跳转地址 (HTTP " + status + ")，请刷新重试");
+        URI uri;
+        try { uri = URI.create(location); }
+        catch (IllegalArgumentException error) { throw new IllegalStateException("QQ 音乐授权跳转格式无效，请刷新重试"); }
+        URI resolved = URI.create("https://graph.qq.com/oauth2.0/authorize").resolve(uri);
+        if ("https".equalsIgnoreCase(resolved.getScheme()) && "graph.qq.com".equalsIgnoreCase(resolved.getHost())
+                && resolved.getUserInfo() == null && (resolved.getPort() == -1 || resolved.getPort() == 443)
+                && "/oauth2.0/show".equals(resolved.getPath()))
+            throw new ConsentRequiredException();
+        // Read the code from the HTTPS response's Location; never navigate to this callback.
+        // QQ may normalize the registered callback to http. No credentials are sent over HTTP.
+        if (!"y.qq.com".equalsIgnoreCase(uri.getHost()) || uri.getUserInfo() != null
+                || !(uri.getPort() == -1 || "https".equalsIgnoreCase(uri.getScheme()) && uri.getPort() == 443
+                    || "http".equalsIgnoreCase(uri.getScheme()) && uri.getPort() == 80)
+                || !"/portal/wx_redirect.html".equals(uri.getPath())
+                || !("https".equalsIgnoreCase(uri.getScheme()) || "http".equalsIgnoreCase(uri.getScheme())))
+            throw new IllegalStateException("QQ 扫码已确认，但音乐授权返回了非预期跳转 (HTTP " + status
+                    + "; " + safeRedirectDiagnostic(uri) + ")");
         var values = query(uri.getRawQuery());
-        if (!oauthState.equals(values.get("state")) || values.getOrDefault("code", "").isEmpty())
+        if (!expectedState.equals(values.get("state")) || values.getOrDefault("code", "").isEmpty())
             throw new IllegalStateException("QQ 音乐授权码无效，请重新扫码");
-        return exchange("QQConnectLogin.LoginServer", "QQLogin", Map.of("code", values.get("code")), 2);
+        return values.get("code");
+    }
+
+    static String safeRedirectDiagnostic(URI uri) {
+        // Never include a raw Location: its query/fragment can contain account IDs and login codes.
+        String host = uri.getHost();
+        String target = Set.of("y.qq.com", "graph.qq.com", "ssl.ptlogin2.qq.com").contains(host == null ? "" : host)
+                ? host : host == null ? "relative" : "other-host";
+        String path = switch (Objects.toString(uri.getPath(), "")) {
+            case "/portal/wx_redirect.html" -> "music-callback";
+            case "/oauth2.0/show" -> "consent-page";
+            case "/oauth2.0/login_jump" -> "login-jump";
+            case "/oauth2.0/authorize" -> "authorize";
+            default -> "other-path";
+        };
+        String error = "";
+        try {
+            var params = query(uri.getRawQuery());
+            for (String key : List.of("error", "error_code", "ret", "code")) {
+                String value = params.getOrDefault(key, "");
+                if (!key.equals("code") && value.matches("-?[0-9]{1,10}")) error += "; " + key + "=" + value;
+            }
+        } catch (IllegalArgumentException ignored) { }
+        return target + "/" + path + error;
     }
 
     private JsonObject exchange(String module, String method, Map<String, String> params, int type) throws IOException, InterruptedException {

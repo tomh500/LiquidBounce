@@ -52,6 +52,28 @@ class QqCredentialStoreTest {
         assertFalse(QqMusicLogin.state().get("qrReady").getAsBoolean());
     }
 
+    @Test void consentStopsPollingWithoutSavingCredentialsAndCanBeCancelled() throws Exception {
+        Path file = directory.resolve("consent-account.json");
+        QqMusicApi.initializeStorage(file);
+        CountDownLatch closed = new CountDownLatch(1);
+        var flow = new QqMusicLogin.Attempt() {
+            public QqLoginFlow.QrImage createQr() { return new QqLoginFlow.QrImage(new byte[]{1}, "image/png"); }
+            public QqLoginFlow.Poll poll() { throw new QqLoginFlow.ConsentRequiredException(); }
+            public void close() { closed.countDown(); }
+        };
+        try {
+            QqMusicLogin.start("qq", flow);
+            assertTrue(closed.await(5, TimeUnit.SECONDS));
+            var state = QqMusicLogin.state();
+            assertEquals("consent_required", state.get("status").getAsString());
+            assertEquals("https://y.qq.com/", state.get("authorizationUrl").getAsString());
+            assertFalse(state.get("qrReady").getAsBoolean());
+            assertFalse(state.get("configured").getAsBoolean());
+            assertFalse(Files.exists(file));
+        } finally { QqMusicLogin.cancel(); }
+        assertFalse(QqMusicLogin.state().has("authorizationUrl"));
+    }
+
     @Test void lateAuthorizationCannotRestoreALoggedOutAccount() throws Exception {
         Path file = directory.resolve("account.json");
         QqMusicApi.initializeStorage(file);

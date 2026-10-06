@@ -29,6 +29,8 @@ public final class QqMusicLogin {
         data.addProperty("qrMethod", method);
         data.addProperty("qrVersion", generation);
         data.addProperty("qrReady", qr != null);
+        // A clean official entry point, never the session-bearing redirect from the QR request.
+        if (status.equals("consent_required")) data.addProperty("authorizationUrl", "https://y.qq.com/");
         return data;
     }
 
@@ -113,7 +115,7 @@ public final class QqMusicLogin {
         } catch (Exception error) {
             synchronized (QqMusicLogin.class) {
                 if (attempt != generation) return;
-                status = "error";
+                status = error instanceof QqLoginFlow.ConsentRequiredException ? "consent_required" : "error";
                 qr = null;
                 // All flow IllegalStateException messages are authored locally; never forward HTTP bodies/URLs.
                 message = error instanceof IllegalStateException ? error.getMessage() : "扫码登录失败，请检查网络后刷新二维码";
