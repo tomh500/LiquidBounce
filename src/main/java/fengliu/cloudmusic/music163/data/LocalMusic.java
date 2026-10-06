@@ -68,6 +68,8 @@ public final class LocalMusic implements IMusic {
     }
 
     @Override public long getId() { return file.getAbsolutePath().hashCode() & 0xffffffffL; }
+    @Override public String getSource() { return "local"; }
+    @Override public String getSourceId() { return file.toPath().toAbsolutePath().normalize().toString(); }
     @Override public String getName() { return file.getName().replaceFirst("\\.[^.]+$", ""); }
     @Override public String getPicUrl() { return matchedMusic == null ? "" : matchedMusic.getPicUrl(); }
     @Override public String getPlayUrl() { return file.toURI().toString(); }

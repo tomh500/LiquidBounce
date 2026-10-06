@@ -9,6 +9,8 @@
 /.gradle/
 /build/
 /run/
+**/rikkamusic-qq-account.json
+**/rikkamusic-qq-account-*.tmp
 /mcef/
 /logs/
 /.kotlin/

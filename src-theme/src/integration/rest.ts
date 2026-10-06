@@ -38,6 +38,9 @@ const API_BASE = `${REST_BASE}/api/v1`;
 
 export interface RikkaMusicSong {
     id: number;
+    key: string;
+    source: "netease" | "qq" | "local" | "netease-dj";
+    sourceId: string;
     name: string;
     artist: string;
     album: string;
@@ -46,6 +49,7 @@ export interface RikkaMusicSong {
 }
 
 export interface RikkaMusicPlaylist {
+    queueToken?: string;
     id: number;
     name: string;
     cover: string;
@@ -68,6 +72,8 @@ export interface RikkaMusicLibrary {
 }
 
 export interface RikkaMusicState {
+    playbackState?: string;
+    error?: string;
     playing: boolean;
     progress: number;
     volume: number;
@@ -79,6 +85,8 @@ export interface RikkaMusicState {
 }
 
 export interface RikkaMusicSearchResult {
+    queueToken?: string;
+    warning?: string;
     type: "song" | "playlist" | "artist";
     page: number;
     pageCount: number;
@@ -126,6 +134,7 @@ async function readMusicJson<T>(response: Response): Promise<T> {
     if (!response.ok) {
         const message = typeof payload === "object" && payload && "error" in payload
             ? String(payload.error)
+            : typeof payload === "object" && payload && "reason" in payload ? String(payload.reason)
             : `音乐服务请求失败 (${response.status})`;
         throw new Error(message);
     }
@@ -157,9 +166,60 @@ export async function getRikkaMusicCloud(): Promise<RikkaMusicSong[]> {
     return await readMusicJson(response);
 }
 
-export async function searchRikkaMusic(query: string, type: "song" | "playlist" | "artist" = "song", page = 1): Promise<RikkaMusicSearchResult> {
-    const response = await fetch(`${API_BASE}/client/music/search?q=${encodeURIComponent(query)}&type=${type}&page=${page}`);
+export async function searchRikkaMusic(query: string, type: "song" | "playlist" | "artist" = "song", page = 1, source = "netease"): Promise<RikkaMusicSearchResult> {
+    const response = await fetch(`${API_BASE}/client/music/search?q=${encodeURIComponent(query)}&type=${type}&page=${page}&source=${encodeURIComponent(source)}`);
     return await readMusicJson(response);
+}
+
+export interface RikkaMixedLibrary {
+    songs: RikkaMusicSong[];
+    queueToken: string;
+    added?: number;
+}
+
+export async function getRikkaMixedLibrary(): Promise<RikkaMixedLibrary> {
+    return readMusicJson(await fetch(`${API_BASE}/client/music/mixed`));
+}
+
+export async function updateRikkaMixedLibrary(request: {
+    action: "collect" | "import" | "remove";
+    source?: string; reference?: string; queueToken?: string; index?: number; key?: string;
+}): Promise<RikkaMixedLibrary> {
+    return readMusicJson(await fetch(`${API_BASE}/client/music/mixed`, {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(request)
+    }));
+}
+
+export interface RikkaQqLoginState {
+    configured: boolean;
+    persisted: boolean;
+    expired: boolean;
+    nickname: string;
+    method: string;
+    expiresAt: number;
+    storageError: string;
+    status: "idle" | "loading" | "waiting" | "confirming" | "success" | "expired" | "refused" | "error";
+    message: string;
+    qrMethod: "qq" | "wx";
+    qrVersion: number;
+    qrReady: boolean;
+}
+
+export async function rikkaQqSession(cookie?: string): Promise<RikkaQqLoginState> {
+    return readMusicJson(await fetch(`${API_BASE}/client/music/qq/session`, cookie === undefined ? {} : {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({cookie})
+    }));
+}
+
+export async function rikkaQqLogin(action: "start" | "status" | "cancel" | "logout", method = "qq"): Promise<RikkaQqLoginState> {
+    const path = action === "logout" ? "logout" : `login/${action}`;
+    return readMusicJson(await fetch(`${API_BASE}/client/music/qq/${path}`, action === "status" ? {} : {
+        method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({method})
+    }));
+}
+
+export function getRikkaQqQrUrl(version: number): string {
+    return `${API_BASE}/client/music/qq/login/qr?version=${version}`;
 }
 
 export async function getRikkaMusicLocal(): Promise<RikkaMusicLocalLibrary> {

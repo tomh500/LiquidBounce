@@ -28,6 +28,7 @@ public class CloudMusicClient {
      */
     public static void init() {
         Configs.INSTANCE.load();
+        fengliu.cloudmusic.platform.QqMusicApi.initializeStorage(MC_PATH.resolve("LiquidBounce/rikkamusic-qq-account.json"));
         // MusicCommand creates its initial player lazily. Apply the loaded
         // volume explicitly so the first player state matches the LB config.
         MusicCommand.getPlayer().volumeSet(Configs.PLAY.VOLUME.getIntegerValue());

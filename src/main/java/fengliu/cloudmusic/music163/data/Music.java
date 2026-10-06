@@ -29,7 +29,9 @@ public class Music extends Music163Obj implements IMusic, ICanComment {
     public final String picUrl;
     public final String threadId;
     public JsonObject freeTrialInfo = null;
-    private String resolvedQuality = Configs.PLAY.PLAY_QUALITY.getStringValue();
+    // Metadata can be restored before the client settings have initialized.
+    // The actual account-supported quality is assigned by getPlayUrl().
+    private String resolvedQuality = "standard";
 
     public record PlayUrl(String url, String quality, JsonObject freeTrialInfo) { }
 

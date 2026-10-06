@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class DjMusic extends Music163Obj implements IMusic, ICanComment {
+    @Override public String getSource() { return "netease-dj"; }
     private final HttpClient api;
     public final long id;
     public final long mainTrackId;

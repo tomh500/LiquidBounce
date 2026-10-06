@@ -1,6 +1,8 @@
 <script lang="ts">
     import {onMount} from "svelte";
     import {
+        getRikkaMixedLibrary, updateRikkaMixedLibrary, rikkaQqSession, rikkaQqLogin, getRikkaQqQrUrl,
+        type RikkaMixedLibrary, type RikkaQqLoginState,
         getRikkaMusicCollection, submitRikkaMusicLogin, sendRikkaMusicCaptcha, cancelRikkaMusicLogin, logoutRikkaMusic,
         type RikkaMusicCollection, controlRikkaMusic, deleteScreen, getRikkaMusicCloud, getRikkaMusicLibrary, getRikkaMusicLoginStatus,
         getRikkaMusicPlaylist, getRikkaMusicQrCodeUrl, getRikkaMusicSettings, getRikkaMusicState,
@@ -9,7 +11,7 @@
         type RikkaMusicSearchResult, type RikkaMusicSetting, type RikkaMusicSong, type RikkaMusicState
     } from "../../integration/rest";
 
-    type View = "liked" | "cloud" | "local" | "search" | "settings" | "collection" | "playlists";
+    type View = "liked" | "cloud" | "local" | "search" | "settings" | "collection" | "playlists" | "mixed";
     type SettingsCategory = "account" | "playback" | "interface" | "command" | "network" | "hotkeys";
 
     const categoryLabels: Record<SettingsCategory, string> = {account: "账号", playback: "播放", interface: "界面", command: "命令", network: "网络", hotkeys: "按键"};
@@ -60,6 +62,104 @@
     let recordingKey = "";
     let recordedKeys: string[] = [];
     let showLyrics = false;
+    let searchSource = "netease";
+    let searchQueueToken = "";
+    let searchBusy = false;
+    let searchGeneration = 0;
+    let mixed: RikkaMixedLibrary = {songs: [], queueToken: ""};
+    let mixedBusy = false;
+    let mixedMessage = "";
+    let importSource = "qq";
+    let importReference = "";
+    let qqCookie = "";
+    let qqConfigured = false;
+    let qqLogin: RikkaQqLoginState | null = null;
+    let showQqLogin = false;
+    let qqBusy = false;
+    let qqStatusBusy = false;
+    let qqGeneration = 0;
+    let lastPlayerError = "";
+
+    function sourceLabel(source: string) {
+        return ({netease: "网易云", qq: "QQ 音乐", local: "本地", "netease-dj": "网易云播客"} as Record<string, string>)[source] ?? source;
+    }
+    function currentSong(song: RikkaMusicSong) { return state.song?.key === song.key; }
+    async function openMixed() {
+        view = "mixed";
+        mixedBusy = true;
+        try { mixed = await getRikkaMixedLibrary(); await refreshQqSession(); }
+        catch (e) { error = e instanceof Error ? e.message : "混合曲库读取失败"; }
+        finally { mixedBusy = false; }
+    }
+    async function collectSongs(index?: number) {
+        const token = view === "search" ? searchQueueToken : view === "collection" ? collection?.queueToken : selected?.queueToken;
+        if (!token || mixedBusy || searchBusy) return;
+        mixedBusy = true;
+        try { mixed = await updateRikkaMixedLibrary({action: "collect", queueToken: token, index}); mixedMessage = `已收集 ${mixed.added ?? 0} 首新歌曲，重复来源已跳过`; }
+        catch (e) { error = e instanceof Error ? e.message : "收集失败"; }
+        finally { mixedBusy = false; }
+    }
+    async function importSongs() {
+        if (!importReference.trim() || mixedBusy) return;
+        mixedBusy = true;
+        try { mixed = await updateRikkaMixedLibrary({action: "import", source: importSource, reference: importReference.trim()}); mixedMessage = `已导入 ${mixed.added ?? 0} 首新歌曲`; }
+        catch (e) { error = e instanceof Error ? e.message : "导入失败"; }
+        finally { mixedBusy = false; }
+    }
+    async function removeMixed(key: string) {
+        mixedBusy = true;
+        try { mixed = await updateRikkaMixedLibrary({action: "remove", key}); }
+        catch (e) { error = e instanceof Error ? e.message : "移除失败"; }
+        finally { mixedBusy = false; }
+    }
+    async function setQqSession(clear = false) {
+        try { qqLogin = await rikkaQqSession(clear ? "" : qqCookie.trim()); qqConfigured = qqLogin.configured; mixedMessage = qqLogin.message; }
+        catch (e) { error = e instanceof Error ? e.message : "QQ 凭据设置失败"; }
+        finally { qqCookie = ""; }
+    }
+    async function refreshQqSession() {
+        qqLogin = await rikkaQqSession();
+        qqConfigured = qqLogin.configured;
+    }
+    async function openQqLogin() {
+        if (showLogin) await closeLogin();
+        showQqLogin = true;
+        try { await refreshQqSession(); }
+        catch (e) { error = e instanceof Error ? e.message : "QQ 登录状态读取失败"; }
+    }
+    async function startQqLogin(method: "qq" | "wx") {
+        const generation = ++qqGeneration;
+        qqBusy = true;
+        qqLogin = null;
+        try { const result = await rikkaQqLogin("start", method); if (generation === qqGeneration) qqLogin = result; }
+        catch (e) { if (generation === qqGeneration) error = e instanceof Error ? e.message : "二维码获取失败"; }
+        finally { if (generation === qqGeneration) qqBusy = false; }
+    }
+    async function pollQqLogin() {
+        if (!showQqLogin || qqBusy || qqStatusBusy || !qqLogin || !["loading", "waiting", "confirming"].includes(qqLogin.status)) return;
+        const generation = qqGeneration;
+        qqStatusBusy = true;
+        try {
+            const result = await rikkaQqLogin("status");
+            if (generation === qqGeneration) { qqLogin = result; qqConfigured = result.configured; }
+        } catch { /* Keep the QR while a transient local request fails. */ }
+        finally { qqStatusBusy = false; }
+    }
+    async function closeQqLogin() {
+        ++qqGeneration;
+        showQqLogin = false;
+        qqCookie = "";
+        qqBusy = false;
+        try { qqLogin = await rikkaQqLogin("cancel"); qqConfigured = qqLogin.configured; }
+        catch { error = "扫码取消请求失败，二维码会自动过期"; }
+    }
+    async function logoutQq() {
+        ++qqGeneration;
+        qqBusy = true;
+        try { qqLogin = await rikkaQqLogin("logout"); qqConfigured = qqLogin.configured; }
+        catch (e) { error = e instanceof Error ? e.message : "QQ 退出失败"; }
+        finally { qqBusy = false; }
+    }
 
     $: songs = view === "collection" ? collection?.songs ?? [] : view === "search" ? searchResults : view === "cloud" ? cloudSongs : view === "local" ? localSongs : selected?.songs ?? [];
     $: title = view === "search" ? `搜索 “${search}”` : selected?.name ?? "我喜欢的音乐";
@@ -69,9 +169,10 @@
         void initialize();
         const stateTimer = window.setInterval(() => { void refreshState(); captchaRemaining = Math.max(0, Math.ceil((captchaUntil - Date.now()) / 1000)); }, 750);
         const loginTimer = window.setInterval(() => void refreshLogin(), 1200);
+        const qqTimer = window.setInterval(() => void pollQqLogin(), 1200);
         updateScale();
         window.addEventListener("resize", updateScale);
-        return () => { if (loginPolling) void cancelRikkaMusicLogin(); window.clearInterval(stateTimer); window.clearInterval(loginTimer); window.removeEventListener("resize", updateScale); };
+        return () => { if (loginPolling) void cancelRikkaMusicLogin(); if (showQqLogin) void rikkaQqLogin("cancel"); window.clearInterval(qqTimer); window.clearInterval(stateTimer); window.clearInterval(loginTimer); window.removeEventListener("resize", updateScale); };
     });
 
     function updateScale() {
@@ -101,7 +202,7 @@
     }
     async function centerWindow() { windowX = -1; windowY = -1; updateScale(); await saveWindowPosition(); }
     async function initialize() {
-        await Promise.all([refreshLibrary(), refreshState(), refreshLocal()]);
+        await Promise.all([refreshLibrary(), refreshState(), refreshLocal(), refreshQqSession().catch(() => {})]);
         try {
             const all = (await getRikkaMusicSettings("all")).settings;
             windowX = Number(all.find(s => s.key === "gui.window.x")?.value ?? -1);
@@ -119,7 +220,12 @@
         } catch (e) { error = e instanceof Error ? e.message : "无法加载音乐库"; }
         finally { loading = false; }
     }
-    async function refreshState() { try { state = await getRikkaMusicState(); } catch { /* The theme browser can outlive the REST server during shutdown. */ } }
+    async function refreshState() {
+        try {
+            state = await getRikkaMusicState();
+            if (state.error && state.error !== lastPlayerError) { error = state.error; lastPlayerError = state.error; }
+        } catch { /* The theme browser can outlive the REST server during shutdown. */ }
+    }
     async function refreshLogin() {
         if (!showLogin || library?.authenticated || !loginPolling) return;
         try {
@@ -129,6 +235,7 @@
         } catch { /* Keep the last known status while the QR file is written. */ }
     }
     async function openLogin() {
+        if (showQqLogin) await closeQqLogin();
         showLogin = true;
         loginMethod = "password";
         loginPolling = false;
@@ -198,16 +305,24 @@
     function searchType(): "song" | "playlist" | "artist" { return searchTab === "歌单" ? "playlist" : searchTab === "歌手" ? "artist" : "song"; }
     async function runSearch(page = 1) {
         if (!search.trim()) return;
+        const generation = ++searchGeneration;
+        const type = searchType();
+        searchBusy = true;
+        searchQueueToken = "";
+        searchResults = []; searchPlaylists = []; searchArtists = [];
         try {
             view = "search";
-            const result = await searchRikkaMusic(search.trim(), searchType(), page);
+            const result = await searchRikkaMusic(search.trim(), type, page, type === "song" ? searchSource : "netease");
+            if (generation !== searchGeneration) return;
+            searchQueueToken = result.queueToken ?? "";
             searchPage = result.page; searchPageCount = result.pageCount; searchTotal = result.total;
-            if (searchType() === "playlist") { searchPlaylists = result.items as RikkaMusicPlaylist[]; searchArtists = []; searchResults = []; }
-            else if (searchType() === "artist") { searchArtists = result.items as RikkaMusicPlaylist[]; searchPlaylists = []; searchResults = []; }
+            if (type === "playlist") { searchPlaylists = result.items as RikkaMusicPlaylist[]; searchArtists = []; searchResults = []; }
+            else if (type === "artist") { searchArtists = result.items as RikkaMusicPlaylist[]; searchPlaylists = []; searchResults = []; }
             else searchResults = result.items as RikkaMusicSong[];
-            error = "";
+            error = result.warning ?? "";
         }
-        catch (e) { error = e instanceof Error ? e.message : "搜索失败"; }
+        catch (e) { if (generation === searchGeneration) error = e instanceof Error ? e.message : "搜索失败"; }
+        finally { if (generation === searchGeneration) searchBusy = false; }
     }
     async function selectSearchTab(tab: typeof searchTab) { searchTab = tab; if (search.trim()) await runSearch(1); }
     async function openLocal() {
@@ -226,8 +341,12 @@
     }
     async function playPlaylist(index: number) {
         try {
-            if (view === "collection" && collection) await controlRikkaMusic(collection.kind === "fm" ? "play-fm" : "play-browse", undefined, undefined, index, undefined, undefined, collection.queueToken);
-            else if (view === "search") await controlRikkaMusic("play-search", undefined, undefined, index, search, searchPage);
+            if (view === "mixed") await controlRikkaMusic("play-browse", undefined, undefined, index, undefined, undefined, mixed.queueToken);
+            else if (view === "collection" && collection) await controlRikkaMusic(collection.kind === "fm" ? "play-fm" : "play-browse", undefined, undefined, index, undefined, undefined, collection.queueToken);
+            else if (view === "search") {
+                if (searchBusy || !searchQueueToken) return;
+                await controlRikkaMusic("play-browse", undefined, undefined, index, undefined, undefined, searchQueueToken);
+            }
             else if (view === "cloud") await controlRikkaMusic("play-cloud", undefined, undefined, index);
             else if (view === "local") await controlRikkaMusic("play-local", undefined, undefined, index);
             else if (selected) await controlRikkaMusic("play-playlist", undefined, selected.id, index);
@@ -269,26 +388,72 @@
         <header class="top-header">
             <button class="logo-section drag-handle" on:pointerdown={startDrag} on:dblclick={centerWindow} title="拖动窗口，双击居中"><span class="logo-icon">♪</span><span class="logo-title">RikkaMusic</span></button>
             <div class="search-section"><button class="nav-btn" on:click={() => view = "liked"} aria-label="返回音乐库">‹</button><div class="search-bar"><span>⌕</span><input lang="zh-CN" inputmode="text" autocomplete="off" spellcheck="false" bind:value={search} on:keydown={(event) => event.key === "Enter" && runSearch()} placeholder="搜索歌手、歌曲、歌单" aria-label="搜索歌曲、歌手、歌单" />{#if search}<button on:click={() => { search = ""; view = "liked"; }} aria-label="清除搜索">×</button>{/if}</div></div>
-            <div class="user-section"><button class="account-button" on:click={openLogin}><span class="avatar">{#if library?.avatar}<img src={library.avatar} alt="用户头像" referrerpolicy="no-referrer" />{:else}♙{/if}</span><span>{library?.authenticated ? library.username : "登录"}</span>{#if library?.vip}<span class="badge">VIP</span>{/if}</button><div class="window-controls"><button on:click={openSettings} title="设置" aria-label="设置">⚙</button><button on:click={toggleTheme} title="切换主题" aria-label="切换主题">◐</button><button on:click={deleteScreen} title="关闭" aria-label="关闭">×</button></div></div>
+            <div class="user-section"><button class="account-button" on:click={openQqLogin} title="QQ / 微信登录">{qqConfigured && !qqLogin?.expired ? "QQ 已登录" : "QQ 登录"}</button><button class="account-button" on:click={openLogin}><span class="avatar">{#if library?.avatar}<img src={library.avatar} alt="用户头像" referrerpolicy="no-referrer" />{:else}♙{/if}</span><span>{library?.authenticated ? library.username : "登录"}</span>{#if library?.vip}<span class="badge">VIP</span>{/if}</button><div class="window-controls"><button on:click={openSettings} title="设置" aria-label="设置">⚙</button><button on:click={toggleTheme} title="切换主题" aria-label="切换主题">◐</button><button on:click={deleteScreen} title="关闭" aria-label="关闭">×</button></div></div>
         </header>
 
         <div class="main-body">
-            <aside class="sidebar"><div class="menu-group"><div class="menu-title">发现</div><button class="menu-item" on:click={() => openCollection("daily")}>每日推荐</button><button class="menu-item" on:click={() => openCollection("fm")}>个人 FM</button><button class="menu-item" on:click={() => openCollection("recommend")}>推荐歌单</button><div class="menu-title">我的</div><button class="menu-item" on:click={() => openCollection("playlists", library?.userId ?? 0)}>全部歌单</button><button class="menu-item" on:click={() => openCollection("podcasts")}>收藏的播客</button><button class:active={view === "liked" && selected?.id === library?.liked?.id} class="menu-item" on:click={() => library?.liked && openPlaylist(library.liked)}><span>♥</span>我喜欢的音乐</button><button class:active={view === "cloud"} class="menu-item" on:click={openCloud}><span>☁</span>我的音乐云盘</button><button class:active={view === "local"} class="menu-item" on:click={() => { view = "local"; void refreshLocal(); }}><span>▣</span>本地挂载歌单</button></div>{#if (library?.playlists?.length ?? 0) > 0}<div class="menu-group playlist-group"><div class="menu-title">我的歌单与收藏</div>{#each library?.playlists ?? [] as playlist (playlist.id)}<button class:active={selected?.id === playlist.id && view === "liked"} class="menu-item playlist-item" on:click={() => openPlaylist(playlist)}><span>♫</span>{playlist.name}</button>{/each}</div>{/if}</aside>
+            <aside class="sidebar"><div class="menu-group"><div class="menu-title">发现</div><button class="menu-item" on:click={() => openCollection("daily")}>每日推荐</button><button class="menu-item" on:click={() => openCollection("fm")}>个人 FM</button><button class="menu-item" on:click={() => openCollection("recommend")}>推荐歌单</button><div class="menu-title">我的</div><button class:active={view === "mixed"} class="menu-item" on:click={openMixed}>♫ 混合曲库</button><button class="menu-item" on:click={() => openCollection("playlists", library?.userId ?? 0)}>全部歌单</button><button class="menu-item" on:click={() => openCollection("podcasts")}>收藏的播客</button><button class:active={view === "liked" && selected?.id === library?.liked?.id} class="menu-item" on:click={() => library?.liked && openPlaylist(library.liked)}><span>♥</span>我喜欢的音乐</button><button class:active={view === "cloud"} class="menu-item" on:click={openCloud}><span>☁</span>我的音乐云盘</button><button class:active={view === "local"} class="menu-item" on:click={() => { view = "local"; void refreshLocal(); }}><span>▣</span>本地挂载歌单</button></div>{#if (library?.playlists?.length ?? 0) > 0}<div class="menu-group playlist-group"><div class="menu-title">我的歌单与收藏</div>{#each library?.playlists ?? [] as playlist (playlist.id)}<button class:active={selected?.id === playlist.id && view === "liked"} class="menu-item playlist-item" on:click={() => openPlaylist(playlist)}><span>♫</span>{playlist.name}</button>{/each}</div>{/if}</aside>
             <main class="content-area">
-                {#if error}<div class="notice"><span>{error}</span><button on:click={() => error = ""} aria-label="关闭提示">×</button></div>{/if}
+                {#if mixedMessage}<div class="notice"><span>{mixedMessage}</span><button on:click={() => mixedMessage = ""} aria-label="关闭收集提示">×</button></div>{/if}{#if error}<div class="notice"><span>{error}</span><button on:click={() => error = ""} aria-label="关闭提示">×</button></div>{/if}
                 {#if loading}<div class="placeholder loading"><span class="spinner"></span>正在加载音乐库</div>
-                {:else if !library?.authenticated && view !== "settings" && view !== "local" && view !== "search"}<section class="login-empty"><div class="cover-art">♪</div><h2>登录网易云音乐</h2><p>登录后即可同步我喜欢的音乐和已创建的歌单。</p><button class="btn btn-primary" on:click={openLogin}>登录账号</button></section>
+                {:else if !library?.authenticated && view !== "settings" && view !== "local" && view !== "search" && view !== "mixed"}<section class="login-empty"><div class="cover-art">♪</div><h2>登录网易云音乐</h2><p>登录后即可同步我喜欢的音乐和已创建的歌单。</p><button class="btn btn-primary" on:click={openLogin}>登录账号</button></section>
                 {:else if view === "playlists"}<section class="view-page"><h2>我的歌单</h2><div class="playlist-grid">{#each [library?.liked, ...(library?.playlists ?? [])].filter(Boolean) as playlist}{#if playlist}<button class="playlist-card" on:click={() => openPlaylist(playlist)}><img src={playlist.cover} alt="" /><strong>{playlist.name}</strong><small>{playlist.owned === false ? "收藏" : "创建"} · {playlist.count} 首</small></button>{/if}{:else}<p>暂无歌单</p>{/each}</div></section>
-                {:else if view === "collection"}<section class="view-page">{#if collectionLoading}<div class="placeholder"><span class="spinner"></span>正在加载</div>{:else if collection}<div class="collection-heading">{#if collection.cover}<img src={collection.cover} alt="" />{/if}<div><h2>{collection.name}</h2><p>{collection.description ?? ""}</p></div></div><div class="collection-actions">{#if collection.songs.length}<button class="btn btn-primary" on:click={() => playPlaylist(0)}>播放全部</button>{/if}{#if collection.kind === "fm"}<button class="btn btn-secondary" on:click={() => openCollection("fm")}>换一批</button>{/if}{#if collection.artistId}<button class="btn btn-secondary" on:click={() => collection?.artistId && openArtist(collection.artistId)}>音乐人主页</button>{/if}</div><div class="playlist-grid">{#each collection.items as item (item.id)}<button class="playlist-card" on:click={() => collection?.kind === "podcasts" ? openCollection("podcast", item.id) : openPlaylist(item)}><img src={item.cover} alt="" /><strong>{item.name}</strong><small>{item.owned === false ? "收藏 · " : item.owned === true ? "创建 · " : ""}{item.count} {collection.kind === "podcasts" ? "期节目" : "首歌曲"}</small></button>{/each}</div><div class="song-table">{#each collection.songs as song, index}<button class="song-row" class:playing={state.song?.id === song.id} on:click={() => playPlaylist(index)}><span>{index + 1}</span><span class="song-title">{song.name}</span><span>{song.artist}</span><span>{song.album}</span><span>{formatTime(song.duration)}</span></button>{/each}</div>{#if !collection.items.length && !collection.songs.length}<p class="empty-cell">暂无内容</p>{/if}<div class="search-pages">{#if collection.page > 1}<button on:click={() => collection && openCollection(collection.kind, collectionId, collection.page - 1)}>上一页</button>{/if}{#if collection.hasMore}<button on:click={() => collection && openCollection(collection.kind, collectionId, collection.page + 1)}>下一页</button>{/if}</div>{/if}</section>
-                {:else if view === "cloud"}<section class="view-page"><h2>我的音乐云盘</h2><div class="cloud-bar"><span>{cloudLoading ? "正在读取云盘歌曲" : `${cloudSongs.length} 首歌曲`}</span></div>{#if cloudLoading}<div class="placeholder loading"><span class="spinner"></span>正在加载云盘</div>{:else}<div class="song-table"><div class="song-row song-head"><span>#</span><span>标题</span><span>歌手</span><span>专辑</span><span>时长</span></div>{#each songs as song, index (song.id)}<button class:playing={state.song?.id === song.id} class="song-row" on:click={() => playPlaylist(index)}><span>{state.song?.id === song.id ? "▶" : index + 1}</span><span class="song-title">{song.name}</span><span>{song.artist || "未知歌手"}</span><span>{song.album || "未知专辑"}</span><span>{formatTime(song.duration)}</span></button>{:else}<div class="empty-cell">云盘暂无歌曲</div>{/each}</div>{/if}</section>
-                {:else if view === "local"}<section class="view-page"><h2>挂载本地音乐歌单</h2><div class="mount-panel"><div class="mount-options"><span>本地挂载目录</span><input aria-label="本地挂载目录" value={localPath || "未配置"} readonly /><button class="btn btn-secondary" on:click={openLocal}>选择本地文件夹</button></div></div><div class="mount-result"><div class="result-header"><h3>本地解析出的歌曲列表 ({localSongs.length})</h3><button class="btn btn-secondary" disabled={!localSongs.length} on:click={() => playPlaylist(0)}>播放本地全部</button></div><div class="song-table">{#each localSongs as song, index (song.id)}<button class="song-row" on:click={() => playPlaylist(index)}><span>{index + 1}</span><span class="song-title">{song.name}</span><span>{song.artist || "本地文件"}</span><span>{song.album || ""}</span><span>{formatTime(song.duration)}</span></button>{:else}<div class="empty-cell">未挂载文件夹或未读取到音频文件</div>{/each}</div></div></section>
+                {:else if view === "collection"}<section class="view-page">{#if collectionLoading}<div class="placeholder"><span class="spinner"></span>正在加载</div>{:else if collection}<div class="collection-heading">{#if collection.cover}<img src={collection.cover} alt="" />{/if}<div><h2>{collection.name}</h2><p>{collection.description ?? ""}</p></div></div><div class="collection-actions">{#if collection.songs.length}<button class="btn btn-primary" on:click={() => playPlaylist(0)}>播放全部</button>{/if}{#if collection.kind === "fm"}<button class="btn btn-secondary" on:click={() => openCollection("fm")}>换一批</button>{/if}{#if collection.artistId}<button class="btn btn-secondary" on:click={() => collection?.artistId && openArtist(collection.artistId)}>音乐人主页</button>{/if}</div><div class="playlist-grid">{#each collection.items as item (item.id)}<button class="playlist-card" on:click={() => collection?.kind === "podcasts" ? openCollection("podcast", item.id) : openPlaylist(item)}><img src={item.cover} alt="" /><strong>{item.name}</strong><small>{item.owned === false ? "收藏 · " : item.owned === true ? "创建 · " : ""}{item.count} {collection.kind === "podcasts" ? "期节目" : "首歌曲"}</small></button>{/each}</div><div class="song-table">{#each collection.songs as song, index}<button class="song-row" class:playing={currentSong(song)} on:click={() => playPlaylist(index)}><span>{index + 1}</span><span class="song-title">{song.name}<small class="source-badge">{sourceLabel(song.source)}</small></span><span>{song.artist}</span><span>{song.album}</span><span>{formatTime(song.duration)}</span></button>{/each}</div>{#if !collection.items.length && !collection.songs.length}<p class="empty-cell">暂无内容</p>{/if}<div class="search-pages">{#if collection.page > 1}<button on:click={() => collection && openCollection(collection.kind, collectionId, collection.page - 1)}>上一页</button>{/if}{#if collection.hasMore}<button on:click={() => collection && openCollection(collection.kind, collectionId, collection.page + 1)}>下一页</button>{/if}</div>{/if}</section>
+                {:else if view === "cloud"}<section class="view-page"><h2>我的音乐云盘</h2><div class="cloud-bar"><span>{cloudLoading ? "正在读取云盘歌曲" : `${cloudSongs.length} 首歌曲`}</span></div>{#if cloudLoading}<div class="placeholder loading"><span class="spinner"></span>正在加载云盘</div>{:else}<div class="song-table"><div class="song-row song-head"><span>#</span><span>标题</span><span>歌手</span><span>专辑</span><span>时长</span></div>{#each songs as song, index (song.key)}<button class:playing={currentSong(song)} class="song-row" on:click={() => playPlaylist(index)}><span>{currentSong(song) ? "▶" : index + 1}</span><span class="song-title">{song.name}<small class="source-badge">{sourceLabel(song.source)}</small></span><span>{song.artist || "未知歌手"}</span><span>{song.album || "未知专辑"}</span><span>{formatTime(song.duration)}</span></button>{:else}<div class="empty-cell">云盘暂无歌曲</div>{/each}</div>{/if}</section>
+                {:else if view === "mixed"}
+                    <section class="view-page">
+                        <h2>混合曲库 <small class="source-badge">实验版</small></h2>
+                        <p>网易云与 QQ 音乐共享播放队列，歌曲保留各自来源。曲库保存在本机，不修改平台收藏。</p>
+                        <div class="mixed-tools">
+                            <select aria-label="导入歌单来源" bind:value={importSource}><option value="qq">QQ 音乐</option><option value="netease">网易云音乐</option></select>
+                            <input aria-label="歌单链接或 ID" bind:value={importReference} placeholder="粘贴完整歌单链接或 ID" />
+                            <button class="btn btn-secondary" disabled={mixedBusy || !importReference.trim()} on:click={importSongs}>导入歌单</button>
+                            <button class="btn btn-primary" disabled={mixedBusy || !mixed.songs.length} on:click={() => playPlaylist(0)}>播放全部</button>
+                        </div>
+                        <div class="mixed-tools"><button class="btn btn-secondary" on:click={openQqLogin}>QQ / 微信扫码登录</button><span>{qqLogin?.expired ? "登录已过期，请重新扫码" : qqConfigured ? "QQ 登录已保存在本机" : "QQ 尚未登录"}</span></div>
+                        <details class="qq-session">
+                            <summary>手动导入 QQ 登录凭据（高级）</summary>
+                            <p>通常使用 QQ / 微信扫码即可。也可以导入自己的 QQ 音乐 Cookie，保存在本机供下次启动使用；退出 QQ 登录时清除。歌曲权限仍由 QQ 音乐决定。</p>
+                            <div class="mixed-tools"><input type="password" autocomplete="off" aria-label="QQ 音乐 Cookie" bind:value={qqCookie} placeholder="自己的 QQ 音乐 Cookie（保存在本机）" />
+                                <button class="btn btn-secondary" disabled={!qqCookie.trim()} on:click={() => setQqSession()}>保存凭据</button>
+                                <button class="btn btn-secondary" disabled={!qqConfigured} on:click={() => setQqSession(true)}>清除凭据</button>
+                            </div>
+                        </details>
+                        <p>{mixedBusy ? "正在处理，请稍候…" : `${mixed.songs.length} 首歌曲 · 按平台与歌曲 ID 去重`}</p>
+                        <div class="song-table">
+                            {#each mixed.songs as song, index (song.key)}
+                                <div class="mixed-song">
+                                    <button class="song-row" class:playing={currentSong(song)} disabled={mixedBusy} on:click={() => playPlaylist(index)}><span>{index + 1}</span><span class="song-title">{song.name}<small class="source-badge">{sourceLabel(song.source)}</small></span><span>{song.artist}</span><span>{song.album}</span><span>{formatTime(song.duration)}</span></button>
+                                    <button class="remove-song" disabled={mixedBusy} on:click={() => removeMixed(song.key)} aria-label={`从混合曲库移除 ${song.name}`}>移除</button>
+                                </div>
+                            {:else}<div class="empty-cell">搜索歌曲后点击“收集本页”，或在上方导入歌单。</div>{/each}
+                        </div>
+                    </section>
+                {:else if view === "local"}<section class="view-page"><h2>挂载本地音乐歌单</h2><div class="mount-panel"><div class="mount-options"><span>本地挂载目录</span><input aria-label="本地挂载目录" value={localPath || "未配置"} readonly /><button class="btn btn-secondary" on:click={openLocal}>选择本地文件夹</button></div></div><div class="mount-result"><div class="result-header"><h3>本地解析出的歌曲列表 ({localSongs.length})</h3><button class="btn btn-secondary" disabled={!localSongs.length} on:click={() => playPlaylist(0)}>播放本地全部</button></div><div class="song-table">{#each localSongs as song, index (song.key)}<button class="song-row" on:click={() => playPlaylist(index)}><span>{index + 1}</span><span class="song-title">{song.name}<small class="source-badge">{sourceLabel(song.source)}</small></span><span>{song.artist || "本地文件"}</span><span>{song.album || ""}</span><span>{formatTime(song.duration)}</span></button>{:else}<div class="empty-cell">未挂载文件夹或未读取到音频文件</div>{/each}</div></div></section>
                 {:else if view === "settings"}<section class="settings-page"><h2>设置</h2><div class="setting-tabs">{#each Object.entries(categoryLabels) as [category, label]}<button class:active={settingsCategory === category} on:click={() => selectSettingsCategory(category as SettingsCategory)}>{label}</button>{/each}</div>{#if settingsLoading}<div class="placeholder loading"><span class="spinner"></span>正在读取设置</div>{:else}<div class="setting-group"><h3>{categoryLabels[settingsCategory]}设置</h3>{#if settingsCategory === "account"}<p class="settings-note">账号 Cookie 不会显示在网页中。请通过右上角的账号入口登录或退出。密码和验证码不会保存。</p>{/if}{#each settings as setting (setting.key)}<div class="setting-item"><span class="setting-label">{labelFor(setting)}{#if setting.hotkey}<small>快捷键 {keyLabel(setting.hotkey)}</small>{/if}</span>{#if setting.type === "hotkey"}<div class="hotkey-control"><button class="btn btn-secondary" on:click={() => { recordingKey = setting.key; recordedKeys = []; }} on:keydown={captureKey} on:keyup={finishKey}>{recordingKey === setting.key ? (recordedKeys.length ? keyLabel(recordedKeys.join(",")) : "按下组合键，松开保存") : keyLabel(String(setting.value))}</button><button class="btn btn-secondary" on:click={() => saveSetting(setting, "")}>清除</button></div>{:else if setting.type === "boolean"}<input aria-label={labelFor(setting)} class="switch" type="checkbox" checked={Boolean(setting.value)} on:change={(event) => saveSetting(setting, event.currentTarget.checked)} />{:else if setting.type === "option"}<div class="setting-select" class:expanded={expandedSettingKey === setting.key}><button type="button" class="select-like" aria-haspopup="listbox" aria-expanded={expandedSettingKey === setting.key} on:click={() => expandedSettingKey = expandedSettingKey === setting.key ? "" : setting.key}>{String(setting.value)}<span class="select-arrow">⌄</span></button>{#if expandedSettingKey === setting.key}<div class="select-options" role="listbox">{#each setting.options ?? [String(setting.value)] as option}<button type="button" role="option" aria-selected={option === String(setting.value)} class:active={option === String(setting.value)} on:click={() => saveSetting(setting, option)}>{option}</button>{/each}</div>{/if}</div>{:else if (setting.type === "integer" || setting.type === "double") && setting.min !== undefined && setting.max !== undefined}<div class="range-control"><input aria-label={labelFor(setting)} type="range" min={setting.min} max={setting.max} step={setting.type === "double" ? "0.01" : "1"} value={setting.value} on:change={(event) => saveSetting(setting, Number(event.currentTarget.value))}/><output>{setting.value}</output></div>{:else if setting.type === "color"}<div class="color-control"><input aria-label={labelFor(setting)} type="color" value={String(setting.value).slice(0, 7)} on:change={(event) => saveSetting(setting, event.currentTarget.value.replace("#", "#FF"))}/><input aria-label={`${labelFor(setting)} 色值`} value={setting.value} on:change={(event) => saveSetting(setting, event.currentTarget.value)} /></div>{:else}<input aria-label={labelFor(setting)} class="value-input" value={setting.value} on:change={(event) => saveSetting(setting, event.currentTarget.value)} />{/if}</div>{:else}<p class="placeholder-text">此分类没有可配置项</p>{/each}</div>{/if}</section>
-                {:else}<section class="view-page"><div class="playlist-header"><div class="cover-art"><img src={selected?.cover || ""} alt="" /><span>♥</span></div><div class="playlist-info"><h2>{title}</h2><p class="meta">{selected?.artist || library?.username || "网易云音乐"} · {songs.length} 首歌曲</p><button class="btn btn-primary" disabled={!songs.length} on:click={() => playPlaylist(0)}>▶ 播放全部</button></div></div>{#if view === "search"}<h2 class="search-title">搜索 “{search}”</h2><div class="sub-tabs">{#each ["综合", "单曲", "歌单", "歌手"] as tab}<button class:active={searchTab === tab} class="tab" on:click={() => selectSearchTab(tab as typeof searchTab)}>{tab}</button>{/each}</div><div class="search-pages"><button disabled={searchPage <= 1} on:click={() => runSearch(searchPage - 1)}>上一页</button><span>{searchPage} / {searchPageCount} · {searchTotal}</span><button disabled={searchPage >= searchPageCount} on:click={() => runSearch(searchPage + 1)}>下一页</button></div>{/if}<div class="song-table"><div class="song-row song-head"><span>#</span><span>标题</span><span>歌手</span><span>专辑</span><span>时长</span></div>{#if view === "search" && searchTab === "歌单"}{#each searchPlaylists as playlist, index (playlist.id)}<button class="song-row" on:click={() => openPlaylist(playlist)}><span>{index + 1}</span><span class="song-title">{playlist.name}</span><span>{playlist.artist || ""}</span><span>{playlist.count} 首歌曲</span><span>歌单</span></button>{/each}{:else if view === "search" && searchTab === "歌手"}{#each searchArtists as artist, index (artist.id)}<button class="song-row" on:click={() => openArtist(artist.id)}><span>{index + 1}</span><span class="song-title">{artist.name}</span><span>歌手</span><span>{artist.count ? `${artist.count} 首歌曲` : ""}</span><span>主页 ›</span></button>{:else}<div class="empty-cell">暂无歌曲</div>{/each}{:else}{#each songs as song, index (song.id)}<button class:playing={state.song?.id === song.id} class="song-row" on:click={() => playPlaylist(index)}><span>{state.song?.id === song.id ? "▶" : index + 1}</span><span class="song-title">{song.name}</span><span>{song.artist || "未知歌手"}</span><span>{song.album || "未知专辑"}</span><span>{formatTime(song.duration)}</span></button>{:else}<div class="empty-cell">暂无歌曲</div>{/each}{/if}</div></section>{/if}
+                {:else}<section class="view-page"><div class="playlist-header"><div class="cover-art"><img src={selected?.cover || ""} alt="" /><span>♥</span></div><div class="playlist-info"><h2>{title}</h2><p class="meta">{selected?.artist || library?.username || "网易云音乐"} · {songs.length} 首歌曲</p><button class="btn btn-primary" disabled={!songs.length} on:click={() => playPlaylist(0)}>▶ 播放全部</button>{#if view !== "search" && selected?.queueToken}<button class="btn btn-secondary" disabled={mixedBusy || !songs.length} on:click={() => collectSongs()}>收集到混合曲库</button>{/if}</div></div>{#if view === "search"}<h2 class="search-title">搜索 “{search}”</h2><div class="mixed-tools"><label>单曲来源 <select aria-label="单曲搜索来源" bind:value={searchSource} on:change={() => { searchTab = "单曲"; void runSearch(1); }}><option value="netease">网易云音乐</option><option value="qq">QQ 音乐</option><option value="all">混合搜索</option></select></label><button class="btn btn-secondary" disabled={searchBusy || mixedBusy || !searchResults.length || !searchQueueToken} on:click={() => collectSongs()}>收集本页到混合曲库</button>{#if searchBusy}<span>正在搜索…</span>{/if}</div><p class="settings-note">歌单与歌手搜索使用网易云；QQ 歌单可在混合曲库中导入。</p><div class="sub-tabs">{#each ["综合", "单曲", "歌单", "歌手"] as tab}<button class:active={searchTab === tab} class="tab" on:click={() => selectSearchTab(tab as typeof searchTab)}>{tab}</button>{/each}</div><div class="search-pages"><button disabled={searchBusy || searchPage <= 1} on:click={() => runSearch(searchPage - 1)}>上一页</button><span>{searchPage} / {searchPageCount} · {searchTotal}</span><button disabled={searchBusy || searchPage >= searchPageCount} on:click={() => runSearch(searchPage + 1)}>下一页</button></div>{/if}<div class="song-table"><div class="song-row song-head"><span>#</span><span>标题</span><span>歌手</span><span>专辑</span><span>时长</span></div>{#if view === "search" && searchTab === "歌单"}{#each searchPlaylists as playlist, index (playlist.id)}<button class="song-row" on:click={() => openPlaylist(playlist)}><span>{index + 1}</span><span class="song-title">{playlist.name}</span><span>{playlist.artist || ""}</span><span>{playlist.count} 首歌曲</span><span>歌单</span></button>{/each}{:else if view === "search" && searchTab === "歌手"}{#each searchArtists as artist, index (artist.id)}<button class="song-row" on:click={() => openArtist(artist.id)}><span>{index + 1}</span><span class="song-title">{artist.name}</span><span>歌手</span><span>{artist.count ? `${artist.count} 首歌曲` : ""}</span><span>主页 ›</span></button>{:else}<div class="empty-cell">暂无歌曲</div>{/each}{:else}{#each songs as song, index (song.key)}<div class="mixed-song"><button class:playing={currentSong(song)} class="song-row" on:click={() => playPlaylist(index)}><span>{currentSong(song) ? "▶" : index + 1}</span><span class="song-title">{song.name}<small class="source-badge">{sourceLabel(song.source)}</small></span><span>{song.artist || "未知歌手"}</span><span>{song.album || "未知专辑"}</span><span>{formatTime(song.duration)}</span></button>{#if view === "search"}<button class="remove-song" disabled={mixedBusy || searchBusy} on:click={() => collectSongs(index)} aria-label={`收集 ${song.name} 到混合曲库`}>＋收集</button>{/if}</div>{:else}<div class="empty-cell">暂无歌曲</div>{/each}{/if}</div></section>{/if}
             </main>
         </div>
 
         {#if showLyrics}<section class="lyrics-overlay"><button on:click={() => showLyrics = false} aria-label="关闭歌词">×</button><h3>{state.song?.name || "未播放"}</h3><p>{state.lyric || "♪"}</p><small>{state.translation || ""}</small></section>{/if}
-        <footer class="player-bar"><div class="track-info"><div class="small-cover"><img src={state.song?.cover || ""} alt="" /></div><div class="track-text"><strong>{state.song?.name ?? "未选择播放歌曲"}</strong><small>{state.song?.artist ?? "--"}</small></div></div><div class="player-center"><div class="player-controls"><button on:click={() => control("shuffle")} title="随机播放" aria-label="随机播放">⌘</button><button on:click={() => control("previous")} title="上一首" aria-label="上一首">◀◀</button><button class="play-btn" on:click={() => control("toggle")} aria-label="播放或暂停">{state.playing ? "Ⅱ" : "▶"}</button><button on:click={() => control("next")} title="下一首" aria-label="下一首">▶▶</button><button on:click={() => showLyrics = !showLyrics} title="歌词" aria-label="歌词">♬</button></div><div class="progress-container"><span>{formatTime(state.progress)}</span><input type="range" min="0" max={state.song?.duration ?? 1} value={state.progress} on:change={(event) => control("seek", Number(event.currentTarget.value))} /><span>{formatTime(state.song?.duration ?? 0)}</span></div></div><div class="extra-controls"><button class="quality-tag" on:click={cycleQuality} title="切换播放音质">{qualityLabel(state.quality)}</button><div class="volume-container"><span>🔊</span><input type="range" min="0" max="100" value={state.volume} on:change={(event) => control("volume", Number(event.currentTarget.value))} /></div></div></footer>
+        <footer class="player-bar"><div class="track-info"><div class="small-cover"><img src={state.song?.cover || ""} alt="" /></div><div class="track-text"><strong>{state.song?.name ?? "未选择播放歌曲"}</strong>{#if state.song}<small class="source-badge">{sourceLabel(state.song.source)}</small>{/if}<small>{state.song?.artist ?? "--"}</small></div></div><div class="player-center"><div class="player-controls"><button on:click={() => control("shuffle")} title="随机播放" aria-label="随机播放">⌘</button><button on:click={() => control("previous")} title="上一首" aria-label="上一首">◀◀</button><button class="play-btn" on:click={() => control("toggle")} aria-label="播放或暂停">{state.playing ? "Ⅱ" : "▶"}</button><button on:click={() => control("next")} title="下一首" aria-label="下一首">▶▶</button><button on:click={() => showLyrics = !showLyrics} title="歌词" aria-label="歌词">♬</button></div><div class="progress-container"><span>{formatTime(state.progress)}</span><input type="range" min="0" max={state.song?.duration ?? 1} value={state.progress} on:change={(event) => control("seek", Number(event.currentTarget.value))} /><span>{formatTime(state.song?.duration ?? 0)}</span></div></div><div class="extra-controls"><button class="quality-tag" disabled={state.song?.source === "qq"} on:click={cycleQuality} title={state.song?.source === "qq" ? "QQ 实验版使用标准音质" : "切换播放音质"}>{state.song?.source === "qq" ? "QQ 标准" : qualityLabel(state.quality)}</button><div class="volume-container"><span>🔊</span><input type="range" min="0" max="100" value={state.volume} on:change={(event) => control("volume", Number(event.currentTarget.value))} /></div></div></footer>
+        {#if showQqLogin}
+            <div class="dialog-backdrop"><section class="login-dialog" aria-label="QQ 音乐登录">
+                <button class="dialog-close" on:click={closeQqLogin} aria-label="关闭 QQ 登录窗口">×</button>
+                <div class="dialog-logo">♪</div><h2>登录 QQ 音乐</h2>
+                {#if qqConfigured}<p>{qqLogin?.nickname || "已保存 QQ 音乐登录"}{qqLogin?.expired ? " · 已过期" : ""}</p>{/if}
+                <div class="login-tabs"><button disabled={qqBusy} class:active={qqLogin?.qrMethod === "qq" && qqLogin?.qrReady} on:click={() => startQqLogin("qq")}>QQ 扫码</button><button disabled={qqBusy} class:active={qqLogin?.qrMethod === "wx" && qqLogin?.qrReady} on:click={() => startQqLogin("wx")}>微信扫码</button></div>
+                {#if qqLogin?.qrReady}<div class="qr-wrap"><img src={getRikkaQqQrUrl(qqLogin.qrVersion)} alt={qqLogin.qrMethod === "wx" ? "微信登录 QQ 音乐二维码" : "QQ 登录二维码"} /></div>
+                {:else if qqBusy || qqLogin?.status === "loading"}<div class="qr-wrap"><span class="spinner"></span></div>{/if}
+                <p class:error-text={qqLogin?.status === "error" || qqLogin?.status === "expired"}>{qqLogin?.message || "请选择扫码方式"}</p>
+                {#if qqLogin?.storageError}<p class="error-text">{qqLogin.storageError}</p>{/if}
+                <p>扫码后请在手机确认。登录凭据仅保存在本机，下次启动自动读取。</p>
+                <div class="collection-actions account-actions">
+                    {#if qqLogin && ["waiting", "confirming", "expired", "refused", "error"].includes(qqLogin.status)}<button class="btn btn-secondary" disabled={qqBusy} on:click={() => startQqLogin(qqLogin?.qrMethod ?? "qq")}>刷新二维码</button>{/if}
+                    {#if qqConfigured || qqLogin?.storageError}<button class="btn btn-secondary" disabled={qqBusy} on:click={logoutQq}>退出并清除本机凭据</button>{/if}
+                </div>
+            </section></div>
+        {/if}
         {#if showLogin}<div class="dialog-backdrop"><section class="login-dialog"><button class="dialog-close" on:click={closeLogin} aria-label="关闭账号窗口">×</button>
             {#if library?.authenticated}<img class="profile-avatar" src={library.avatar || ""} alt="用户头像" /><h2>{library.username}</h2><p>已登录网易云音乐{library.vip ? " · VIP" : ""}</p><div class="account-actions"><button class="btn btn-primary" disabled={!library.userId} on:click={openProfile}>个人主页</button>{#if library.artistId}<button class="btn btn-secondary" on:click={() => library?.artistId && openArtist(library.artistId)}>音乐人主页</button>{/if}<button class="btn btn-secondary" disabled={accountBusy} on:click={logout}>退出账号</button></div>
             {:else}<div class="dialog-logo">♪</div><h2>登录网易云音乐</h2><div class="login-tabs"><button class:active={loginMethod === "password"} on:click={() => chooseLoginMethod("password")}>账号密码</button><button class:active={loginMethod === "captcha"} on:click={() => chooseLoginMethod("captcha")}>验证码</button><button class:active={loginMethod === "qr"} on:click={() => chooseLoginMethod("qr")}>扫码</button></div>
@@ -300,6 +465,17 @@
 </div>
 
 <style lang="scss">
+    .source-badge { display: inline-block; margin-left: 8px; padding: 2px 6px; border: 1px solid currentColor; border-radius: 4px; font-size: 11px; opacity: .72; vertical-align: middle; }
+    .mixed-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+    .mixed-tools input { flex: 1; min-width: 200px; }
+    .mixed-tools input, .mixed-tools select { padding: 9px 12px; border-radius: 6px; background: var(--bg-secondary, #252630); color: inherit; border: 1px solid #7775; }
+    .mixed-tools select option { background: #252630; color: #eee; }
+    .qq-session { margin: 16px 0; padding: 12px; border: 1px solid #7775; border-radius: 8px; }
+    .qq-session p { line-height: 1.6; opacity: .8; }
+    .mixed-song { display: flex; align-items: center; }
+    .mixed-song .song-row { flex: 1; min-width: 0; }
+    .remove-song { padding: 8px; color: inherit; background: transparent; opacity: .7; }
+
     .rikkamusic-stage { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(11, 14, 20, .34); font-family: Arial, sans-serif; }
     .rikkamusic-shell { --bg: #191b20; --panel: #23262d; --sidebar: #202329; --line: #393d46; --text: #e9eaed; --dim: #aeb3bd; --muted: #777d89; --accent: #ec4141; --hover: #2d313a; width: min(1000px, calc(100vw - 36px)); height: min(680px, calc(100vh - 36px)); min-height: 500px; display: flex; flex-direction: column; overflow: hidden; color: var(--text); background: var(--bg); border: 1px solid rgba(255, 255, 255, .14); border-radius: 7px; box-shadow: 0 24px 68px rgba(0, 0, 0, .44); font-size: 12px; }
     .rikkamusic-shell.light { --bg: #fff; --panel: #f9f9f9; --sidebar: #f9f9f9; --line: #e5e5e5; --text: #333; --dim: #666; --muted: #999; --hover: #f3f3f3; box-shadow: 0 24px 68px rgba(0, 0, 0, .26); }

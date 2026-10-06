@@ -9,6 +9,10 @@ public interface IMusic extends IPrint{
     String getPlayUrl();
     long getDuration();
 
+    default String getSource() { return "netease"; }
+    default String getSourceId() { return Long.toString(getId()); }
+    default String getKey() { return getSource() + ":" + getSourceId(); }
+
     /**
      * 获取歌曲长度 (秒)
      * @return 秒
