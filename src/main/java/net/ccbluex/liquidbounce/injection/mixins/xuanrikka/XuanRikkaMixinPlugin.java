@@ -12,10 +12,6 @@ import java.util.Set;
 public final class XuanRikkaMixinPlugin implements IMixinConfigPlugin {
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-        if (mixinClassName.endsWith(".MixinWindowsShiftInput")
-            || mixinClassName.endsWith(".MixinWindowsShiftState")) {
-            return true;
-        }
         return FabricLoader.getInstance().isModLoaded("liquidbounce-cef");
     }
 

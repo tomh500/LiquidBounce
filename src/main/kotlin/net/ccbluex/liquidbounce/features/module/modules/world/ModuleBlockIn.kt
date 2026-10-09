@@ -37,10 +37,13 @@ import net.ccbluex.liquidbounce.utils.inventory.HotbarItemSlot
 import net.ccbluex.liquidbounce.utils.inventory.Slots
 import net.ccbluex.liquidbounce.utils.item.getBlock
 import net.ccbluex.liquidbounce.utils.input.InputTracker.isPressedOnAny
+import net.ccbluex.liquidbounce.utils.math.BY_Y
+import net.ccbluex.liquidbounce.utils.math.BY_Y_DESC
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.kotlin.random
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
+import net.minecraft.core.Vec3i
 import net.minecraft.core.registries.BuiltInRegistries
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket
 import net.minecraft.tags.BlockTags
@@ -368,10 +371,10 @@ object ModuleBlockIn : ClientModule(
             override fun positions() = NORMAL.positions().apply { shuffle() }
         },
         BOTTOM_TOP("BottomTop") {
-            override fun positions() = NORMAL.positions().apply { sortBy { it.y } }
+            override fun positions() = NORMAL.positions().apply { sortWith(Vec3i.BY_Y) }
         },
         TOP_BOTTOM("TopBottom") {
-            override fun positions() = NORMAL.positions().apply { sortByDescending { it.y } }
+            override fun positions() = NORMAL.positions().apply { sortWith(Vec3i.BY_Y_DESC) }
         };
 
         abstract fun positions(): Array<BlockPos>

@@ -13,7 +13,7 @@ text conflicts but does not remove the need to review API and runtime changes.
 | Browser resource lifetime, first paint and release focus | Java mixins under `injection/mixins/xuanrikka`, `FrameRetirementQueue` | Separate `liquidbounce.xuanrikka.mixins.json` registered in the mod manifest |
 | Persisted value schema upgrades | `config/compat/LegacyValueMigration.java` | One normalization call in the existing `deserializeLeafValue` migration hook |
 | Keyboard name and SDL modifier compatibility | `InputKeyNames.java`, `KeyboardInputCompatibility.java` | Name lookup in `InputUtil`; keyboard event observation before MaLiLib's cancellable hook |
-| Windows extended right Shift (MC-311424) | `WindowsShiftCompatibility.java`, `MixinWindowsShiftInput`, `MixinWindowsShiftState` | Repair unknown native SDL events before keyboard consumers; preserve held state until release or focus loss |
+| Windows extended right Shift (MC-311424) | Upstream `WindowsShiftCompatibility`, `MixinSDLEventHandler`, `MixinInputConstants` | Use upstream's accepted fix; no duplicate XuanRikka keyboard mixins |
 | Vape implementations | Dedicated mode/controller files and `GlobalVapeRotationSettings` | Existing mode selection and shared rotation entry points |
 
 Add new custom modules to `XuanRikkaModules`, not to upstream's built-in imports
@@ -35,11 +35,9 @@ settings upgraded to ranges as fixed intervals. Modern shapes pass through uncha
 
 ## Browser ownership
 
-The Windows right Shift adapter backports SDL's `0xE036` mapping, documented in
-[SDL's Windows scancode table](https://github.com/libsdl-org/SDL/blob/main/src/events/scancodes_windows.h).
-It only repairs unknown keys with a recognized raw right Shift code, never arbitrary
-unknown events. These keyboard mixins apply independently of the CEF add-on.
-Remove this adapter once the bundled SDL recognizes that scan code natively.
+Upstream accepted the Windows right Shift adapter in PR #9352. Use its canonical
+mixins and helper; the former XuanRikka duplicates have been removed. Keyboard
+aliases and early observation for MaLiLib remain separate client-owned extensions.
 
 Use upstream's bundled `liquidbounce-cef` dependency and backend registration.
 Do not restore the deleted client-side `CefBrowser`/`CefBrowserBackend`, vendor

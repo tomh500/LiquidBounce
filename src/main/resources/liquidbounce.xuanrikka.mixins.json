@@ -5,8 +5,6 @@
   "plugin": "net.ccbluex.liquidbounce.injection.mixins.xuanrikka.XuanRikkaMixinPlugin",
   "compatibilityLevel": "JAVA_25",
   "client": [
-    "MixinWindowsShiftInput",
-    "MixinWindowsShiftState",
     "MixinCefBrowserLifetime",
     "MixinCefBackendShutdown",
     "MixinBrowserFirstPaint",

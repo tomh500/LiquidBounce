@@ -587,7 +587,7 @@ public final class CloudMusicScreen extends Screen {
     private static void rounded(GuiGraphicsExtractor g,
                                  float x1, float y1, float x2, float y2,
                                  float r, Color4b fill, Color4b outline) {
-        Render2DKt.drawRoundedRect(g, x1, y1, x2, y2, r, fill, outline, 1);
+        Render2DKt.drawRoundedRect(g, x1, y1, x2, y2, r, fill, null, outline, 1);
     }
 
     private void drawText(GuiGraphicsExtractor g, String t, float x, float y,
