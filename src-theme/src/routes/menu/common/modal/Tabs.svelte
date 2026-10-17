@@ -1,6 +1,12 @@
 <script lang="ts">
     import type {Component, Snippet} from "svelte";
 
+    interface Props {
+        tabs: Tab[];
+        activeTab?: number;
+        onChangeTab?: (activeTab: number) => void | Promise<void>;
+    }
+
     type Content = Component | Snippet;
 
     type SubTab = {
@@ -17,11 +23,7 @@
     let availableTabsElement = $state<HTMLElement | undefined>();
     let activeSubTabs = $state<Record<number, number>>({});
 
-    let {tabs, activeTab = $bindable(0), onChangeTab}: {
-        tabs: Tab[];
-        activeTab?: number;
-        onChangeTab?: (activeTab: number) => void | Promise<void>;
-    } = $props();
+    let {tabs, activeTab = $bindable(0), onChangeTab}: Props = $props();
 
     const activeSubTabItems = $derived(
         Array.isArray(tabs[activeTab]?.content) ? tabs[activeTab].content as SubTab[] : []

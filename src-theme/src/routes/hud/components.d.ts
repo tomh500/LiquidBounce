@@ -19,57 +19,55 @@
 
 import type {NotificationSeverity} from "../../integration/events";
 
-declare global {
-    interface HudToggleableConfigurable {
-        enabled: boolean;
-    }
+interface HudToggleableConfigurable {
+    enabled: boolean;
+}
 
-    interface HudArrayListSettings {
-        showTags: boolean;
-        itemAlignment: "Left" | "Right";
-        order: "Ascending" | "Descending";
-    }
+interface HudArrayListSettings {
+    showTags: boolean;
+    itemAlignment: "Left" | "Right";
+    order: "Ascending" | "Descending";
+}
 
-    interface HudInventoryStatisticsSettings {
-        items: string[];
-        showEmpty: boolean;
-        rowLength: number;
-    }
+interface HudInventoryStatisticsSettings {
+    items: string[];
+    showEmpty: boolean;
+    rowLength: number;
+}
 
-    interface HudBlockCounterSettings {
-        iconPosition: "None" | "Left" | "Right" | "Top" | "Bottom";
-    }
+interface HudBlockCounterSettings {
+    iconPosition: "None" | "Left" | "Right" | "Top" | "Bottom";
+}
 
-    interface HudScoreboardSettings {
-        show: ("Header" | "Name" | "Score")[];
-        replaceRegex: string;
-        replaceWith: string;
-    }
+interface HudScoreboardSettings {
+    show: ("Header" | "Name" | "Score")[];
+    replaceRegex: string;
+    replaceWith: string;
+}
 
-    interface HudNotificationsSettings {
-        severities: NotificationSeverity[];
-    }
+interface HudNotificationsSettings {
+    severities: NotificationSeverity[];
+}
 
-    interface HudTextSettings {
-        text: string;
+interface HudTextSettings {
+    text: string;
+    color: number;
+    font: string;
+    size: number;
+    decorations: HudToggleableConfigurable & {
+        bold: boolean;
+        italic: boolean;
+        underline: boolean;
+        strikethrough: boolean;
+    };
+    shadow: HudToggleableConfigurable & {
+        offsetX: number;
+        offsetY: number;
+        blurRadius: number;
         color: number;
-        font: string;
-        size: number;
-        decorations: HudToggleableConfigurable & {
-            bold: boolean;
-            italic: boolean;
-            underline: boolean;
-            strikethrough: boolean;
-        };
-        shadow: HudToggleableConfigurable & {
-            offsetX: number;
-            offsetY: number;
-            blurRadius: number;
-            color: number;
-        };
-        glow: HudToggleableConfigurable & {
-            radius: number;
-            color: number;
-        };
-    }
+    };
+    glow: HudToggleableConfigurable & {
+        radius: number;
+        color: number;
+    };
 }

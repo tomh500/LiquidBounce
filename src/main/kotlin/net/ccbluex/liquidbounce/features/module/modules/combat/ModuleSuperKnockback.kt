@@ -75,7 +75,7 @@ object ModuleSuperKnockback : ClientModule(
         private val testCondition: Predicate<Entity>,
     ) : Tagged, Predicate<Entity> by testCondition {
         ONLY_FACING("OnlyFacing", { target ->
-            target.lookAngle.dot(player.position() - target.position()) < 0
+            target.lookAngle.dot(player.position() - target.position()) >= 0.0
         }),
         ONLY_ON_GROUND("OnlyOnGround", { _ ->
             player.onGround()

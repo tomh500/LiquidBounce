@@ -19,7 +19,6 @@
 package net.ccbluex.liquidbounce.api.core
 
 import com.mojang.blaze3d.platform.NativeImage
-import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,11 +30,10 @@ import net.ccbluex.liquidbounce.api.interceptors.DefaultHeaderInterceptor
 import net.ccbluex.liquidbounce.api.thirdparty.mojang.MojangApiClient
 import net.ccbluex.liquidbounce.config.gson.interopGson
 import net.ccbluex.liquidbounce.config.gson.util.readJson
-import net.ccbluex.liquidbounce.utils.client.error.ErrorHandler
 import net.ccbluex.liquidbounce.utils.client.logger
 import net.ccbluex.liquidbounce.utils.client.mc
+import net.ccbluex.liquidbounce.utils.kotlin.CommonCoroutineExceptionHandler
 import net.ccbluex.liquidbounce.utils.render.readNativeImage
-import net.minecraft.ReportedException
 import okhttp3.Cache
 import okhttp3.Call
 import okhttp3.Dispatcher
@@ -48,6 +46,7 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.coroutines.executeAsync
+import okio.Buffer
 import okio.BufferedSource
 import okio.sink
 import java.io.File
@@ -61,22 +60,14 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 val renderScope = CoroutineScope(
-    Dispatchers.Main + SupervisorJob() + CoroutineExceptionHandler { _, throwable ->
-        if (throwable is ReportedException) {
-            ErrorHandler.fatal(throwable, additionalMessage = "Render scope")
-        }
-    }
+    Dispatchers.Main + SupervisorJob() + CommonCoroutineExceptionHandler.Default
 )
 
 val ioScope = CoroutineScope(
-    Dispatchers.IO + SupervisorJob() + CoroutineExceptionHandler { _, throwable ->
-        if (throwable is ReportedException) {
-            ErrorHandler.fatal(throwable, additionalMessage = "IO scope")
-        }
-    }
+    Dispatchers.IO + SupervisorJob() + CommonCoroutineExceptionHandler.Default
 )
 
-fun withScope(block: suspend CoroutineScope.() -> Unit) = ioScope.launch { block() }
+fun withScope(block: suspend CoroutineScope.() -> Unit) = ioScope.launch(block = block)
 
 object HttpClient {
 
@@ -235,6 +226,9 @@ inline fun <reified T> Response.parse(): T {
         InputStream::class.java -> body.byteStream() as T
         BufferedSource::class.java -> body.source() as T
         Reader::class.java -> body.charStream() as T
+        Buffer::class.java -> body.source().use {
+            Buffer().apply { writeAll(it) }
+        } as T
         NativeImage::class.java -> body.source().readNativeImage() as T
         else -> body.charStream().readJson<T>()
     }
