@@ -7,6 +7,9 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import fengliu.cloudmusic.gui.RikkaMusicAccount
 import fengliu.cloudmusic.gui.RikkaMusicBrowse
+import fengliu.cloudmusic.platform.MusicPlatformService
+import fengliu.cloudmusic.platform.QqMusicLogin
+import io.ktor.http.ContentType
 import fengliu.cloudmusic.CloudMusicClient
 import fengliu.cloudmusic.command.MusicCommand
 import fengliu.cloudmusic.config.RikkaMusicSettingsPolicy
@@ -26,6 +29,7 @@ import fi.dy.masa.malilib.config.options.ConfigString
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondFile
+import io.ktor.server.response.respondBytes
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -33,6 +37,8 @@ import io.ktor.server.routing.route
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.ccbluex.liquidbounce.integration.interop.badRequest
+import net.ccbluex.liquidbounce.integration.interop.serviceUnavailable
+import io.ktor.server.application.ApplicationCall
 import net.ccbluex.liquidbounce.utils.kotlin.Minecraft
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
@@ -55,21 +61,7 @@ private object RikkaMusicLocal {
         ?: emptyList()
 }
 
-private fun musicJson(music: IMusic): JsonObject {
-    val result = JsonObject()
-    result.addProperty("id", music.id)
-    result.addProperty("name", music.name)
-    result.addProperty("cover", music.picUrl ?: "")
-    result.addProperty("duration", music.duration)
-    result.addProperty("artist", if (music is Music && music.artists != null) {
-        runCatching { Music.getArtistsName(music.artists) }.getOrDefault("")
-    } else "")
-    result.addProperty("album", if (music is Music && music.album?.has("name") == true
-        && !music.album.get("name").isJsonNull) {
-        music.album.get("name").asString
-    } else "")
-    return result
-}
+private fun musicJson(music: IMusic): JsonObject = RikkaMusicBrowse.song(music)
 
 private fun playlistJson(playlist: PlayList, includeSongs: Boolean): JsonObject {
     val result = JsonObject()
@@ -80,6 +72,7 @@ private fun playlistJson(playlist: PlayList, includeSongs: Boolean): JsonObject 
     result.addProperty("artist", playlist.creator.stringOrEmpty("nickname"))
     if (includeSongs) {
         result.add("songs", JsonArray().apply { playlist.musics.forEach { add(musicJson(it)) } })
+        result.addProperty("queueToken", RikkaMusicBrowse.remember(playlist.musics))
     }
     return result
 }
@@ -342,6 +335,14 @@ private fun Route.searchMusic() = get("/search") {
     if (query.isBlank()) call.badRequest("Missing search query")
     val type = call.request.queryParameters["type"]?.lowercase(Locale.ROOT)?.takeIf { it in setOf("song", "playlist", "artist") } ?: "song"
     val page = call.request.queryParameters["page"]?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+    val source = call.request.queryParameters["source"] ?: "netease"
+    if (source !in setOf("netease", "qq", "all")) call.badRequest("Unknown music source")
+    if (query.length > 200 || page > 1000) call.badRequest("搜索关键词或页码超出范围")
+    if (type == "song") {
+        call.respond(withContext(Dispatchers.IO) { MusicPlatformService.search(source, query, page) })
+        return@get
+    }
+    if (source == "qq") call.badRequest("QQ 实验版目前支持单曲搜索，歌单请使用导入功能")
     val limit = 8
     val apiType = when (type) { "playlist" -> 1000; "artist" -> 100; else -> 1 }
     val result = withContext(Dispatchers.IO) { MusicCommand.getMusic163().search(query, apiType, page, limit) }
@@ -385,6 +386,8 @@ private fun Route.getMusicState() = get("/state") {
         val song = player.playingMusic
         JsonObject().apply {
             addProperty("playing", player.isPlaying)
+            addProperty("playbackState", player.playbackState.name)
+            addProperty("error", player.lastError)
             addProperty("progress", player.playingProgress)
             addProperty("volume", player.volumePercentage)
             addProperty("quality", Configs.PLAY.PLAY_QUALITY.optionListValue.stringValue)
@@ -412,7 +415,11 @@ private fun Route.controlMusic() = post("/control") {
     val request = call.receive<MusicControlRequest>()
     when (request.action.lowercase(Locale.ROOT)) {
         "play-browse", "play-fm" -> {
-            val songs = RikkaMusicBrowse.queue(request.queueToken ?: call.badRequest("Missing collection"))
+            val songs = try {
+                RikkaMusicBrowse.queue(request.queueToken ?: call.badRequest("Missing collection"))
+            } catch (error: IllegalArgumentException) {
+                call.badRequest(error.message ?: "列表已失效，请刷新")
+            }
             val index = request.index ?: 0
             if (index !in songs.indices) call.badRequest("Invalid song index")
             withContext(Dispatchers.Minecraft) {
@@ -470,6 +477,7 @@ private fun Route.controlMusic() = post("/control") {
 }
 
 internal fun Route.rikkaMusicRoutes() = route("/music") {
+    musicPlatformRoutes()
     musicAccountRoutes()
     getMusicLibrary()
     getMusicPlaylist()
@@ -484,4 +492,62 @@ internal fun Route.rikkaMusicRoutes() = route("/music") {
     startMusicLogin()
     getMusicLoginStatus()
     getMusicLoginQrCode()
+}
+
+private data class MusicPlatformRequest(
+    val action: String = "",
+    val source: String = "netease",
+    val reference: String = "",
+    val queueToken: String = "",
+    val index: Int? = null,
+    val key: String = "",
+)
+
+private data class QqMusicSessionRequest(val cookie: String = "")
+private data class QqMusicLoginRequest(val method: String = "qq")
+
+private suspend fun ApplicationCall.musicPlatformIo(action: () -> JsonObject): JsonObject = try {
+    withContext(Dispatchers.IO) { action() }
+} catch (error: IllegalArgumentException) {
+    badRequest(error.message ?: "无效的音乐请求")
+} catch (error: IllegalStateException) {
+    serviceUnavailable(error.message ?: "音乐平台暂不可用")
+}
+
+private fun Route.musicPlatformRoutes() {
+    get("/mixed") {
+        call.respond(call.musicPlatformIo { MusicPlatformService.library() })
+    }
+    post("/mixed") {
+        val request = call.receive<MusicPlatformRequest>()
+        val result = call.musicPlatformIo {
+            when (request.action) {
+                "collect" -> MusicPlatformService.collect(request.queueToken, request.index)
+                "import" -> MusicPlatformService.importPlaylist(request.source, request.reference)
+                "remove" -> MusicPlatformService.remove(request.key)
+                else -> throw IllegalArgumentException("Unknown collection action")
+            }
+        }
+        call.respond(result)
+    }
+    get("/qq/session") { call.respond(QqMusicLogin.state()) }
+    post("/qq/session") {
+        val request = call.receive<QqMusicSessionRequest>()
+        call.respond(call.musicPlatformIo { QqMusicLogin.saveManual(request.cookie) })
+    }
+    post("/qq/login/start") {
+        val request = call.receive<QqMusicLoginRequest>()
+        call.respond(call.musicPlatformIo { QqMusicLogin.start(request.method) })
+    }
+    get("/qq/login/status") { call.respond(QqMusicLogin.state()) }
+    post("/qq/login/cancel") { call.respond(QqMusicLogin.cancel()) }
+    post("/qq/logout") { call.respond(call.musicPlatformIo { QqMusicLogin.logout() }) }
+    get("/qq/login/qr") {
+        val version = call.request.queryParameters["version"]?.toLongOrNull() ?: call.badRequest("二维码版本无效")
+        val image = try { QqMusicLogin.image(version) } catch (error: IllegalArgumentException) {
+            call.badRequest(error.message ?: "二维码已失效")
+        }
+        call.response.headers.append("Cache-Control", "no-store")
+        call.respondBytes(image.bytes(), ContentType.parse(image.contentType()))
+    }
 }

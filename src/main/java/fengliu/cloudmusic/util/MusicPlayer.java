@@ -37,6 +37,8 @@ public class MusicPlayer implements Runnable {
     private volatile AudioInputStream activeStream;
     private volatile Thread playbackThread;
     private volatile PlaybackState playbackState = PlaybackState.STOPPED;
+    private volatile String lastError = "";
+    public String getLastError() { return lastError; }
     private Lyric lyric;
     protected int playIn = 0;
     protected int playListSize;
@@ -149,12 +151,18 @@ public class MusicPlayer implements Runnable {
         // 开始播放的时候停止所有的声音(只会停止一瞬间)
         client.getSoundManager().stop();
         IMusic music = this.playList.get(this.playIn);
+        this.playingMusic = music;
+        this.lyric = null;
 
         String musicUrl;
         try {
             musicUrl = music.getPlayUrl();
         } catch (RuntimeException err) {
+            if (!canContinue()) return;
             reportPlaybackError(music, "获取播放地址失败", err);
+            // A restricted QQ track must not prevent later entries in a mixed queue from playing.
+            if (music instanceof fengliu.cloudmusic.platform.QqMusic && this.playIn + 1 < this.playListSize && this.notExitFlag)
+                this.loopPlayIn = true;
             return;
         }
 
@@ -202,11 +210,14 @@ public class MusicPlayer implements Runnable {
 
             File file;
             String quality = music instanceof Music cloudMusic ? cloudMusic.getResolvedQuality()
-                    : music instanceof DjMusic djMusic ? djMusic.getResolvedQuality() : Configs.PLAY.PLAY_QUALITY.getStringValue();
+                    : music instanceof DjMusic djMusic ? djMusic.getResolvedQuality()
+                    : music instanceof fengliu.cloudmusic.platform.QqMusic ? "standard" : Configs.PLAY.PLAY_QUALITY.getStringValue();
             if (music instanceof DjMusic) {
                 file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile("djmusic_" + music.getId() + "_" + quality + "." + fileType));
             } else {
-                file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile(music.getId() + "_" + quality + "." + fileType));
+                String cacheId = music.getSource().equals("netease") ? Long.toString(music.getId())
+                        : music.getSource() + "_" + java.util.UUID.nameUUIDFromBytes(music.getKey().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                file = HttpClient.download(musicUrl, CloudMusicClient.cacheHelper.getWaitCacheFile(cacheId + "_" + quality + "." + fileType));
             }
 
             if (!canContinue()) {
@@ -624,6 +635,7 @@ public class MusicPlayer implements Runnable {
         String musicName = music == null ? "未知歌曲" : music.getName();
         String detail = error.getMessage();
         String message = reason + "：" + musicName + (detail == null || detail.isBlank() ? "" : " (" + detail + ")");
+        this.lastError = message;
         LOGGER.error("[CloudMusic][Player] {}: {}", reason, musicName, error);
         this.client.execute(() -> {
             if (this.client.player != null) {

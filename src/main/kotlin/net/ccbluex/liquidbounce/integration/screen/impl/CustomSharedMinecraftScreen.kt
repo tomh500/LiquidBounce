@@ -45,7 +45,6 @@ class CustomSharedMinecraftScreen(
             mc.gui.setScreen(parentScreen)
         } else {
             ScreenManager.closeScreen()
-            mc.mouseHandler.grabMouse()
             super.onClose()
         }
     }

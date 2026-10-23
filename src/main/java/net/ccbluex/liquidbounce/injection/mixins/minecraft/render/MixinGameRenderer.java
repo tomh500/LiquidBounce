@@ -80,8 +80,8 @@ public abstract class MixinGameRenderer {
     /**
      * Hook game render event
      */
-    @Inject(method = "render", at = @At("HEAD"))
-    public void hookGameRender(CallbackInfo callbackInfo) {
+    @Inject(method = "extract", at = @At("HEAD"))
+    public void hookGameRender(DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo callbackInfo) {
         EventManager.INSTANCE.callEvent(GameRenderEvent.INSTANCE);
     }
 

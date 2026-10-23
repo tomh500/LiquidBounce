@@ -73,7 +73,6 @@ class CustomStandaloneMinecraftScreen(
 
         mouseX = mc.mouseHandler.xpos()
         mouseY = mc.mouseHandler.ypos()
-        mc.mouseHandler.grabMouse()
         super.onClose()
     }
 

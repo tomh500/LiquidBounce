@@ -34,6 +34,15 @@ import java.util.function.Consumer;
 @Mixin(KeyMapping.class)
 public abstract class MixinKeyMapping {
 
+    @Inject(method = "click", at = @At("HEAD"), cancellable = true)
+    private static void ignoreUnboundKeyClicks(InputConstants.Key key, CallbackInfo ci) {
+        // SDL can report an unmapped key event while a modifier is pressed. A
+        // key mapping bound to UNKNOWN (such as Mod Menu's default) is unbound.
+        if (InputConstants.UNKNOWN.equals(key)) {
+            ci.cancel();
+        }
+    }
+
     @Inject(method = "setKey", at = @At("RETURN"))
     private void hookSetBoundKey(InputConstants.Key boundKey, CallbackInfo ci) {
         EventManager.INSTANCE.callEvent(KeybindChangeEvent.INSTANCE);

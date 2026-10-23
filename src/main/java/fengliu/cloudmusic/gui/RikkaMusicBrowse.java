@@ -18,7 +18,7 @@ public final class RikkaMusicBrowse {
         return new ArrayList<>(songs);
     }
 
-    private static synchronized String remember(List<IMusic> songs) {
+    public static synchronized String remember(List<IMusic> songs) {
         while (QUEUES.size() >= 32) QUEUES.remove(QUEUES.keySet().iterator().next());
         String token = UUID.randomUUID().toString();
         QUEUES.put(token, List.copyOf(songs));
@@ -28,12 +28,17 @@ public final class RikkaMusicBrowse {
     public static JsonObject song(IMusic music) {
         JsonObject result = new JsonObject();
         result.addProperty("id", music.getId());
+        result.addProperty("key", music.getKey());
+        result.addProperty("source", music.getSource());
+        result.addProperty("sourceId", music.getSourceId());
         result.addProperty("name", music.getName());
-        result.addProperty("cover", music.getPicUrl());
+        result.addProperty("cover", music.getPicUrl() == null ? "" : music.getPicUrl());
         result.addProperty("duration", music.getDuration());
-        result.addProperty("artist", music instanceof Music m ? Music.getArtistsName(m.artists)
-                : music instanceof DjMusic dj ? text(dj.dj, "nickname") : "");
-        result.addProperty("album", music instanceof Music m ? text(m.album, "name") : "");
+        result.addProperty("artist", music instanceof Music m && m.artists != null ? Music.getArtistsName(m.artists)
+                : music instanceof DjMusic dj ? text(dj.dj, "nickname")
+                : music instanceof fengliu.cloudmusic.platform.QqMusic qq ? qq.getArtist() : "");
+        result.addProperty("album", music instanceof Music m ? text(m.album, "name")
+                : music instanceof fengliu.cloudmusic.platform.QqMusic qq ? qq.getAlbum() : "");
         return result;
     }
 
