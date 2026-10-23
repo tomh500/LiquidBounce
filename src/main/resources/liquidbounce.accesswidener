@@ -227,3 +227,4 @@ transitive-accessible class net/minecraft/client/gui/GuiGraphicsExtractor$Render
 accessible field net/minecraft/client/Minecraft sdlEventHandler Lcom/mojang/blaze3d/platform/SDLEventHandler;
 accessible method net/minecraft/client/renderer/LevelRenderer frameHasAlwaysOnTopGizmos ()Z
 accessible method net/minecraft/client/renderer/LevelRenderer executeAlwaysOnTop (Lnet/minecraft/client/renderer/feature/FeatureRenderDispatcher$PreparedFrame;Lcom/mojang/blaze3d/pipeline/RenderTarget;Z)V
+accessible field net/minecraft/client/sounds/SoundManager registry Ljava/util/Map;

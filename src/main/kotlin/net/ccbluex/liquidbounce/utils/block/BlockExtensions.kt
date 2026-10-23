@@ -212,9 +212,9 @@ fun Vec3.searchBlocksInCuboid(
         floor(this.z - radius).toInt(),
     )
     val to = BlockPos(
-        ceil(this.x + radius).toInt(),
-        ceil(this.y + radius).toInt(),
-        ceil(this.z + radius).toInt(),
+        floor(this.x + radius).toInt(),
+        floor(this.y + radius).toInt(),
+        floor(this.z + radius).toInt(),
     )
 
     return buildList {
@@ -417,8 +417,8 @@ inline fun AABB.isBlockAtPosition(
 ): Boolean {
     val blockPos = BlockPos.MutableBlockPos(0, floor(minY).toInt(), 0)
 
-    for (x in floor(minX).toInt()..ceil(maxX).toInt()) {
-        for (z in floor(minZ).toInt()..ceil(maxZ).toInt()) {
+    for (x in floor(minX).toInt()..floor(maxX).toInt()) {
+        for (z in floor(minZ).toInt()..floor(maxZ).toInt()) {
             blockPos.x = x
             blockPos.z = z
 
@@ -460,7 +460,7 @@ inline fun AABB.collideBlockIntersects(
 val AABB.collidingRegion: BoundingBox
     get() = BoundingBox(
         floor(this.minX).toInt(), floor(this.minY).toInt(), floor(this.minZ).toInt(),
-        ceil(this.maxX).toInt(), ceil(this.maxY).toInt(), ceil(this.maxZ).toInt(),
+        floor(this.maxX).toInt(), floor(this.maxY).toInt(), floor(this.maxZ).toInt(),
     )
 
 val BlockHitResult.targetBlockPos: BlockPos get() = this.blockPos.relative(this.direction)
@@ -502,7 +502,7 @@ fun doPlacement(
                 val useItemResult = interaction.useItem(player, hand, rotation.yRot, rotation.xRot)
                 if (useItemResult is Success) {
                     if (useItemResult.swingSource == SwingSource.PREDICTED && onItemUseSuccess()) {
-                        swingMode.swing(hand)
+                        swingMode.interactSwing(hand)
                     }
 
                     player.itemUsed(hand)
@@ -536,7 +536,7 @@ private inline fun handleActionsOnAccept(
     }
 
     if (shouldSwing()) {
-        swingMode.swing(hand)
+        swingMode.interactSwing(hand)
     }
 
     if (wasStackUsed) {
@@ -649,6 +649,11 @@ fun Block?.fallDamageMultiplier(entity: Entity): Float =
 fun BlockPos.isBlastResistant(): Boolean {
     return getBlock()!!.explosionResistance >= 600f
 }
+
+val UnbreakableFirst: Comparator<Block> = Comparator.comparingDouble<Block> {
+    val hardness = it.defaultDestroyTime()
+    if (hardness == -1f) Double.POSITIVE_INFINITY else hardness.toDouble()
+}.reversed()
 
 @Suppress("UnusedReceiverParameter")
 fun RespawnAnchorBlock.isCharged(state: BlockState): Boolean {

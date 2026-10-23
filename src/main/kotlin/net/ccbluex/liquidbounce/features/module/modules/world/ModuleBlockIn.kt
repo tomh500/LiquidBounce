@@ -27,6 +27,7 @@ import net.ccbluex.liquidbounce.features.module.ModuleCategories
 import net.ccbluex.liquidbounce.features.module.ModuleOrigin
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleDebug.debugParameter
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.ScaffoldBlockItemSelection
+import net.ccbluex.liquidbounce.utils.block.UnbreakableFirst
 import net.ccbluex.liquidbounce.utils.block.placer.BlockPlacer
 import net.ccbluex.liquidbounce.utils.block.placer.VapeBlockPlacerRotation
 import net.ccbluex.liquidbounce.utils.block.stateOrEmpty
@@ -296,8 +297,12 @@ object ModuleBlockIn : ClientModule(
         }
     }
 
+    private val blockComparator: Comparator<Pair<*, Block>> =
+        Comparator.comparing({ it.second }, UnbreakableFirst)
+
     private fun slotFinder(pos: BlockPos?): HotbarItemSlot? {
-        val blockSlots = Slots.OffhandWithHotbar.mapNotNull { slot ->
+        val slots = if (mode == BlockInMode.VAPE) Slots.OffhandWithHotbar else HotbarItemSlot.entries
+        val blockSlots = slots.mapNotNull { slot ->
             val block = slot.itemStack.getBlock() ?: return@mapNotNull null
             if (!ScaffoldBlockItemSelection.isValidBlock(slot.itemStack)) return@mapNotNull null
 
@@ -316,9 +321,9 @@ object ModuleBlockIn : ClientModule(
                 VapeBlockPriority.HARDEST -> blockSlots.maxByOrNull { it.second.defaultDestroyTime() }
             }
         } else if (pos in blockList) {
-            blockSlots.maxByOrNull { it.second.defaultDestroyTime() }
+            blockSlots.minWithOrNull(blockComparator)
         } else {
-            blockSlots.minByOrNull { it.second.defaultDestroyTime() }
+            blockSlots.maxWithOrNull(blockComparator)
         }
         return selected?.first
     }
