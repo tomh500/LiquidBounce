@@ -15,6 +15,7 @@ text conflicts but does not remove the need to review API and runtime changes.
 | Keyboard name and SDL modifier compatibility | `InputKeyNames.java`, `KeyboardInputCompatibility.java` | Name lookup in `InputUtil`; keyboard event observation before MaLiLib's cancellable hook |
 | Windows extended right Shift (MC-311424) | Upstream `WindowsShiftCompatibility`, `MixinSDLEventHandler`, `MixinInputConstants` | Use upstream's accepted fix; no duplicate XuanRikka keyboard mixins |
 | Vape implementations | Dedicated mode/controller files and `GlobalVapeRotationSettings` | Existing mode selection and shared rotation entry points |
+| Optional bundled MaLiLib | `embeddedMalilib` source set and `malilib-compat.jar` | Fabric's `malilib` dependency selects a standalone installation before the nested fallback |
 
 Add new custom modules to `XuanRikkaModules`, not to upstream's built-in imports
 or category lists. They still go through upstream's registration, configuration
@@ -32,6 +33,26 @@ Normalize legacy values in `LegacyValueMigration` rather than changing upstream
 value classes or rewriting users' configuration files manually. The current rules
 preserve explicit boolean acceleration preferences as `On`/`Off`, and scalar
 settings upgraded to ranges as fixed intervals. Modern shapes pass through unchanged.
+
+## MaLiLib ownership
+
+Keep MaLiLib classes, assets, entrypoints, mixins and access widener inside the
+nested `malilib-compat.jar`, never in LiquidBounce's root jar. Fabric must select
+one `malilib` candidate: a standalone mod in `mods` wins over the nested fallback,
+even when its version is older. LiquidBounce declares a dependency without pinning
+the bundled version. An incompatible standalone mod should produce Fabric's
+normal dependency error rather than silently being replaced.
+
+Do not call `new MaLiLib().onInitialize()` from the client. The selected mod owns
+its main entrypoint; CloudMusic initializes later through the client entrypoint.
+The development-only provider jar offers the same optional nested candidate for
+`runClient`, since Loader does not discover nested jars in class directories.
+It is not included in the distributed client.
+
+The source access widener remains combined for Loom compilation. Resource
+processing removes MaLiLib-only rules from the client artifact; the fallback has
+its own `malilib.accesswidener`. Preserve the boundary marker when merging new
+upstream access rules, and put new upstream rules outside that block.
 
 ## Browser ownership
 

@@ -41,11 +41,11 @@
     "lambdynlights.mixins.json",
     "lambdynlights.lightsource.mixins.json",
     "liquidbounce.pathing.mixins.json",
-    "liquidbounce.malilib.mixins.json",
     "liquidbounce.cloudmusic.mixins.json",
     "liquidbounce.xuanrikka.mixins.json"
   ],
   "depends": {
+    "malilib": "*",
     "minecraft": ["${minecraft_version}"],
     "fabricloader": ">=${min_loader_version}",
     "fabric-language-kotlin": ">=${fabric_kotlin_version}"

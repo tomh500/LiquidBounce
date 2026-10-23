@@ -41,11 +41,6 @@ plugins {
 val upstreamModVersion = providers.gradleProperty("mod_version")
 val buildTimestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmm"))
 val clientVersion = providers.provider { "${upstreamModVersion.get()}-XuanRikka$buildTimestamp" }
-val malilibCompatJar = tasks.register<Jar>("malilibCompatJar") {
-    archiveFileName.set("malilib-compat.jar")
-    destinationDirectory.set(layout.buildDirectory.dir("generated/malilib-compat"))
-    from("src/main/resources/malilib-compat")
-}
 
 base {
     archivesName = project.property("archives_base_name") as String
@@ -279,9 +274,63 @@ sourceSets {
 
 addResolvedDependencies(jij, "compileOnly", "include", "api")
 
+// Keep the fallback off LiquidBounce's class path. Fabric selects the independently
+// installed root mod over this nested candidate, including when its version is older.
+val mainSources = sourceSets.named("main").get()
+val embeddedMalilib = sourceSets.create("embeddedMalilib") {
+    java.setSrcDirs(listOf("src/main/java"))
+    java.include("fi/dy/masa/malilib/**")
+    resources.setSrcDirs(listOf("src/main/resources/malilib-compat"))
+    compileClasspath = mainSources.compileClasspath
+}
+mainSources.java.exclude("fi/dy/masa/malilib/**")
+mainSources.compileClasspath += embeddedMalilib.output
+sourceSets.named("test") {
+    compileClasspath += embeddedMalilib.output
+    runtimeClasspath += embeddedMalilib.output
+}
+
+val malilibCompatJar = tasks.register<Jar>("malilibCompatJar") {
+    archiveFileName.set("malilib-compat.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("generated/malilib-compat"))
+    from(embeddedMalilib.output)
+    from("src/main/resources") {
+        include("assets/malilib/**", "liquidbounce.malilib.mixins.json")
+    }
+}
+
+// Loader does not scan nested jars in development class directories. A small
+// carrier jar lets runClient use the same optional nested fallback as production.
+val malilibDevelopmentProvider = tasks.register<Jar>("malilibDevelopmentProvider") {
+    archiveFileName.set("malilib-development-provider.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("generated/malilib-provider"))
+    from("src/devMalilibProvider")
+    from(malilibCompatJar) { into("META-INF/jars") }
+}
+dependencies {
+    runtimeOnly(files(malilibDevelopmentProvider))
+}
+
+// Loom compiles both source sets with the combined source access widener. The
+// distributed client retains only its own rules; MaLiLib's rules belong to the
+// selected MaLiLib jar and must not leak from an inactive fallback.
+val combinedAccessRules = file("src/main/resources/liquidbounce.accesswidener").readLines()
+val malilibAccessMarker = combinedAccessRules.indexOf("# MaLiLib integrated access widener")
+require(malilibAccessMarker >= 0) { "Missing MaLiLib access widener boundary" }
+val clientAccessRules = combinedAccessRules.take(malilibAccessMarker).toSet()
+val malilibOnlyAccessRules = file("src/main/resources/malilib-compat/malilib.accesswidener")
+    .readLines().filter { it.isNotBlank() && !it.startsWith("accessWidener") && it !in clientAccessRules }
+    .toSet() + "# MaLiLib integrated access widener"
+
 tasks.processResources {
+    val accessRulesToExclude = malilibOnlyAccessRules
+    inputs.property("malilibOnlyAccessRules", accessRulesToExclude.sorted())
     dependsOn("buildTheme")
     exclude("malilib-compat/**")
+    exclude("assets/malilib/**", "liquidbounce.malilib.mixins.json")
+    filesMatching("liquidbounce.accesswidener") {
+        filter { line -> if (line in accessRulesToExclude) null else line }
+    }
 
     from("src-theme/dist") {
         into("resources/liquidbounce/themes/liquidbounce")
@@ -567,6 +616,7 @@ tasks.register<Copy>("copyZipInclude") {
 }
 
 tasks.named<Jar>("sourcesJar") {
+    from(embeddedMalilib.allJava)
     dependsOn("buildTheme", "generateGitProperties")
     from("src-theme/dist") {
         into("resources/liquidbounce/themes/liquidbounce")

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "id": "liquidbounce-malilib-provider",
+  "version": "1.0.0",
+  "name": "LiquidBounce MaLiLib development provider",
+  "environment": "client",
+  "jars": [{"file": "META-INF/jars/malilib-compat.jar"}]
+}

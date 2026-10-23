@@ -3,9 +3,15 @@
   "id": "malilib",
   "name": "MaLiLib (LiquidBounce integrated)",
   "version": "0.29.4-sakura.11",
-  "description": "MaLiLib is integrated into LiquidBounce.",
+  "description": "Fallback MaLiLib used when no standalone MaLiLib is installed.",
   "environment": "client",
+  "entrypoints": {
+    "main": ["fi.dy.masa.malilib.MaLiLib"],
+    "modmenu": ["fi.dy.masa.malilib.compat.modmenu.ModMenuImpl"]
+  },
+  "mixins": ["liquidbounce.malilib.mixins.json"],
+  "accessWidener": "malilib.accesswidener",
   "depends": {
-    "minecraft": "~26.2-"
+    "minecraft": ">26.2 <26.4"
   }
 }
