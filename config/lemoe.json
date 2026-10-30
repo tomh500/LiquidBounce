@@ -369,7 +369,7 @@
         "value": [
           {
             "name": "Enabled",
-            "value": false
+            "value": true
           },
           {
             "name": "PlaceInLiquid",
@@ -15174,7 +15174,7 @@
         "value": [
           {
             "name": "Enabled",
-            "value": true
+            "value": false
           },
           {
             "name": "Mode",
@@ -19067,7 +19067,7 @@
         "value": [
           {
             "name": "Enabled",
-            "value": false
+            "value": true
           },
           {
             "name": "Targets",
@@ -19104,8 +19104,7 @@
           {
             "name": "Blocks",
             "value": [
-              "minecraft:deepslate_diamond_ore",
-              "minecraft:diamond_ore"
+              "minecraft:clay"
             ]
           },
           {
@@ -23460,12 +23459,12 @@
   },
   "author": "tomh500",
   "date": "30/10/2026",
-  "time": "21:35:52",
+  "time": "22:28:32",
   "clientVersion": "0.41.1-XuanRikka202610232110",
   "clientCommit": "git-8d28bb5",
   "serverAddress": "luotiany1.top",
-  "protocolName": "26.2",
-  "protocolVersion": 776,
+  "protocolName": "26.3",
+  "protocolVersion": 777,
   "type": "Rage",
   "status": "Bypassing"
 }
