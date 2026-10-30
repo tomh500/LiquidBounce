@@ -50,6 +50,7 @@ import net.ccbluex.liquidbounce.integration.screen.impl.InternetExplorerScreen
 import net.ccbluex.liquidbounce.integration.screen.impl.MicrosoftLoginScreen
 import net.ccbluex.liquidbounce.integration.task.TaskProgressScreen
 import net.ccbluex.liquidbounce.integration.task.InitializationChoiceScreen
+import net.ccbluex.liquidbounce.integration.task.DownloadProxyScreen
 import net.ccbluex.liquidbounce.integration.theme.Theme
 import net.ccbluex.liquidbounce.integration.theme.ThemeManager
 import net.ccbluex.liquidbounce.utils.client.Chronometer
@@ -323,7 +324,8 @@ object ScreenManager : EventListener {
         }
 
         if (screen is BrowserSelectionScreen || mc.gui.screen() is BrowserSelectionScreen ||
-            screen is InitializationChoiceScreen || mc.gui.screen() is InitializationChoiceScreen) {
+            screen is InitializationChoiceScreen || mc.gui.screen() is InitializationChoiceScreen ||
+            screen is DownloadProxyScreen || mc.gui.screen() is DownloadProxyScreen) {
             return false
         }
 

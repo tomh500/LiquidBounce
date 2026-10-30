@@ -25,6 +25,14 @@ public final class InitializationProxy extends ProxySelector {
     public static ProxySelector selector() { return INSTANCE; }
 
     public static void configure(Mode choice, String address) throws IOException {
+        configure(choice, address, true);
+    }
+
+    public static void prepareSystemProxy() throws IOException {
+        configure(Mode.SYSTEM, "", false);
+    }
+
+    private static void configure(Mode choice, String address, boolean installDefault) throws IOException {
         Proxy http = Proxy.NO_PROXY;
         Proxy https = Proxy.NO_PROXY;
         String exclusions = "";
@@ -61,7 +69,7 @@ public final class InitializationProxy extends ProxySelector {
         systemHttps = https;
         bypass = exclusions == null ? "" : exclusions;
         mode = choice;
-        ProxySelector.setDefault(INSTANCE);
+        if (installDefault) ProxySelector.setDefault(INSTANCE);
         InitializationNetwork.report("Initialization proxy: " + choice);
     }
 

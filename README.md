@@ -52,6 +52,17 @@ our [theme](https://github.com/CCBlueX/LiquidBounce/tree/nextgen/src-theme).
 4. Open the folder as a Gradle project in your preferred IDE.
 5. Run the client. (`./gradlew runClient`)
 
+## Dependency download proxy
+
+Before online initialization starts, you can choose direct access or an HTTP proxy (`host:port`). This covers initial
+online resources as well as browser and deep learning dependency downloads. The choice is reset on the next launch;
+authenticated proxies are not supported.
+
+On Windows, **system** can read a manually configured HTTP proxy directly. On other platforms, or to use the JVM's
+system proxy discovery, add `-Djava.net.useSystemProxies=true` to the launcher's JVM arguments before starting.
+The JVM supports system proxy discovery on Windows, macOS, and GNOME; availability depends on the platform and JVM.
+The JVM property can also affect other Java networking. System settings can bypass the proxy for particular hosts.
+
 ## Additional libraries
 
 ### Mixins
