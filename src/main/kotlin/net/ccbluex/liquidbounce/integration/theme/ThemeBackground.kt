@@ -60,7 +60,7 @@ sealed interface ThemeBackground : AutoCloseable, SimpleReloadListener {
     /**
      * Returns false to let Minecraft render its default wallpaper.
      */
-    object Minecraft : ThemeBackground {
+    object None : ThemeBackground {
         override fun draw(
             context: GuiGraphicsExtractor,
             width: Int,
@@ -75,7 +75,6 @@ sealed interface ThemeBackground : AutoCloseable, SimpleReloadListener {
 
     /**
      * Background implementation that renders a static image texture.
-     * @param texture The image texture
      */
     class Image(
         private val metadata: ThemeMetadata,

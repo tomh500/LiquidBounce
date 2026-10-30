@@ -8,33 +8,18 @@
     import {
         browse,
         exitClient,
-        getClientUpdate,
+
         openScreen,
         toggleBackgroundShaderEnabled,
         toggleBasicMode
     } from "../../../integration/rest";
     import {fly} from "svelte/transition";
-    import {onMount} from "svelte";
-    import {notification} from "../common/header/notification_store";
+
     import {isAnniversary} from "../../../util/utils";
 
     let regularButtonsShown = true;
     let clientButtonsShown = false;
 
-    onMount(() => {
-        setTimeout(async () => {
-            const clientUpdate = await getClientUpdate();
-
-            if (clientUpdate.update) {
-                notification.set({
-                    title: `LiquidBounce ${clientUpdate.update.clientVersion} has been released!`,
-                    message: `Download it from liquidbounce.net!`,
-                    error: false,
-                    delay: 99999999
-                });
-            }
-        }, 2000);
-    });
 
     function toggleButtons() {
         if (clientButtonsShown) {

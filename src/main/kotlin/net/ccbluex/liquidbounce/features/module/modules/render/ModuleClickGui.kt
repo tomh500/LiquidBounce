@@ -34,11 +34,14 @@ import net.ccbluex.liquidbounce.event.waitSeconds
 import net.ccbluex.liquidbounce.features.addon.AddonApi
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.integration.backend.BrowserBackendManager
 import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.isTyping
 import net.ccbluex.liquidbounce.integration.screen.CustomScreenType
 import net.ccbluex.liquidbounce.integration.screen.ScreenManager
 import net.ccbluex.liquidbounce.integration.screen.impl.CustomSharedMinecraftScreen
 import net.ccbluex.liquidbounce.integration.screen.impl.CustomStandaloneMinecraftScreen
+import net.ccbluex.liquidbounce.utils.client.chat
+import net.ccbluex.liquidbounce.utils.client.warning
 import net.ccbluex.liquidbounce.utils.client.inGame
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.OBJECTION_AGAINST_EVERYTHING
 import net.ccbluex.liquidbounce.utils.kotlin.EventPriorityConvention.READ_FINAL_STATE
@@ -113,6 +116,11 @@ object ModuleClickGui :
             return
         }
 
+        if (BrowserBackendManager.backend?.isInitialized != true) {
+            chat(warning("ClickGUI is unavailable: browser backend is not initialized."))
+            return
+        }
+
         updateStandaloneScreen()
         mc.execute {
             mc.gui.setScreen(standaloneScreen ?: CustomSharedMinecraftScreen(CustomScreenType.CLICK_GUI))
@@ -147,6 +155,8 @@ object ModuleClickGui :
     }
 
     fun updateStandaloneScreen(): Boolean {
+        if (BrowserBackendManager.backend?.isInitialized != true) return false
+
         // Standalone Screen Cache
         if (useStandaloneScreen) {
             if (standaloneScreen == null) {

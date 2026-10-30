@@ -18,7 +18,6 @@
  */
 package net.ccbluex.liquidbounce.api.core
 
-import com.mojang.blaze3d.platform.NativeImage
 import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,18 +25,19 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.ccbluex.liquidbounce.LiquidBounce
+import net.ccbluex.liquidbounce.api.converters.BufferConverterFactory
+import net.ccbluex.liquidbounce.api.converters.NativeImageConverterFactory
 import net.ccbluex.liquidbounce.api.interceptors.DefaultHeaderInterceptor
 import net.ccbluex.liquidbounce.api.interceptors.SkipCacheInterceptor
 import net.ccbluex.liquidbounce.api.interceptors.whenUrl
 import net.ccbluex.liquidbounce.api.thirdparty.mojang.MojangApiClient
 import net.ccbluex.liquidbounce.config.gson.interopGson
-import net.ccbluex.liquidbounce.config.gson.publicGson
+import net.ccbluex.liquidbounce.config.gson.apiGson
 import net.ccbluex.liquidbounce.integration.interop.ClientInteropServer
 import net.ccbluex.liquidbounce.integration.interop.middleware.AuthConfig
 import net.ccbluex.liquidbounce.utils.client.logger
 import net.ccbluex.liquidbounce.utils.client.mc
 import net.ccbluex.liquidbounce.utils.kotlin.CommonCoroutineExceptionHandler
-import net.ccbluex.liquidbounce.utils.render.readNativeImage
 import okhttp3.Cache
 import okhttp3.Call
 import okhttp3.Dispatcher
@@ -47,16 +47,13 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.coroutines.executeAsync
-import okio.Buffer
-import okio.BufferedSource
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.converter.scalars.ScalarsConverterFactory
 import java.io.File
 import java.io.IOException
-import java.io.InputStream
-import java.io.Reader
-import java.net.HttpURLConnection
 import java.util.Locale
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
@@ -124,8 +121,8 @@ object HttpClient {
             }
         }
         .addInterceptor(SkipCacheInterceptor { it.isLocalHost() })
-        .addInterceptor(DefaultHeaderInterceptor("User-Agent") { DEFAULT_AGENT })
-        .proxy(java.net.Proxy.NO_PROXY)
+        .addInterceptor(DefaultHeaderInterceptor(HttpHeaders.UserAgent) { DEFAULT_AGENT })
+        .proxySelector(net.ccbluex.liquidbounce.integration.task.InitializationProxy.selector())
         .build()
 
     /**
@@ -133,22 +130,22 @@ object HttpClient {
      */
     private val clientHttpApiInterceptor = Interceptor { chain ->
         val request = chain.request()
-        try {
-            val response = chain.proceed(request)
-
-            if (response.isSuccessful) {
-                response
-            } else {
-                // Response is not successful (code is not 2xx)
-                throw HttpException(
-                    enumValueOf(request.method),
-                    request.url.toString(), response.code, response.body.string()
-                )
-            }
+        val response = try {
+            chain.proceed(request)
         } catch (e: IOException) {
             // Failed to request
             logger.error("Failed to execute request ${request.method} ${request.url})", e)
             throw e
+        }
+
+        if (response.isSuccessful) {
+            response
+        } else {
+            // Response is not successful (code is not 2xx), its body becomes the exception's content
+            throw HttpException(
+                enumValueOf(request.method),
+                request.url.toString(), response.code, response.body.string()
+            )
         }
     }
 
@@ -161,8 +158,12 @@ object HttpClient {
         // Credentials are scoped to the hosts they belong to. Registered as network interceptors, so they
         // are re-evaluated for every redirect hop and cannot follow a redirect to a foreign host.
         .addNetworkInterceptor(
-            DefaultHeaderInterceptor(ApiConfig.SESSION_TOKEN_HEADER) { ApiConfig.sessionToken }
-                .whenUrl { it.host in ApiConfig.trustedHosts }
+            DefaultHeaderInterceptor(ApiConfig.SESSION_TOKEN_HEADER) {
+                checkNotNull(ApiConfig.initializedConfig) { "API config is not initialized yet" }.sessionToken
+            }.whenUrl { url ->
+                val config = ApiConfig.initializedConfig
+                config != null && url.host == config.url.host
+            }
         )
         .addNetworkInterceptor(
             DefaultHeaderInterceptor(HttpHeaders.Cookie, {
@@ -191,7 +192,7 @@ object HttpClient {
             .url(url)
             .method(method.name, body)
             .headers(Headers.Builder().apply(headers).build())
-            .header("User-Agent", agent)
+            .header(HttpHeaders.UserAgent, agent)
             .build()
 
         return if (progressListener == null) {
@@ -224,45 +225,16 @@ enum class HttpMethod {
 }
 
 /**
- * Parse body from [Response].
+ * Retrofit over [HttpClient.client] for one of our APIs.
  *
- * If [T] is one of following types, it should be closed after using:
- * [InputStream] / [BufferedSource] / [Reader]
+ * Response bodies are read and converted in the OkHttp callback (see [retrofit2.OkHttpCall.enqueue]),
+ * so awaiting a call never reads or deserializes a body on the caller's thread.
  */
-inline fun <reified T> Response.parse(): T {
-    return when (T::class.java) {
-        String::class.java -> body.string() as T
-        Unit::class.java -> close() as T
-        InputStream::class.java -> body.byteStream() as T
-        BufferedSource::class.java -> body.source() as T
-        Reader::class.java -> body.charStream() as T
-        Buffer::class.java -> body.source().use {
-            Buffer().apply { writeAll(it) }
-        } as T
-        NativeImage::class.java -> body.source().readNativeImage() as T
-        else -> bodyAsJson<T>(publicGson) // Keep publicGson for backwards compatibility
-    }
-}
-
-fun String.asForm() = toRequestBody(HttpClient.MediaTypes.FORM)
-
-class HttpException(val method: HttpMethod, val url: String, val code: Int, val content: String)
-    : Exception("${method.name} $url failed with code $code: $content")
-
-/**
- * The [HttpException] behind this. OkHttp hands one thrown by an interceptor of an async call on
- * wrapped in an [IOException].
- */
-val Throwable.httpException: HttpException?
-    get() = this as? HttpException
-        ?: cause as? HttpException
-        ?: suppressed.firstNotNullOfOrNull { it as? HttpException }
-
-/**
- * [block]'s result, `null` when the server answers 404.
- */
-internal inline fun <T> orNotFound(block: () -> T): T? = try {
-    block()
-} catch (e: Exception) {
-    if (e.httpException?.code == HttpURLConnection.HTTP_NOT_FOUND) null else throw e
-}
+internal fun apiRetrofit(baseUrl: String): Retrofit = Retrofit.Builder()
+    .baseUrl(if (baseUrl.endsWith('/')) baseUrl else "$baseUrl/")
+    .callFactory(HttpClient.client)
+    .addConverterFactory(ScalarsConverterFactory.create())
+    .addConverterFactory(BufferConverterFactory)
+    .addConverterFactory(NativeImageConverterFactory)
+    .addConverterFactory(GsonConverterFactory.create(apiGson))
+    .build()

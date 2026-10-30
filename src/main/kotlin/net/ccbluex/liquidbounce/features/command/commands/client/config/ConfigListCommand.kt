@@ -40,6 +40,7 @@ object ConfigListCommand {
         literal("list") {
             optional("page", IntegerArgumentType.integer(1), default = 1) { page ->
                 execSuspend { ctx ->
+                    if (ctx.get(page) == 1) printCloudConfigs()
                     val response = request { MarketplaceConfigs.list(page = ctx.get(page)) }
                     if (ctx.get(page) == 1) {
                         MarketplaceConfigs.refresh()
@@ -58,6 +59,7 @@ object ConfigListCommand {
             argument("query", ClientStringArgumentType.string()) { query ->
                 optional("tag", ClientStringArgumentType.string(), default = null, suggests = tagSuggestions) { tag ->
                     execSuspend { ctx ->
+                        if (ctx.get(tag) == null) printCloudConfigs(ctx.get(query))
                         val tags = tagIds(listOfNotNull(ctx.get(tag)))
                         val response = request { MarketplaceConfigs.list(query = ctx.get(query), tags = tags) }
                         header(t("search.header", ctx.get(query)), t("search.count", response.pagination.items))

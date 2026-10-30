@@ -420,7 +420,7 @@ object LiquidBounce : EventListener {
             launch("Initialization / 初始化") {
                 InitializationNetwork.phase = "检测国家/地区（最多 4 秒）：https://ipinfo.io/json"
                 val country = InitializationNetwork.detectCountry()
-                val mode = if (country == null || country in InitializationNetwork.AFFECTED_COUNTRIES) {
+                val mode = run {
                     InitializationChoiceScreen.country = country
                     val selection = java.util.concurrent.CompletableFuture<InitializationChoiceScreen.Mode>()
                     InitializationChoiceScreen.pending = selection
@@ -431,8 +431,6 @@ object LiquidBounce : EventListener {
                     } finally {
                         InitializationChoiceScreen.pending = null
                     }
-                } else {
-                    InitializationChoiceScreen.Mode.DEFAULT
                 }
                 InitializationNetwork.optimized = mode == InitializationChoiceScreen.Mode.OPTIMIZED
                 InitializationNetwork.phase = if (InitializationNetwork.optimized)

@@ -188,7 +188,7 @@ class TaskProgressScreen(
     }
 
     override fun tick() {
-        if (InitializationChoiceScreen.pending?.isDone == false) {
+        if (InitializationChoiceScreen.pending?.isDone == false && mc.gui.screen() !is InitializationChoiceScreen) {
             mc.gui.setScreen(InitializationChoiceScreen())
             return
         }

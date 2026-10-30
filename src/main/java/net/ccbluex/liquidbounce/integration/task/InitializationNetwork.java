@@ -72,7 +72,7 @@ public final class InitializationNetwork {
                 if (tracked) report("DNS 完成 " + host);
             }
             @Override public void connectStart(Call call, InetSocketAddress socket, Proxy proxy) {
-                if (tracked) report("正在建立连接 " + address);
+                if (tracked) report("Connection route: " + proxy.type() + " " + address);
             }
             @Override public void secureConnectStart(Call call) {
                 if (tracked) report("正在协商 TLS 加密连接 " + address);
@@ -95,6 +95,7 @@ public final class InitializationNetwork {
     }
 
     public static void finish() {
+        InitializationProxy.finish();
         enabled = false;
         ACTIVE.clear();
     }
