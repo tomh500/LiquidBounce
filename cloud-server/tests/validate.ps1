@@ -25,4 +25,11 @@ foreach ($entry in $list) {
     }
 }
 
+$listedIds = @($list | ForEach-Object { $_.setting_id })
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $Root 'config') -Filter '*.json') {
+    if ($file.BaseName -cnotin $listedIds) {
+        throw "Configuration is absent from config/list: $($file.Name)"
+    }
+}
+
 Write-Output "CloudServer files are valid."

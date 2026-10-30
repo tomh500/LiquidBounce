@@ -10,5 +10,17 @@
     "contributors": "tomh500",
     "status_type": "Unknown",
     "status_date": "2026-08-02T00:00:00"
+  },
+  {
+    "setting_id": "lemoe",
+    "name": "lemoe",
+    "server_address": null,
+    "branch": "CloudServer",
+    "setting_type": "Unknown",
+    "description": "lemoe CloudServer configuration",
+    "date": "2026-10-30T21:36:36",
+    "contributors": "tomh500",
+    "status_type": "Unknown",
+    "status_date": "2026-10-30T21:36:36"
   }
 ]
