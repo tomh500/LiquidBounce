@@ -68,7 +68,7 @@ class NormalRotationMode(modeValueGroup: ModeValueGroup<BlockPlacerRotationMode>
         val whenReached = RestrictedSingleUseAction({
                 isPlacementReady(pos, placementTarget, deadlinePlacement)
             }, {
-                PostRotationExecutor.addTask(placer.module, postMove, priority = true) {
+                PostRotationExecutor.addTask(placer.parent, postMove, priority = true) {
                     if (placer.ticksToWait > 0) {
                         return@addTask
                     }
@@ -86,7 +86,7 @@ class NormalRotationMode(modeValueGroup: ModeValueGroup<BlockPlacerRotationMode>
                 placementTarget.rotation,
                 considerInventory = !placer.ignoreOpenInventory,
                 valueGroup = rotations,
-                provider = placer.module,
+                provider = placer.parent,
                 priority = placer.priority,
                 whenReached = whenReached,
             )
@@ -130,7 +130,7 @@ class NoRotationMode(modeValueGroup: ModeValueGroup<BlockPlacerRotationMode>, pl
     private var placementsDone = 0
 
     override fun invoke(isSupport: Boolean, pos: BlockPos, placementTarget: BlockPlacementTarget): Boolean {
-        PostRotationExecutor.addTask(placer.module, postMove, task = {
+        PostRotationExecutor.addTask(placer.parent, postMove, task = {
             if (placer.ticksToWait > 0) {
                 return@addTask
             }

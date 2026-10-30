@@ -12,7 +12,6 @@ package net.ccbluex.liquidbounce.api.services.client
 
 import net.ccbluex.liquidbounce.api.core.HttpClient
 import net.ccbluex.liquidbounce.api.core.HttpMethod
-import net.ccbluex.liquidbounce.api.core.parse
 
 /**
  * Static configuration source hosted by the CloudServer GitHub Pages site.
@@ -23,6 +22,6 @@ object CloudServerApi {
     const val BASE_URL = "https://luotiany1.top/LiquidBounce"
 
     suspend fun requestSettingsScript(settingId: String): String =
-        HttpClient.request("$BASE_URL/config/$settingId.json", HttpMethod.GET).parse()
+        HttpClient.request("$BASE_URL/config/$settingId.json", HttpMethod.GET).use { it.body.string() }
 
 }

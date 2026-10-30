@@ -32,6 +32,7 @@ import net.minecraft.ChatFormatting
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.client.gui.screens.TitleScreen
+import net.minecraft.client.gui.components.Button
 import net.minecraft.util.ARGB
 import net.minecraft.util.FormattedCharSequence
 import java.text.DecimalFormat
@@ -45,12 +46,20 @@ class TaskProgressScreen(
 ) : Screen(title.asPlainText()) {
 
     private val percentFormat = DecimalFormat("0.0")
+    private var historyOffset = 0
+
+    override fun init() {
+        addRenderableWidget(Button.builder("较早记录".asPlainText()) { historyOffset += 5 }
+            .bounds(16, height - 24, 90, 20).build())
+        addRenderableWidget(Button.builder("最新记录".asPlainText()) { historyOffset = 0 }
+            .bounds(width - 106, height - 24, 90, 20).build())
+    }
 
     override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
         extractMenuBackground(context)
+        super.extractRenderState(context, mouseX, mouseY, partialTick)
 
         val cx = width / 2.0
-        val cy = height / 2.0
 
         val progressBarWidth = width / 1.5
 
@@ -61,8 +70,7 @@ class TaskProgressScreen(
         val textLines = getTaskLines(progress)
 
         // Draw text
-        val textHeight = textLines.size * (font.lineHeight + 2)
-        var yOffset = (cy - textHeight / 2).toInt() - 40
+        var yOffset = 12
 
         // Draw title
         context.text(
@@ -81,7 +89,7 @@ class TaskProgressScreen(
             context.text(
                 font,
                 line,
-                (cx - font.width(line) / 2).toInt(),
+                16,
                 yOffset,
                 -1,
                 false
@@ -135,11 +143,29 @@ class TaskProgressScreen(
                 append('%')
                 append(formatTotalSpeed(listOf(task)))
             }.withFormat(ChatFormatting.GRAY))
+            textLines.addAll(font.split("  ${task.status}".asPlainText(), (width - 32).coerceAtLeast(80)))
+            task.subTasks.values.filterIsInstance<ResourceTask>().filter { !it.isCompleted }.take(2).forEach { resource ->
+                val total = if (resource.contentLength > 0) resource.contentLength.formatAsCapacity() else "未知大小"
+                textLines.addAll(font.split(
+                    "下载 ${resource.bytesRead.formatAsCapacity()} / $total ${resource.speed.formatAsCapacity()}/s".asPlainText(),
+                    (width - 32).coerceAtLeast(80)
+                ))
+            }
         }
 
         if (activeTasks.size > 3) {
             textLines.add("... and ${activeTasks.size - 3} more tasks".withFormat(ChatFormatting.GRAY))
         }
+        textLines.addAll(font.split(InitializationNetwork.phase.asPlainText(), (width - 32).coerceAtLeast(80)))
+        val count = InitializationNetwork.activeCount()
+        textLines.add((if (count > 0) "请求正在进行：$count（连接 / 等待响应 / 接收）" else
+            "当前没有进行中的请求；正在执行本地任务或等待选择").withFormat(ChatFormatting.AQUA))
+        val remaining = ((height - 90) / (font.lineHeight + 2) - textLines.size).coerceAtLeast(0)
+        val details = InitializationNetwork.history().flatMap { line ->
+            font.split(line.asPlainText(), (width - 32).coerceAtLeast(80))
+        }
+        historyOffset = historyOffset.coerceAtMost((details.size - remaining).coerceAtLeast(0))
+        textLines.addAll(details.dropLast(historyOffset).takeLast(remaining))
         return textLines
     }
 
@@ -162,7 +188,12 @@ class TaskProgressScreen(
     }
 
     override fun tick() {
+        if (InitializationChoiceScreen.pending?.isDone == false) {
+            mc.gui.setScreen(InitializationChoiceScreen())
+            return
+        }
         if (taskManager.isCompleted && (BrowserBackendManager.backend?.isInitialized == true || isBrowserDisabled)) {
+            InitializationNetwork.finish()
             mc.gui.setScreen(TitleScreen())
         }
     }

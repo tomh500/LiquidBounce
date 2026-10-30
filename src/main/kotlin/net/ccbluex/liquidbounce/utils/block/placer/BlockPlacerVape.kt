@@ -79,6 +79,6 @@ internal fun BlockPlacer.setVapeRotationTarget(
             ticksUntilTarget = vapeRotation.ticksUntilTarget,
         ),
         priority = priority,
-        provider = module,
+        provider = parent,
     )
 }

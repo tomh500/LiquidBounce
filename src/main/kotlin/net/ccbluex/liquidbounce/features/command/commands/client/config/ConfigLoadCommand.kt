@@ -22,7 +22,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.ccbluex.liquidbounce.api.core.HttpClient
 import net.ccbluex.liquidbounce.api.core.HttpMethod
-import net.ccbluex.liquidbounce.api.core.parse
 import net.ccbluex.liquidbounce.api.services.client.CloudServerApi
 import net.ccbluex.liquidbounce.features.command.CommandException
 import net.ccbluex.liquidbounce.features.command.arguments.ClientStringArgumentType
@@ -115,7 +114,7 @@ object ConfigLoadCommand {
         if (input.startsWith("http://") || input.startsWith("https://")) {
             request {
                 val source = withContext(Dispatchers.IO) {
-                    HttpClient.request(input, HttpMethod.GET).parse<String>()
+                    HttpClient.request(input, HttpMethod.GET).body.string()
                 }
                 ConfigTracker.loadExternal(source, modules)
             }

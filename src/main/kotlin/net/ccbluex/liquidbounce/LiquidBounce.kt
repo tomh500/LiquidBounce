@@ -25,7 +25,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.future.future
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.internal.isMissing
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
@@ -37,7 +39,6 @@ import net.ccbluex.liquidbounce.api.core.ioScope
 import net.ccbluex.liquidbounce.api.models.auth.ClientAccount
 import net.ccbluex.liquidbounce.api.services.auth.isInvalidGrant
 import net.ccbluex.liquidbounce.api.services.client.ClientUpdate
-import net.ccbluex.liquidbounce.api.thirdparty.IpInfoApi
 import net.ccbluex.liquidbounce.config.ConfigSystem
 import net.ccbluex.liquidbounce.config.types.Config
 import net.ccbluex.liquidbounce.deeplearn.DeepLearningEngine
@@ -74,12 +75,16 @@ import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.Active
 import net.ccbluex.liquidbounce.integration.screen.ScreenManager
 import net.ccbluex.liquidbounce.integration.task.TaskManager
 import net.ccbluex.liquidbounce.integration.task.TaskProgressScreen
+import net.ccbluex.liquidbounce.integration.task.InitializationChoiceScreen
+import net.ccbluex.liquidbounce.integration.task.InitializationNetwork
 import net.ccbluex.liquidbounce.integration.theme.ThemeManager
 import net.ccbluex.liquidbounce.lang.LanguageManager
 import net.ccbluex.liquidbounce.render.FontManager
 import net.ccbluex.liquidbounce.render.HAS_AMD_VEGA_APU
 import net.ccbluex.liquidbounce.render.atlas.ItemImageAtlas
 import net.ccbluex.liquidbounce.render.engine.BlurEffectRenderer
+import net.ccbluex.liquidbounce.render.gui.ItemStackListRenderer
+import net.ccbluex.liquidbounce.render.gui.indicator.IndicatorRenderer
 import net.ccbluex.liquidbounce.utils.aiming.PostRotationExecutor
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.block.ChunkScanner
@@ -299,6 +304,8 @@ object LiquidBounce : EventListener {
         PostRotationExecutor
         ServerObserver
         ItemImageAtlas
+        ItemStackListRenderer
+        IndicatorRenderer
 
         AddonManager.discover()
     }
@@ -317,22 +324,25 @@ object LiquidBounce : EventListener {
     }
 
     /**
-     * Simultaneously initializes resources
-     * such as translations, cosmetics, player heads, configs and so on,
-     * which do not rely on the main thread.
+     * Loads local translations and account configuration before presenting initialization choices.
      */
     private suspend fun initializeResources(
         dispatcher: CoroutineDispatcher,
     ) = withContext(dispatcher) {
+        LanguageManager.loadDefault()
+        ConfigSystem.load(ClientAccountManager)
+        if (ClientAccount.ENV_ACCOUNT != null) {
+            ClientAccountManager.clientAccount = ClientAccount.ENV_ACCOUNT
+        }
+    }
+
+    /** Online preloads run only after the initialization choice, so a slow endpoint cannot hide it. */
+    private suspend fun initializeOnlineResources() {
         logger.info("Initializing API...")
         // Lookup API config
         ApiConfig.config
 
         supervisorScope {
-            launch {
-                // Load translations
-                LanguageManager.loadDefault()
-            }
             launch {
                 val update = withTimeoutOrNull(8.seconds) { ClientUpdate.update.await() } ?: return@launch
                 logger.info("[Update] Update available: $clientVersion -> ${update.lbVersion}")
@@ -357,14 +367,6 @@ object LiquidBounce : EventListener {
                 MarketplaceManager.fillAuthors()
             }
             launch {
-                IpInfoApi.original
-            }
-            launch {
-                ConfigSystem.load(ClientAccountManager)
-                if (ClientAccount.ENV_ACCOUNT != null) {
-                    ClientAccountManager.clientAccount = ClientAccount.ENV_ACCOUNT
-                }
-
                 if (ClientAccountManager.clientAccount != ClientAccount.EMPTY_ACCOUNT) {
                     runCatching {
                         ClientAccountManager.clientAccount.renew()
@@ -415,36 +417,43 @@ object LiquidBounce : EventListener {
         ConfigSystem.load(GlobalManager)
 
         taskManager = TaskManager(ioScope).apply {
-            // Either immediately starts browser or spawns a task to request browser dependencies,
-            // and then starts the browser through render thread.
-            BrowserBackendManager.makeDependenciesAvailable(this)
-
-            // Initialize deep learning engine as task, because we cannot know if DJL will request
-            // resources from the internet.
-            launch("Deep Learning") { task ->
-                runCatching {
-                    DeepLearningEngine.init(task)
-                    ModelManager.load()
-                    DeepLearningEngine.markInitialized()
-                }.onFailure { exception ->
-                    task.subTasks.clear()
+            launch("Initialization / 初始化") {
+                InitializationNetwork.phase = "检测国家/地区（最多 4 秒）：https://ipinfo.io/json"
+                val country = InitializationNetwork.detectCountry()
+                val mode = if (country == null || country in InitializationNetwork.AFFECTED_COUNTRIES) {
+                    InitializationChoiceScreen.country = country
+                    val selection = java.util.concurrent.CompletableFuture<InitializationChoiceScreen.Mode>()
+                    InitializationChoiceScreen.pending = selection
+                    InitializationNetwork.phase = "等待选择初始化方式"
+                    try {
+                        withContext(Dispatchers.Main) { mc.gui.setScreen(InitializationChoiceScreen()) }
+                        selection.await()
+                    } finally {
+                        InitializationChoiceScreen.pending = null
+                    }
+                } else {
+                    InitializationChoiceScreen.Mode.DEFAULT
+                }
+                InitializationNetwork.optimized = mode == InitializationChoiceScreen.Mode.OPTIMIZED
+                InitializationNetwork.phase = if (InitializationNetwork.optimized)
+                    "优化初始化：AI 优先阿里云镜像；浏览器沿用内置多源回退" else
+                    "默认初始化：使用官方源及本地缓存"
+                if (mode == InitializationChoiceScreen.Mode.SKIP) {
+                    net.ccbluex.liquidbounce.integration.backend.isBrowserDisabled = true
                     DeepLearningEngine.markUnavailable()
-
-                    // LiquidBounce can still run without deep learning,
-                    // and we don't want to crash the client if it fails.
-                    logger.info("Failed to initialize deep learning.", exception)
+                    InitializationNetwork.phase = "本次已跳过依赖初始化"
+                    InitializationNetwork.report(InitializationNetwork.phase)
+                } else {
+                    withContext(Dispatchers.Main) { startDependencyTasks(this@apply) }
                 }
             }
+        }
 
-            launch("Marketplace") { task ->
-                runCatching {
-                    MarketplaceManager.updateAll(task)
-                }.onFailure { exception ->
-                    logger.error("Failed to update marketplace items.", exception)
-                }
+        mc.gui.setScreen(TaskProgressScreen("初始化依赖 / Loading Required Libraries", requireNotNull(taskManager)))
 
-                task.isCompleted = true
-            }
+        ioScope.launch {
+            while (taskManager?.isCompleted == false) delay(250)
+            InitializationNetwork.finish()
         }
 
         // Prepare glyph manager
@@ -453,6 +462,54 @@ object LiquidBounce : EventListener {
         }
         logger.info("Completed loading fonts in ${duration.inWholeMilliseconds} ms.")
         logger.info("Fonts: [ ${FontManager.fontFaces.keys.joinToString()} ]")
+    }
+
+    private fun startDependencyTasks(manager: TaskManager) = with(manager) {
+        // Either immediately starts browser or spawns a task to request browser dependencies,
+        // and then starts the browser through render thread.
+        BrowserBackendManager.makeDependenciesAvailable(this)
+
+        // Initialize deep learning engine as task, because we cannot know if DJL will request
+        // resources from the internet.
+        launch("Deep Learning") { task ->
+            runCatching {
+                task.status = "检查本地 PyTorch 缓存，加载 CPU 引擎"
+                if (InitializationNetwork.optimized) {
+                    net.ccbluex.liquidbounce.integration.task.MirroredPytorch.prepare(
+                        DeepLearningEngine.enginesCacheFolder.toPath(), task
+                    )
+                }
+                DeepLearningEngine.init(task)
+                task.status = "引擎就绪，正在加载本地战斗模型（无网络请求）"
+                ModelManager.load()
+                DeepLearningEngine.markInitialized()
+                task.status = "AI 初始化完成"
+            }.onFailure { exception ->
+                task.status = "AI 初始化失败，继续启动：${exception.javaClass.simpleName}"
+                InitializationNetwork.report(task.status)
+                task.subTasks.clear()
+                DeepLearningEngine.markUnavailable()
+
+                // LiquidBounce can still run without deep learning,
+                // and we don't want to crash the client if it fails.
+                logger.info("Failed to initialize deep learning.", exception)
+            }
+        }
+
+        launch("Marketplace") { task ->
+            task.status = "初始化在线资源：更新信息、披风、玩家头颅、市场目录"
+            runCatching {
+                initializeOnlineResources()
+                task.status = "检查并更新市场订阅内容"
+                MarketplaceManager.updateAll(task)
+            }.onFailure { exception ->
+                task.status = "市场更新失败，继续启动：${exception.javaClass.simpleName}"
+                InitializationNetwork.report(task.status)
+                logger.error("Failed to update marketplace items.", exception)
+            }
+
+            task.isCompleted = true
+        }
     }
 
     /**
@@ -526,6 +583,14 @@ object LiquidBounce : EventListener {
     @Suppress("unused")
     private val screenHandler = handler<ScreenEvent>(priority = FIRST_PRIORITY) { event ->
         val taskManager = taskManager ?: return@handler
+
+        if (InitializationChoiceScreen.pending?.isDone == false) {
+            if (event.screen !is InitializationChoiceScreen) {
+                event.cancelEvent()
+                mc.gui.setScreen(InitializationChoiceScreen())
+            }
+            return@handler
+        }
 
         val selection = BrowserBackendManager.pendingSelection
         if (selection != null && !selection.isCompleted) {

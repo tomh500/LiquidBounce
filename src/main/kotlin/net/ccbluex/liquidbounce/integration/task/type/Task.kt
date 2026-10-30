@@ -28,6 +28,9 @@ import java.util.concurrent.ConcurrentHashMap
 open class Task(val name: String) {
 
     @Volatile
+    var status: String = "等待或准备本地资源"
+
+    @Volatile
     var progress: Float = 0f
         get() = if (subTasks.isNotEmpty()) calculateProgress() else field
     @Volatile

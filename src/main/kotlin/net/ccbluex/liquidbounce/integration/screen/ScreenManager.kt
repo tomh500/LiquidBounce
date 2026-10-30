@@ -39,6 +39,7 @@ import net.ccbluex.liquidbounce.features.module.modules.render.ModuleClickGui
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleHud
 import net.ccbluex.liquidbounce.integration.backend.BrowserBackendManager
 import net.ccbluex.liquidbounce.integration.backend.BrowserSelectionScreen
+import net.ccbluex.liquidbounce.integration.backend.isBrowserSkipped
 import net.ccbluex.liquidbounce.integration.backend.browser.Browser
 import net.ccbluex.liquidbounce.integration.backend.browser.BrowserState
 import net.ccbluex.liquidbounce.integration.backend.browser.IntegrationBrowserSettings
@@ -48,6 +49,7 @@ import net.ccbluex.liquidbounce.integration.screen.impl.CustomStandaloneMinecraf
 import net.ccbluex.liquidbounce.integration.screen.impl.InternetExplorerScreen
 import net.ccbluex.liquidbounce.integration.screen.impl.MicrosoftLoginScreen
 import net.ccbluex.liquidbounce.integration.task.TaskProgressScreen
+import net.ccbluex.liquidbounce.integration.task.InitializationChoiceScreen
 import net.ccbluex.liquidbounce.integration.theme.Theme
 import net.ccbluex.liquidbounce.integration.theme.ThemeManager
 import net.ccbluex.liquidbounce.utils.client.Chronometer
@@ -320,11 +322,12 @@ object ScreenManager : EventListener {
             return false
         }
 
-        if (screen is BrowserSelectionScreen || mc.gui.screen() is BrowserSelectionScreen) {
+        if (screen is BrowserSelectionScreen || mc.gui.screen() is BrowserSelectionScreen ||
+            screen is InitializationChoiceScreen || mc.gui.screen() is InitializationChoiceScreen) {
             return false
         }
 
-        if (ClientInteropServer.isSkipping) {
+        if (ClientInteropServer.isSkipping || isBrowserSkipped) {
             return if (screen is CustomSharedMinecraftScreen) {
                 val original = screen.originalScreen
                 if (original is CustomSharedMinecraftScreen) {

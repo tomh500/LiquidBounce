@@ -24,8 +24,8 @@ import com.mojang.authlib.properties.Property
 import com.mojang.authlib.properties.PropertyMap
 import net.ccbluex.liquidbounce.api.core.HttpClient
 import net.ccbluex.liquidbounce.api.core.HttpMethod
+import net.ccbluex.liquidbounce.api.core.bodyAsJson
 import net.ccbluex.liquidbounce.api.core.ioScope
-import net.ccbluex.liquidbounce.api.core.parse
 import net.ccbluex.liquidbounce.api.core.retrying
 import net.ccbluex.liquidbounce.features.creativetab.CustomCreativeModeTab
 import net.ccbluex.liquidbounce.render.engine.type.Color4b
@@ -104,16 +104,18 @@ class HeadsCreativeModeTab : CustomCreativeModeTab(
          */
         const val HEAD_DB_API = "https://headdb.org/api/category/all"
 
-        val heads = ioScope.retrying(
-            interval = 1.seconds,
-            name = "player-heads",
-            maxRetries = 3,
-        ) {
-            val heads: HashMap<String, Head> = HttpClient.request(HEAD_DB_API, HttpMethod.GET).parse()
+        val heads by lazy {
+            ioScope.retrying(
+                interval = 1.seconds,
+                name = "player-heads",
+                maxRetries = 3,
+            ) {
+                val heads: HashMap<String, Head> = HttpClient.request(HEAD_DB_API, HttpMethod.GET).bodyAsJson()
 
-            heads.values.also {
-                logger.info("Successfully loaded ${it.size} heads from HeadDB")
-            } as Collection<Head>
+                heads.values.also {
+                    logger.info("Successfully loaded ${it.size} heads from HeadDB")
+                } as Collection<Head>
+            }
         }
     }
 }
