@@ -40,6 +40,10 @@ object ModuleRikkaKAHelper : ClientModule(
     val killAuraTarget: LivingEntity?
         get() = threat?.takeIf(::canAttack)
 
+    /** Scan independently of threatProcess ownership and KillAura's enabled state. */
+    fun hasThreatForPathing(): Boolean =
+        enabled && (findCreeper() != null || findThreat() != null)
+
     override fun onEnabled() {
         if (!installed) {
             BaritoneAPI.getProvider().primaryBaritone.pathingControlManager.registerProcess(threatProcess)
@@ -101,7 +105,6 @@ object ModuleRikkaKAHelper : ClientModule(
         return world.entitiesForRendering().asSequence()
             .filterIsInstance<LivingEntity>()
             .filter(::isThreat)
-            .filter { it is Creeper || ModuleKillAura.enabled }
             .minWithOrNull(compareBy<LivingEntity> { if (it is Creeper) 0 else 1 }.thenBy { it.distanceToSqr(player) })
     }
 
