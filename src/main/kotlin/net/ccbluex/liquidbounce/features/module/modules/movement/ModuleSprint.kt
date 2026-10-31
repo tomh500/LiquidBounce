@@ -25,6 +25,7 @@ import net.ccbluex.liquidbounce.event.events.SprintEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.modules.movement.noslow.ModuleNoSlow
 import net.ccbluex.liquidbounce.features.module.modules.world.scaffold.features.ScaffoldSprintControlFeature
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationsValueGroup
@@ -125,7 +126,7 @@ object ModuleSprint : ClientModule("Sprint", ModuleCategories.MOVEMENT) {
     }
 
     private fun shouldPreventSprint(): Boolean {
-        if (StopOn.USING_ITEM in stopOn && player.isSlowDueToUsingItem ||
+        if (StopOn.USING_ITEM in stopOn && !ModuleNoSlow.running && player.isSlowDueToUsingItem ||
             StopOn.SNEAKING in stopOn && player.isShiftKeyDown) {
             return true
         }
