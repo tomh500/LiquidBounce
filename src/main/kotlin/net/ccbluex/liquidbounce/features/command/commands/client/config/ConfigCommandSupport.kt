@@ -25,6 +25,7 @@ import kotlinx.coroutines.CancellationException
 import net.ccbluex.liquidbounce.api.models.auth.OAuthSession
 import net.ccbluex.liquidbounce.api.models.marketplace.MarketplaceItem
 import net.ccbluex.liquidbounce.api.models.marketplace.MarketplaceItemVisibility
+import net.ccbluex.liquidbounce.api.services.client.CloudServerApi
 import net.ccbluex.liquidbounce.api.services.marketplace.MarketplaceApi
 import net.ccbluex.liquidbounce.config.autoconfig.AutoConfigMetadata
 import net.ccbluex.liquidbounce.features.command.CommandException
@@ -48,6 +49,11 @@ import java.time.LocalDateTime
 
 internal val configSuggestions: SuggestionProvider<ClientCommandSource> = suggestions {
     MarketplaceConfigs.index.map { quoted(it.address) }
+}
+
+internal val loadConfigSuggestions: SuggestionProvider<ClientCommandSource> = suggestions {
+    (MarketplaceConfigs.index.map { quoted(it.address) } +
+        CloudServerApi.cachedEntries.flatMap { listOf(quoted(it.name), quoted("cloud:${it.id}")) }).distinct()
 }
 
 internal val tagSuggestions: SuggestionProvider<ClientCommandSource> = suggestions {

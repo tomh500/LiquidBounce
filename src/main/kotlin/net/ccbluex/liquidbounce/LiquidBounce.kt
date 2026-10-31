@@ -380,6 +380,7 @@ object LiquidBounce : EventListener {
             }
             launch {
                 MarketplaceConfigs.refresh()
+                runCatching { net.ccbluex.liquidbounce.api.services.client.CloudServerApi.list() }
             }
             launch {
                 MarketplaceItems.refresh()

@@ -25,8 +25,13 @@ object CloudServerApi {
 
     data class Entry(@SerializedName("setting_id") val id: String, val name: String)
 
+    @Volatile
+    var cachedEntries: List<Entry> = emptyList()
+        private set
+
     suspend fun list(): List<Entry> =
-        HttpClient.request("$BASE_URL/config/list", HttpMethod.GET).bodyAsJson()
+        HttpClient.request("$BASE_URL/config/list", HttpMethod.GET).bodyAsJson<List<Entry>>()
+            .also { cachedEntries = it }
 
     suspend fun requestSettingsScript(settingId: String): String =
         HttpClient.request("$BASE_URL/config/$settingId.json", HttpMethod.GET).use { it.body.string() }

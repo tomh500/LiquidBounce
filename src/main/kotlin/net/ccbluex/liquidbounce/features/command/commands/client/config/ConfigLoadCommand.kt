@@ -43,7 +43,7 @@ object ConfigLoadCommand {
 
     fun CmdLiteralScope.load() {
         literal("load") {
-            argument("config", ClientStringArgumentType.string(), suggests = configSuggestions) { config ->
+            argument("config", ClientStringArgumentType.string(), suggests = loadConfigSuggestions) { config ->
                 optional(
                     "modules",
                     MultiSelectArgumentType(
@@ -122,6 +122,16 @@ object ConfigLoadCommand {
             return
         }
 
+        val cloudMatches = runCatching { CloudServerApi.list() }.getOrDefault(emptyList())
+            .filter { it.id.equals(input, ignoreCase = true) || it.name.equals(input, ignoreCase = true) }
+        if (cloudMatches.size == 1) {
+            load("cloud:${cloudMatches.single().id}", modules)
+            return
+        }
+        if (cloudMatches.size > 1) {
+            throw CommandException(regular("Multiple CloudServer configs match; use cloud:<id>."))
+        }
+
         val item = resolveConfig(input)
         val revisionId = item.liveRevisionId ?: throw CommandException(t("load.noRevision", variable(item.name)))
         val result = request { ConfigTracker.load(item, revisionId, modules) }
@@ -130,3 +140,4 @@ object ConfigLoadCommand {
     }
 
 }
+
