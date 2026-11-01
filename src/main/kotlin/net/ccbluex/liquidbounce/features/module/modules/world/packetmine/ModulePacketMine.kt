@@ -46,6 +46,9 @@ import net.ccbluex.liquidbounce.utils.block.state
 import net.ccbluex.liquidbounce.utils.block.stateOrEmpty
 import net.ccbluex.liquidbounce.utils.client.Chronometer
 import net.ccbluex.liquidbounce.utils.client.SilentHotbar
+import baritone.api.BaritoneAPI
+import net.ccbluex.liquidbounce.features.module.modules.world.ModuleRikkaMine
+import net.ccbluex.liquidbounce.utils.pathing.RikkaMiningTools
 import net.ccbluex.liquidbounce.utils.inventory.HotbarItemSlot
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.raytracing.raytraceBlock
@@ -130,6 +133,19 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
     private var tickCounter = 0L
     private var nextAllowedStartTick = 0L
     private var rikkaTarget = false
+
+    val usesRikkaMiningTools: Boolean
+        get() = rikkaTarget && ModuleRikkaMine.running
+
+    fun ownsRikkaMiningTarget(pos: BlockPos): Boolean = usesRikkaMiningTools && _target?.targetPos == pos
+
+    fun rikkaTool(state: BlockState): HotbarItemSlot? {
+        val settings = BaritoneAPI.getSettings()
+        val slot = RikkaMiningTools.select(player.inventory, state,
+            ModuleRikkaMine.isResourceTarget(state.block), settings.preferSilkTouch.value,
+            settings.itemSaver.value, settings.itemSaverThreshold.value)
+        return if (slot >= 0) HotbarItemSlot(slot) else null
+    }
 
     /**
      * The current target of the module.
@@ -285,6 +301,16 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
 
         val switchMode = switchMode.activeMode
         val slot = switchMode.getSlot(mineTarget.blockState)
+        val rikkaTools = usesRikkaMiningTools
+        if (rikkaTools) {
+            // Automated mining owns its tool policy; manual PacketMine switching remains independent.
+            if (slot == null) {
+                ModuleRikkaMine.notifyMissingTool()
+                return
+            }
+            if (!SilentHotbar.selectSlotSilently(this, slot, 1)) return
+            interaction.ensureHasSentCarriedItem()
+        }
         if (!mineTarget.started) {
             if (tickCounter < nextAllowedStartTick) {
                 return
@@ -301,7 +327,7 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
                 } else if (tickCounter > finishReadyTick) {
                     nextAllowedStartTick = tickCounter + postBreakDelay
                     mode.activeMode.finish(mineTarget)
-                    switchMode.getSwitchingMethod().switchBack()
+                    if (!rikkaTools) switchMode.getSwitchingMethod().switchBack()
                 }
             }
         }
@@ -366,6 +392,7 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
     }
 
     fun switch(slot: HotbarItemSlot?, mineTarget: MineTarget) {
+        if (usesRikkaMiningTools) return
         if (slot == null) {
             return
         }

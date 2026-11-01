@@ -4,6 +4,9 @@ import baritone.api.BaritoneAPI;
 import baritone.api.utils.IPlayerContext;
 import baritone.utils.BlockBreakHelper;
 import net.ccbluex.liquidbounce.features.module.modules.world.packetmine.ModulePacketMine;
+import net.ccbluex.liquidbounce.features.module.modules.world.ModuleRikkaMine;
+import net.ccbluex.liquidbounce.utils.pathing.RikkaMiningTools;
+import net.ccbluex.liquidbounce.utils.pathing.PathingEngine;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import org.spongepowered.asm.mixin.Final;
@@ -25,6 +28,22 @@ public abstract class MixinBlockBreakHelper {
             return;
         }
         HitResult trace = ctx.objectMouseOver();
+        if (leftClick && PathingEngine.INSTANCE.isMining()
+            && trace instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK
+            && ModuleRikkaMine.INSTANCE.isResourceTarget(ctx.world().getBlockState(hit.getBlockPos()).getBlock())) {
+            var settings = BaritoneAPI.getSettings();
+            int slot = RikkaMiningTools.select(ctx.player().getInventory(),
+                ctx.world().getBlockState(hit.getBlockPos()), true, settings.preferSilkTouch.value,
+                settings.itemSaver.value, settings.itemSaverThreshold.value);
+            if (slot < 0) {
+                ModuleRikkaMine.INSTANCE.notifyMissingTool();
+                // Wait for inventory provisioning rather than destroy a resource without its drops.
+                ModulePacketMine.INSTANCE.handleRikkaBlockBreaking(null);
+                wasHitting = false;
+                ci.cancel();
+                return;
+            }
+        }
         if (ModulePacketMine.INSTANCE.handleRikkaBlockBreaking(
             leftClick && trace instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK
                 ? hit.getBlockPos() : null)) {

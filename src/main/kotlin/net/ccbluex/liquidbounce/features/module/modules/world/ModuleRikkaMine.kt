@@ -10,6 +10,7 @@ import net.ccbluex.liquidbounce.utils.collection.blockSortedSetOf
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 import net.minecraft.world.level.block.Blocks
+import net.minecraft.world.level.block.Block
 
 object ModuleRikkaMine : ClientModule(
     "RikkaMine",
@@ -38,8 +39,21 @@ object ModuleRikkaMine : ClientModule(
     private val maxY by int("MaxY", 2031, -64..2031)
     private val exposedOnly by boolean("ExposedOnly", false)
     private val exposedDistance by int("ExposedDistance", 1, 1..8)
+    private val allowInventory by boolean("AllowInventory", true)
+    private var lastToolWarning = 0L
+
+    fun isResourceTarget(block: Block): Boolean = enabled && block in blocks
+
+    fun notifyMissingTool() {
+        val now = System.currentTimeMillis()
+        if (now - lastToolWarning < 30_000L) return
+        lastToolWarning = now
+        notification(name, "Waiting for a usable mining tool; check tool tier and durability",
+            NotificationEvent.Severity.ERROR)
+    }
 
     override fun onEnabled() {
+        lastToolWarning = 0L
         if (blocks.isEmpty()) {
             notification(name, "Select at least one block", NotificationEvent.Severity.ERROR)
             enabled = false
@@ -56,6 +70,7 @@ object ModuleRikkaMine : ClientModule(
             maxY,
             exposedOnly,
             exposedDistance,
+            allowInventory,
         )
         ModuleRikkaKAHelper.enabled = true
         PathingEngine.mine(quantity, blocks)

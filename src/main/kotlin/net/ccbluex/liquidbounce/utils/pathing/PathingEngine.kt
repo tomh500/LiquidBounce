@@ -1,6 +1,7 @@
 package net.ccbluex.liquidbounce.utils.pathing
 
 import baritone.api.BaritoneAPI
+import baritone.api.utils.input.Input
 import net.ccbluex.liquidbounce.event.events.NotificationEvent
 import net.ccbluex.liquidbounce.features.module.ModuleManager
 import net.ccbluex.liquidbounce.features.module.ClientModule
@@ -123,6 +124,7 @@ object PathingEngine {
         maxY: Int,
         exposedOnly: Boolean,
         exposedDistance: Int,
+        allowInventory: Boolean,
     ) {
         installOutputBridge()
         settings.legitMine.value = legitMine
@@ -134,7 +136,11 @@ object PathingEngine {
         settings.allowOnlyExposedOres.value = exposedOnly
         settings.allowOnlyExposedOresDistance.value = exposedDistance
         settings.useSwordToMine.value = false
-        settings.allowInventory.value = false
+        // RikkaMine must not inherit a command session that disabled tool selection or delegated it
+        // to an external module which may be disabled or gated by sneaking/combat requirements.
+        settings.autoTool.value = true
+        settings.assumeExternalAutoTool.value = false
+        settings.allowInventory.value = allowInventory
 
         // LiquidBounce owns all user-facing output and command handling.
     }
@@ -204,4 +210,6 @@ object PathingEngine {
     }
 
     fun isMining(): Boolean = primary.mineProcess.isActive
+
+    fun isRequestingBlockBreak(): Boolean = primary.inputOverrideHandler.isInputForcedDown(Input.CLICK_LEFT)
 }

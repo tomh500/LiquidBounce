@@ -16,6 +16,8 @@ import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.MovementInputEvent
 import net.ccbluex.liquidbounce.event.events.RotationUpdateEvent
 import net.ccbluex.liquidbounce.event.handler
+import net.ccbluex.liquidbounce.event.EventListener
+import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.features.global.GlobalVapeRotationSettings
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
@@ -118,6 +120,15 @@ object ModuleClutch : ClientModule(
     private var catchTarget: BlockPos? = null
 
     override fun onEnabled() = resetState(clearRenderCount = false)
+
+    @Suppress("unused")
+    private val worldChangeListener = object : EventListener {
+        private val worldChangeHandler = handler<WorldChangeEvent> {
+            // Old slots, landing positions and camera resets belong to the previous world.
+            // Do not restore the previous world's selected slot into the new inventory.
+            resetState(clearRenderCount = true)
+        }
+    }
 
     override fun onDisabled() {
         restoreSlotNow()
