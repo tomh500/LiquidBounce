@@ -38,11 +38,13 @@ object ModuleRikkaKAHelper : ClientModule(
     private var creeperAvoidance: Creeper? = null
 
     val killAuraTarget: LivingEntity?
-        get() = threat?.takeIf(::canAttack)
+        get() = threat?.takeIf { running && PathingEngine.isRikkaAutomationEnabled() && canAttack(it) }
 
     /** Scan independently of threatProcess ownership and KillAura's enabled state. */
     fun hasThreatForPathing(): Boolean =
         enabled && (findCreeper() != null || findThreat() != null)
+
+    fun canControlPathing(): Boolean = hasThreatForPathing() && !shouldYieldToAutoDodge()
 
     override fun onEnabled() {
         if (!installed) {
@@ -58,13 +60,20 @@ object ModuleRikkaKAHelper : ClientModule(
 
     private val threatProcess = object : IBaritoneProcess {
         override fun isActive(): Boolean {
+            if (!running || !PathingEngine.isRikkaAutomationEnabled()) {
+                threat = null
+                creeperAvoidance = null
+                return false
+            }
             if (shouldYieldToAutoDodge()) {
                 threat = null
                 BaritoneAPI.getProvider().primaryBaritone.inputOverrideHandler.clearAllKeys()
                 return false
             }
 
-            val activeCreeper = creeperAvoidance?.takeIf { it.isAlive && it.distanceTo(player) <= threatRange }
+            val activeCreeper = creeperAvoidance?.takeIf {
+                it.isAlive && !it.isRemoved && it.level() === world && it.distanceTo(player) <= threatRange
+            }
             val nearbyCreeper = findCreeper()
             creeperAvoidance = activeCreeper ?: nearbyCreeper?.takeIf {
                 !ModuleKillAura.enabled || it.distanceTo(player) < creeperSafetyDistance
@@ -101,7 +110,7 @@ object ModuleRikkaKAHelper : ClientModule(
     }
 
     private fun findThreat(): LivingEntity? {
-        if (!enabled || !PathingEngine.isRikkaAutomationEnabled()) return null
+        if (!running || !PathingEngine.isRikkaAutomationEnabled()) return null
         return world.entitiesForRendering().asSequence()
             .filterIsInstance<LivingEntity>()
             .filter(::isThreat)
@@ -109,7 +118,7 @@ object ModuleRikkaKAHelper : ClientModule(
     }
 
     private fun findCreeper(): Creeper? {
-        if (!enabled || !PathingEngine.isRikkaAutomationEnabled()) return null
+        if (!running || !PathingEngine.isRikkaAutomationEnabled()) return null
         return world.entitiesForRendering().asSequence()
             .filterIsInstance<Creeper>()
             .filter { it.isAlive && it.distanceTo(player) <= threatRange }
@@ -128,5 +137,6 @@ object ModuleRikkaKAHelper : ClientModule(
     }
 
     private fun canAttack(entity: LivingEntity): Boolean =
-        entity.distanceTo(player) <= engageRange && (entity !is Creeper || entity.swellDir <= 0)
+        entity.isAlive && !entity.isRemoved && entity.level() === world &&
+            entity.distanceTo(player) <= engageRange && (entity !is Creeper || entity.swellDir <= 0)
 }

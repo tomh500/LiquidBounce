@@ -6,6 +6,7 @@
   "priority": 1337,
   "mixinPriority": 1337,
   "client": [
+    "baritone.MixinBlockBreakHelper",
     "authlib.MixinMinecraftClient",
     "authlib.MixinMinecraftServicesSessionService",
     "blaze3d.MixinInputConstants",

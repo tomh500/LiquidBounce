@@ -45,6 +45,7 @@ import net.ccbluex.liquidbounce.utils.block.outlineBox
 import net.ccbluex.liquidbounce.utils.block.state
 import net.ccbluex.liquidbounce.utils.block.stateOrEmpty
 import net.ccbluex.liquidbounce.utils.client.Chronometer
+import net.ccbluex.liquidbounce.utils.client.SilentHotbar
 import net.ccbluex.liquidbounce.utils.inventory.HotbarItemSlot
 import net.ccbluex.liquidbounce.utils.kotlin.Priority
 import net.ccbluex.liquidbounce.utils.raytracing.raytraceBlock
@@ -143,6 +144,8 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
             }
 
             field?.cleanUp()
+            rotation = null
+            SilentHotbar.resetSlot(ModulePacketMine)
             value?.init()
             field = value
             if (value == null) {
@@ -221,6 +224,7 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
             wallsRange = wallsRange.toDouble()
         ) ?: run {
             // don't do actions when the block is out of range
+            rotation = null
             mineTarget.abort()
             return
         }
@@ -286,8 +290,10 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
                 return
             }
             startBreaking(slot, mineTarget)
-        } else if (mode.activeMode.shouldUpdate(mineTarget, slot)) {
-            updateBreakingProgress(mineTarget, slot)
+        } else {
+            if (mode.activeMode.shouldUpdate(mineTarget, slot)) {
+                updateBreakingProgress(mineTarget, slot)
+            }
             if (mineTarget.progress >= breakDamage && !mineTarget.finished) {
                 val finishReadyTick = mineTarget.finishReadyTick
                 if (finishReadyTick == null) {
@@ -411,9 +417,6 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
 
     @Suppress("unused")
     private val blockAttackHandler = handler<BlockAttackEvent> { event ->
-        if (PathingEngine.isRikkaAutomationActive()) {
-            setRikkaTarget(event.pos)
-        }
         event.cancelEvent()
     }
 
@@ -443,7 +446,7 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
             return
         }
 
-        if (state.isAir && mode.activeMode.stopOnStateChange) {
+        if (state.isAir && (rikkaTarget || mode.activeMode.stopOnStateChange)) {
             _target = null
         }
     }
@@ -452,8 +455,21 @@ object ModulePacketMine : ClientModule("PacketMine", ModuleCategories.WORLD), Br
         setTarget(blockPos, fromRikka = false)
     }
 
-    private fun setRikkaTarget(blockPos: BlockPos) {
+    /** Explicit handoff from the primary pathing engine; manual attacks never acquire Rikka ownership. */
+    fun handleRikkaBlockBreaking(blockPos: BlockPos?): Boolean {
+        if (!running || !PathingEngine.isRikkaAutomationEnabled()) {
+            if (rikkaTarget) _resetTarget()
+            return false
+        }
+        if (blockPos == null || PathingEngine.shouldPauseRikkaAutomationForCombat()) {
+            if (rikkaTarget) _resetTarget()
+            return true
+        }
+        if (rikkaTarget && _target?.targetPos != blockPos) {
+            _resetTarget()
+        }
         setTarget(blockPos, fromRikka = true)
+        return true
     }
 
     private fun setTarget(blockPos: BlockPos, fromRikka: Boolean) {

@@ -3,7 +3,9 @@ package net.ccbluex.liquidbounce.utils.pathing
 import baritone.api.BaritoneAPI
 import net.ccbluex.liquidbounce.event.events.NotificationEvent
 import net.ccbluex.liquidbounce.features.module.ModuleManager
+import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.RikkaAutomationModule
+import net.ccbluex.liquidbounce.features.module.modules.xuanrikka.ModuleRikkaPause
 import net.ccbluex.liquidbounce.utils.client.chat
 import net.ccbluex.liquidbounce.utils.client.notification
 import net.minecraft.network.chat.Component
@@ -33,6 +35,12 @@ object PathingEngine {
     private var deathLocation: Pair<ResourceKey<Level>, BlockPos>? = null
 
     private val combatPauser = RikkaCombatPauser()
+
+    /** Only one module may own the primary engine. Cancel the old task before starting the new one. */
+    fun activateAutomation(module: ClientModule) {
+        ModuleManager.filter { it is RikkaAutomationModule && it !== module && it.enabled }
+            .forEach { it.enabled = false }
+    }
 
     fun onStrafeStateChanged(enabled: Boolean) {
         if (isPathing()) {
@@ -65,7 +73,7 @@ object PathingEngine {
         isRikkaAutomationEnabled() && (primary.pathingBehavior.hasPath() || isMining())
 
     fun shouldPauseRikkaAutomationForCombat(): Boolean =
-        RikkaCombatPauser.shouldPause()
+        ModuleRikkaPause.running || RikkaCombatPauser.shouldPause()
 
     /**
      * Whether the integrated pathing engine currently needs to control the player.
@@ -80,6 +88,7 @@ object PathingEngine {
     fun installOutputBridge() {
         if (!combatPauserInstalled) {
             primary.pathingControlManager.registerProcess(combatPauser)
+            primary.pathingControlManager.registerProcess(RikkaManualPauser())
             combatPauserInstalled = true
         }
         settings.chatControl.value = false
@@ -120,8 +129,8 @@ object PathingEngine {
         settings.exploreForBlocks.value = exploreForBlocks
         settings.mineGoalUpdateInterval.value = mineGoalUpdateInterval
         settings.mineMaxOreLocationsCount.value = maxOreLocations
-        settings.minYLevelWhileMining.value = minY
-        settings.maxYLevelWhileMining.value = maxY
+        settings.minYLevelWhileMining.value = minOf(minY, maxY)
+        settings.maxYLevelWhileMining.value = maxOf(minY, maxY)
         settings.allowOnlyExposedOres.value = exposedOnly
         settings.allowOnlyExposedOresDistance.value = exposedDistance
         settings.useSwordToMine.value = false

@@ -130,7 +130,7 @@ internal fun ModuleKillAura.runVapeTick() {
     }
 
     // All modes share LB's target selector for target types, FOV, priority and anti-bot filtering.
-    val targets = ModuleRikkaKAHelper.killAuraTarget?.let(::listOf) ?: targetTracker.targets()
+    val targets = (ModuleRikkaKAHelper.killAuraTarget?.let(::listOf) ?: targetTracker.targets())
         .asSequence()
         .filter {
             isValidVapeTarget(it, Vape.ignoreNaked, Vape.ignoreInvisible, Vape.ignoreBehindWalls)

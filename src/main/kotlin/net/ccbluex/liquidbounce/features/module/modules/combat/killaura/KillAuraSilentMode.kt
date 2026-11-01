@@ -269,7 +269,7 @@ internal fun ModuleKillAura.updateSilentTargetAndRotation() {
         baseComparator
     }
 
-    val target = ModuleRikkaKAHelper.killAuraTarget ?: targetTracker.targets().asSequence()
+    val target = (ModuleRikkaKAHelper.killAuraTarget?.let(::listOf) ?: targetTracker.targets()).asSequence()
         .filter { isValidVapeTarget(it, Silent.ignoreNaked,
             Silent.ignoreInvisible, Silent.ignoreBehindWalls) }
         .filter { isSilentInRange(it, interactionRange) }

@@ -15,14 +15,20 @@ public final class RikkaCombatPauser implements IBaritoneProcess {
         Minecraft mc = Minecraft.getInstance();
         return mc.player != null && mc.level != null
             && PathingEngine.INSTANCE.isRikkaAutomationEnabled()
-            && (ModuleKillAura.INSTANCE.getEnabled()
+            && (hasCombatTarget()
                 || CombatManager.INSTANCE.isInCombat()
                 || ModuleRikkaKAHelper.INSTANCE.hasThreatForPathing());
     }
 
+    private static boolean hasCombatTarget() {
+        return ModuleKillAura.INSTANCE.getRunning()
+            && ModuleKillAura.INSTANCE.getTargetTracker().getTarget() != null;
+    }
+
     @Override
     public boolean isActive() {
-        return shouldPause();
+        // Threat response must retain control to approach enemies or retreat from creepers.
+        return shouldPause() && !ModuleRikkaKAHelper.INSTANCE.canControlPathing();
     }
 
     @Override
