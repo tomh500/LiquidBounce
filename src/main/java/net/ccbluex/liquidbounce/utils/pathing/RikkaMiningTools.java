@@ -56,9 +56,23 @@ public final class RikkaMiningTools {
 
     public static int select(Inventory inventory, BlockState state, boolean resource,
                              boolean preferSilk, boolean saveTools, int reserveDurability) {
+        return selectInRange(inventory, state, resource, preferSilk, saveTools, reserveDurability,
+            0, Inventory.SELECTION_SIZE);
+    }
+
+    /** Inventory indexes match Baritone's non-equipment item list (0..35). */
+    public static int selectInventory(Inventory inventory, BlockState state, boolean resource,
+                                      boolean preferSilk, boolean saveTools, int reserveDurability) {
+        return selectInRange(inventory, state, resource, preferSilk, saveTools, reserveDurability,
+            Inventory.SELECTION_SIZE, 36);
+    }
+
+    private static int selectInRange(Inventory inventory, BlockState state, boolean resource,
+                                     boolean preferSilk, boolean saveTools, int reserveDurability,
+                                     int start, int end) {
         var candidates = new java.util.ArrayList<Candidate>();
         double bareHand = ToolSet.calculateSpeedVsBlock(ItemStack.EMPTY, state);
-        for (int slot = 0; slot < Inventory.SELECTION_SIZE; slot++) {
+        for (int slot = start; slot < end; slot++) {
             ItemStack stack = inventory.getItem(slot);
             if (!BaritoneAPI.getSettings().useSwordToMine.value && stack.is(ItemTags.SWORDS)) continue;
             double progress = ToolSet.calculateSpeedVsBlock(stack, state);

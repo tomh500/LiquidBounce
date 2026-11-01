@@ -32,4 +32,12 @@ class RikkaMiningToolsTest {
         val worn = Candidate(4, true, 0.9, 5, 0, 5, true)
         assertEquals(0, RikkaMiningTools.choose(listOf(worn, iron), true, false)?.slot())
     }
+
+    @Test
+    fun `inventory source is selected only when the hotbar cannot harvest the resource`() {
+        val hotbar = listOf(Candidate(2, false, 0.07, 0, 0, 1, false))
+        val inventory = listOf(Candidate(12, true, 0.13, 0, 0, 2, false))
+        assertNull(RikkaMiningTools.choose(hotbar, true, false))
+        assertEquals(12, RikkaMiningTools.choose(inventory, true, false)?.slot())
+    }
 }
