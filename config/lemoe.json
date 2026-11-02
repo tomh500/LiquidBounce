@@ -369,7 +369,7 @@
         "value": [
           {
             "name": "Enabled",
-            "value": true
+            "value": false
           },
           {
             "name": "PlaceInLiquid",
@@ -6468,7 +6468,7 @@
         "value": [
           {
             "name": "Enabled",
-            "value": false
+            "value": true
           },
           {
             "name": "OnlyWhileUsing",
@@ -18691,7 +18691,7 @@
         "value": [
           {
             "name": "Enabled",
-            "value": false
+            "value": true
           },
           {
             "name": "Mode",
@@ -18712,7 +18712,7 @@
           },
           {
             "name": "BlockRangeIncrease",
-            "value": 0.5
+            "value": 7.15
           },
           {
             "name": "Range",
@@ -23045,7 +23045,7 @@
                 "value": [
                   {
                     "name": "Chance",
-                    "value": 40.0
+                    "value": 100.0
                   },
                   {
                     "name": "Horizontal",
@@ -23458,13 +23458,13 @@
     ]
   },
   "author": "tomh500",
-  "date": "30/10/2026",
-  "time": "22:28:32",
+  "date": "02/11/2026",
+  "time": "23:54:46",
   "clientVersion": "0.41.1-XuanRikka202610232110",
   "clientCommit": "git-8d28bb5",
   "serverAddress": "luotiany1.top",
-  "protocolName": "26.3",
-  "protocolVersion": 777,
+  "protocolName": "26.2",
+  "protocolVersion": 776,
   "type": "Rage",
   "status": "Bypassing"
 }
