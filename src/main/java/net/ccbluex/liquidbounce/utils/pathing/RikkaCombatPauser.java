@@ -6,6 +6,7 @@ import baritone.api.process.PathingCommand;
 import baritone.api.process.PathingCommandType;
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleRikkaKAHelper;
 import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.ModuleKillAura;
+import net.ccbluex.liquidbounce.features.module.modules.movement.autododge.ModuleAutoDodge;
 import net.ccbluex.liquidbounce.utils.combat.CombatManager;
 import net.minecraft.client.Minecraft;
 
@@ -17,7 +18,8 @@ public final class RikkaCombatPauser implements IBaritoneProcess {
             && PathingEngine.INSTANCE.isRikkaAutomationEnabled()
             && (hasCombatTarget()
                 || CombatManager.INSTANCE.isInCombat()
-                || ModuleRikkaKAHelper.INSTANCE.hasThreatForPathing());
+                || ModuleRikkaKAHelper.INSTANCE.hasThreatForPathing()
+                || ModuleAutoDodge.INSTANCE.hasPredictedHit());
     }
 
     private static boolean hasCombatTarget() {

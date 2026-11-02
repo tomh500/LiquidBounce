@@ -17,7 +17,12 @@ public final class RikkaMiningTools {
     private RikkaMiningTools() { }
 
     public record Candidate(int slot, boolean harvests, double progress, int fortune, int silk,
-                            int materialCost, boolean protectedTool) { }
+                            int materialCost, boolean protectedTool, boolean damageable) {
+        public Candidate(int slot, boolean harvests, double progress, int fortune, int silk,
+                         int materialCost, boolean protectedTool) {
+            this(slot, harvests, progress, fortune, silk, materialCost, protectedTool, true);
+        }
+    }
 
     public static Candidate choose(Iterable<Candidate> candidates, boolean resource, boolean preferSilk) {
         Candidate best = null;
@@ -49,6 +54,11 @@ public final class RikkaMiningTools {
             boolean candidateValuable = candidate.fortune > 0 || candidate.silk > 0;
             boolean bestValuable = best.fortune > 0 || best.silk > 0;
             if (candidateValuable != bestValuable) return !candidateValuable;
+            // For dirt and similar blocks a pickaxe is no faster than a bare hand. Do not spend
+            // durability on such an obstacle if an empty or non-damageable hotbar slot exists.
+            if (!candidateEffective && !bestEffective && candidate.damageable != best.damageable) {
+                return !candidate.damageable;
+            }
         }
         if (candidate.materialCost != best.materialCost) return candidate.materialCost < best.materialCost;
         return candidate.progress > best.progress;
@@ -82,7 +92,8 @@ public final class RikkaMiningTools {
             candidates.add(new Candidate(slot, harvests, progress,
                 enchantment(stack, Enchantments.FORTUNE), enchantment(stack, Enchantments.SILK_TOUCH), cost,
                 saveTools && stack.isDamageableItem()
-                    && stack.getMaxDamage() - stack.getDamageValue() <= reserveDurability));
+                    && stack.getMaxDamage() - stack.getDamageValue() <= reserveDurability,
+                stack.isDamageableItem()));
         }
         Candidate best = choose(candidates, resource, preferSilk);
         return best == null ? -1 : best.slot;

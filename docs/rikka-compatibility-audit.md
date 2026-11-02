@@ -22,3 +22,11 @@ Branch: `check/rikkareturn`, based on `nextgen` at `66f363fa2`.
 - Mine ores with iron, stone and Fortune diamond pickaxes in mixed hotbar and main-inventory layouts. Confirm correct drops and Baritone's inventory move delay.
 - Try PacketMine Normal, Immediate and Civ, target replacement, manual mining, combat interruption, task switching and disconnect/reconnect.
 - Fortune usefulness is currently a general resource preference. Block-specific loot behavior remains an opportunity for tuning after gameplay observation.
+
+## Follow-up: arrow dodge, icons, weapons and path obstacles
+
+- Rikka's combat pathing now yields to AutoDodge's moving-player arrow prediction, and the combat pauser releases Baritone's forced movement inputs while an arrow hit is predicted. This avoids the previous stationary-only check disagreeing with AutoDodge's actual plan.
+- The block picker no longer recursively loads a grass-block fallback when the item atlas is unavailable. Rows show a stable placeholder and share one readiness probe before retrying the real image. The item atlas also builds on the first in-game tick if its initial resource reload was missed, with a five-second retry after a failed build.
+- KillAura already uses AutoWeapon for attack-time switching when that separate module is enabled. Vape and Silent modes now also notify AutoWeapon of their acquired target, so its optional `OnTarget` setting works in all three KillAura modes.
+- For path obstacles like dirt, Rikka's tool ranking now prefers an empty or other non-damageable slot over a pickaxe when neither mines faster than a bare hand. Harvest-capable tools still take priority for configured resource blocks.
+- Follow-up compile/tests and theme check passed. Before the atlas fix, an in-world item texture request returned HTTP 503; after the fix, the independent development client returned HTTP 200 with PNG data and the ClickGUI showed the expected block icons. The client remains running. Arrow avoidance and tool behavior still need controlled in-world scenarios.

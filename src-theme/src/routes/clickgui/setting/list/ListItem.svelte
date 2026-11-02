@@ -1,6 +1,6 @@
 <script lang="ts">
     import {createEventDispatcher} from "svelte";
-    import {itemTextureUrl} from "../../../../integration/rest";
+    import {whenItemTexturesReady} from "../../../../integration/item_texture_ready";
 
     const dispatch = createEventDispatcher<{
         toggle: { value: string, enabled: boolean }
@@ -14,13 +14,22 @@
     export let showEnabledState = true;
     export let pointerCursor = true;
 
-    let showingFallbackImage = false;
+    let failedIcon = false;
+    let retriedAfterReady = false;
+    let previousIcon: string | undefined;
+    $: if (icon !== previousIcon) {
+        previousIcon = icon;
+        failedIcon = false;
+        retriedAfterReady = false;
+    }
 
-    function showFallbackIcon(event: Event) {
-        const img = event.currentTarget as HTMLImageElement;
-
-        showingFallbackImage = true;
-        img.src = itemTextureUrl("minecraft:grass_block");
+    async function handleIconError() {
+        const failedFor = icon;
+        failedIcon = true;
+        if (retriedAfterReady) return;
+        retriedAfterReady = true;
+        await whenItemTexturesReady();
+        if (icon === failedFor) failedIcon = false;
     }
 </script>
 
@@ -29,7 +38,11 @@
 <div class="item" class:has-icon={icon !== undefined} class:has-enabled-state={showEnabledState}
      class:pointer-cursor={pointerCursor} on:click={() => dispatch("toggle", {enabled: !enabled, value: value})}>
     {#if icon}
-        <img class="icon" class:fallback={showingFallbackImage} src="{icon}" alt={value} on:error={showFallbackIcon}/>
+        {#if failedIcon}
+            <span class="icon unavailable" aria-hidden="true">▣</span>
+        {:else}
+            <img class="icon" src={icon} alt={value} on:error={handleIconError}/>
+        {/if}
     {/if}
     <div class="name">{name}</div>
     {#if showEnabledState}
@@ -72,10 +85,13 @@
   .icon {
     height: 25px;
     width: 25px;
+  }
 
-    &.fallback {
-      filter: grayscale(1);
-    }
+  .unavailable {
+    display: grid;
+    place-items: center;
+    color: var(--clickgui-text-color);
+    opacity: .5;
   }
 
   .name {

@@ -22,6 +22,7 @@ import net.ccbluex.liquidbounce.config.types.group.Mode
 import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleRikkaKAHelper
+import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleAutoWeapon
 import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.features.KillAuraAutoBlock
 import net.ccbluex.liquidbounce.utils.block.SwingMode
 import net.ccbluex.liquidbounce.utils.collection.itemSortedSetOf
@@ -142,6 +143,7 @@ internal fun ModuleKillAura.runVapeTick() {
         .toList()
 
     targetTracker.target = targets.firstOrNull()
+    ModuleAutoWeapon.onTarget(targetTracker.target)
     val clickReady = Vape.cooldown || System.currentTimeMillis() - KillAuraVapeState.lastClickAt >=
         KillAuraVapeState.clickDelay.calculateNextDelayMillis(Vape.attackRate)
     if (targets.isEmpty() || !clickReady || Vape.cooldown && player.getAttackStrengthScale(0f) < 1f) {

@@ -127,7 +127,7 @@ object ModuleRikkaKAHelper : ClientModule(
 
     /** Let LiquidBounce's predictive arrow dodge own movement while it has an actual evasion to execute. */
     private fun shouldYieldToAutoDodge(): Boolean =
-        ModuleAutoDodge.running && ModuleAutoDodge.getInflictedHit(player.position()) != null
+        ModuleAutoDodge.hasPredictedHit()
 
     private fun isThreat(entity: LivingEntity): Boolean {
         if (!entity.isAlive || entity.distanceTo(player) > threatRange) return false

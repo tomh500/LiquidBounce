@@ -26,8 +26,10 @@ import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.SuspendHandlerBehavior
 import net.ccbluex.liquidbounce.event.events.ResourceReloadEvent
 import net.ccbluex.liquidbounce.event.suspendHandler
+import net.ccbluex.liquidbounce.event.tickHandler
 import net.ccbluex.liquidbounce.event.tickUntil
 import net.ccbluex.liquidbounce.utils.client.inGame
+import net.ccbluex.liquidbounce.utils.client.logger
 import net.minecraft.client.gui.render.GuiRenderer
 import net.minecraft.client.renderer.texture.OverlayTexture
 import net.minecraft.client.renderer.Rect2i
@@ -39,6 +41,7 @@ import net.minecraft.util.LightCoordsUtil
 import net.minecraft.world.item.Item
 import net.minecraft.world.item.ItemDisplayContext
 import net.minecraft.world.item.Items
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val NATIVE_ITEM_SIZE: Int = GuiRenderer.DEFAULT_ITEM_SIZE
 
@@ -58,13 +61,41 @@ object ItemImageAtlas : EventListener {
 
     @Volatile
     private var atlas: Atlas? = null
+    private val building = AtomicBoolean()
+    private var resourceVersion = 0
+    private var lastBuildAttempt = 0L
 
     @Suppress("unused")
     private val resourceReloadHandler = suspendHandler<ResourceReloadEvent>(
         behavior = SuspendHandlerBehavior.CancelPrevious,
     ) {
+        resourceVersion++
+        atlas = null
         tickUntil { inGame }
-        atlas = ItemTextureRenderer(scale = 4).render().await()
+        buildIfNeeded()
+    }
+
+    // The initial resource reload can finish before this listener is registered. Build on the
+    // first in-game tick as well, and retry after a failed GPU readback instead of serving 503 forever.
+    @Suppress("unused")
+    private val atlasFallbackHandler = tickHandler {
+        if (atlas == null && inGame && System.currentTimeMillis() - lastBuildAttempt >= 5_000L) {
+            buildIfNeeded()
+        }
+    }
+
+    private suspend fun buildIfNeeded() {
+        if (atlas != null || !inGame || !building.compareAndSet(false, true)) return
+        val version = resourceVersion
+        lastBuildAttempt = System.currentTimeMillis()
+        try {
+            val rendered = ItemTextureRenderer(scale = 4).render().await()
+            if (version == resourceVersion) atlas = rendered
+        } catch (throwable: Throwable) {
+            logger.error("Failed to build item image atlas", throwable)
+        } finally {
+            building.set(false)
+        }
     }
 
     fun getItemImage(name: Identifier): AtlasLookup {

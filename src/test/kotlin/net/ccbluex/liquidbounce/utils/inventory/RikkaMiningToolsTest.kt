@@ -40,4 +40,11 @@ class RikkaMiningToolsTest {
         assertNull(RikkaMiningTools.choose(hotbar, true, false))
         assertEquals(12, RikkaMiningTools.choose(inventory, true, false)?.slot())
     }
+
+    @Test
+    fun `clearing dirt preserves a pickaxe when a hand-equivalent slot exists`() {
+        val diamondPick = Candidate(0, true, 0.02, 0, 0, Int.MAX_VALUE, false, true)
+        val emptyHand = Candidate(4, true, 0.02, 0, 0, Int.MAX_VALUE, false, false)
+        assertEquals(4, RikkaMiningTools.choose(listOf(diamondPick, emptyHand), false, false)?.slot())
+    }
 }
