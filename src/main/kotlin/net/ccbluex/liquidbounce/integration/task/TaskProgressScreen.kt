@@ -188,10 +188,6 @@ class TaskProgressScreen(
     }
 
     override fun tick() {
-        if (InitializationChoiceScreen.pending?.isDone == false && mc.gui.screen() !is InitializationChoiceScreen) {
-            mc.gui.setScreen(InitializationChoiceScreen())
-            return
-        }
         if (taskManager.isCompleted && (BrowserBackendManager.backend?.isInitialized == true || isBrowserDisabled)) {
             InitializationNetwork.finish()
             mc.gui.setScreen(TitleScreen())

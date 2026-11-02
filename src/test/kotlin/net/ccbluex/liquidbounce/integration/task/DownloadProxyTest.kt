@@ -123,4 +123,17 @@ class DownloadProxyTest {
         }
         assertEquals(Proxy.Type.DIRECT, selector.select(uri).single().type())
     }
+
+    @Test
+    fun `custom SOCKS5 routes HTTPS downloads without proxying localhost`() {
+        val choice = DownloadProxy.Choice.Custom(
+            InetSocketAddress.createUnresolved("proxy.example", 1080), Proxy.Type.SOCKS
+        )
+        val selector = DownloadProxy.selector(ProxySelector.getDefault(), choice)
+        assertEquals(Proxy.Type.SOCKS, selector.select(URI("https://example.invalid/resource")).single().type())
+        assertEquals(Proxy.Type.DIRECT, selector.select(URI("http://localhost/resource")).single().type())
+        assertThrows(IllegalArgumentException::class.java) {
+            DownloadProxy.Choice.Custom(choice.address, Proxy.Type.DIRECT)
+        }
+    }
 }

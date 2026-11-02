@@ -27,29 +27,46 @@ import net.minecraft.client.gui.components.EditBox
 import net.minecraft.client.gui.screens.Screen
 import net.minecraft.network.chat.Component
 import java.lang.management.ManagementFactory
+import java.net.Proxy
 
-/** Select a proxy before online resources and dependencies start downloading. */
-class DownloadProxyScreen(private val selection: CompletableDeferred<DownloadProxy.Choice>) :
-    Screen("Dependency downloads".asPlainText()) {
+enum class InitializationMode { DEFAULT, OPTIMIZED, SKIP }
+
+data class InitializationSelection(val mode: InitializationMode, val proxy: DownloadProxy.Choice)
+
+/** Select the initialization mode and optional proxy before network requests start. */
+class DownloadProxyScreen(private val selection: CompletableDeferred<InitializationSelection>) :
+    Screen("初始化 / Initialization".asPlainText()) {
     private var mode = 0
     private lateinit var address: EditBox
+    private lateinit var defaultChoiceButton: Button
     private var error = ""
+    private val timeout = InitializationChoiceTimeout()
 
     override fun init() {
         val x = width / 2 - 110
-        val y = height / 2 - 20
-        address = EditBox(font, x, y + 24, 220, 20, Component.literal("HTTP proxy host:port"))
-        address.setHint(Component.literal("HTTP proxy host:port"))
-        address.isVisible = mode == 2
+        val y = height / 2 - 52
+        address = EditBox(font, x, y + 24, 220, 20, Component.literal("Proxy host:port"))
+        address.setHint(Component.literal("代理地址 host:port"))
+        address.setResponder { timeout.interact() }
+        address.isVisible = mode >= 2
         addRenderableWidget(Button.builder(modeLabel()) {
-            mode = (mode + 1) % 3
+            timeout.interact()
+            mode = (mode + 1) % 4
             it.message = modeLabel()
-            address.isVisible = mode == 2
+            address.isVisible = mode >= 2
             error = ""
         }.bounds(x, y, 220, 20).build())
         addRenderableWidget(address)
-        addRenderableWidget(Button.builder("Continue".asPlainText()) {
+        defaultChoiceButton = addChoice(x, y + 54, "默认初始化", InitializationMode.DEFAULT)
+        addChoice(x, y + 79, "优化初始化（优先镜像）", InitializationMode.OPTIMIZED)
+        addChoice(x, y + 104, "本次跳过", InitializationMode.SKIP)
+    }
+
+    private fun addChoice(x: Int, y: Int, label: String, initialization: InitializationMode): Button {
+        return addRenderableWidget(Button.builder(label.asPlainText()) {
+            timeout.interact()
             val choice = runCatching {
+                if (initialization == InitializationMode.SKIP) return@runCatching DownloadProxy.Choice.Direct
                 when (mode) {
                     1 -> {
                         val jvmSystemProxy = ManagementFactory.getRuntimeMXBean().inputArguments.any {
@@ -61,38 +78,52 @@ class DownloadProxyScreen(private val selection: CompletableDeferred<DownloadPro
                             InitializationProxy.prepareSystemProxy()
                             DownloadProxy.systemDelegate = InitializationProxy.selector()
                         } else {
-                            error("Enable system proxies in the launcher and restart.")
+                            error("请在启动器启用系统代理参数并重启")
                         }
                         DownloadProxy.Choice.System
                     }
-                    2 -> DownloadProxy.Choice.Custom(DownloadProxy.parseAddress(address.value))
+                    2, 3 -> DownloadProxy.Choice.Custom(
+                        DownloadProxy.parseAddress(address.value),
+                        if (mode == 3) Proxy.Type.SOCKS else Proxy.Type.HTTP,
+                    )
                     else -> DownloadProxy.Choice.Direct
                 }
             }.getOrElse {
                 error = it.message ?: "Invalid proxy address."
                 return@builder
             }
-            if (selection.complete(choice)) mc.gui.setScreen(null)
-        }.bounds(x, y + 54, 220, 20).build())
+            if (selection.complete(InitializationSelection(initialization, choice))) mc.gui.setScreen(null)
+        }.bounds(x, y, 220, 20).build())
     }
 
     private fun modeLabel() = when (mode) {
-        1 -> "Proxy: system"
-        2 -> "Proxy: custom HTTP"
-        else -> "Proxy: off"
+        1 -> "代理：系统"
+        2 -> "代理：自定义 HTTP/HTTPS"
+        3 -> "代理：自定义 SOCKS5"
+        else -> "代理：关闭"
     }.asPlainText()
+
+    override fun tick() {
+        val remaining = timeout.secondsRemaining()
+        defaultChoiceButton.message = (if (remaining < 0) "默认初始化" else "默认初始化（${remaining}s）").asPlainText()
+        if (timeout.hasExpired() &&
+            selection.complete(InitializationSelection(InitializationMode.DEFAULT, DownloadProxy.Choice.Direct))) {
+            mc.gui.setScreen(null)
+        }
+    }
 
     override fun extractRenderState(context: GuiGraphicsExtractor, mouseX: Int, mouseY: Int, partialTick: Float) {
         super.extractRenderState(context, mouseX, mouseY, partialTick)
-        val y = height / 2 - 20
+        val y = height / 2 - 52
         context.centeredText(font, title, width / 2, y - 44, -1)
-        context.centeredText(font, "Choose a proxy for initial downloads.".asPlainText(), width / 2, y - 28, -1)
+        context.centeredText(font, "可选代理；选择初始化方式后开始".asPlainText(), width / 2, y - 28, -1)
+        context.centeredText(font, "跳过后浏览器和 AI 功能不可用".asPlainText(), width / 2, y + 130, -1)
         if (mode == 1 && !System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
             context.centeredText(
-                font, "Launcher: -Djava.net.useSystemProxies=true".asPlainText(), width / 2, y + 80, -1
+                font, "Launcher: -Djava.net.useSystemProxies=true".asPlainText(), width / 2, y + 145, -1
             )
         }
-        if (error.isNotEmpty()) context.centeredText(font, error.asPlainText(), width / 2, y + 96, 0xFFFF5555.toInt())
+        if (error.isNotEmpty()) context.centeredText(font, error.asPlainText(), width / 2, y + 160, 0xFFFF5555.toInt())
     }
 
     override fun shouldCloseOnEsc() = false

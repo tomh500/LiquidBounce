@@ -54,9 +54,11 @@ our [theme](https://github.com/CCBlueX/LiquidBounce/tree/nextgen/src-theme).
 
 ## Dependency download proxy
 
-Before online initialization starts, you can choose direct access or an HTTP proxy (`host:port`). This covers initial
-online resources as well as browser and deep learning dependency downloads. The choice is reset on the next launch;
-authenticated proxies are not supported.
+Before online initialization starts, choose the initialization mode on the startup screen. The optional proxy control
+on the same screen defaults to direct access and supports HTTP/HTTPS downloads through an HTTP proxy, or a SOCKS5
+proxy (`host:port`). If you do not interact with the screen, default initialization starts after five seconds. Any
+proxy or initialization choice cancels that countdown. The proxy covers initial online resources as well as browser
+and deep learning dependency downloads. The choice is reset on the next launch; authenticated proxies are not supported.
 
 On Windows, **system** can read a manually configured HTTP proxy directly. On other platforms, or to use the JVM's
 system proxy discovery, add `-Djava.net.useSystemProxies=true` to the launcher's JVM arguments before starting.

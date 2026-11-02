@@ -28,7 +28,6 @@ import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.future.future
-import kotlinx.coroutines.future.await
 import kotlinx.coroutines.internal.isMissing
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
@@ -76,10 +75,11 @@ import net.ccbluex.liquidbounce.integration.interop.protocol.rest.v1.game.Active
 import net.ccbluex.liquidbounce.integration.screen.ScreenManager
 import net.ccbluex.liquidbounce.integration.task.TaskManager
 import net.ccbluex.liquidbounce.integration.task.TaskProgressScreen
-import net.ccbluex.liquidbounce.integration.task.InitializationChoiceScreen
 import net.ccbluex.liquidbounce.integration.task.InitializationNetwork
 import net.ccbluex.liquidbounce.integration.task.DownloadProxy
 import net.ccbluex.liquidbounce.integration.task.DownloadProxyScreen
+import net.ccbluex.liquidbounce.integration.task.InitializationMode
+import net.ccbluex.liquidbounce.integration.task.InitializationSelection
 import net.ccbluex.liquidbounce.integration.theme.ThemeManager
 import net.ccbluex.liquidbounce.lang.LanguageManager
 import net.ccbluex.liquidbounce.render.FontManager
@@ -235,12 +235,13 @@ object LiquidBounce : EventListener {
         val manager = TaskManager(ioScope)
         taskManager = manager
         val startupTask = manager.createTask("Online initialization")
-        val selection = CompletableDeferred<DownloadProxy.Choice>()
+        val selection = CompletableDeferred<InitializationSelection>()
         DownloadProxy.pending = selection
         mc.gui.setScreen(DownloadProxyScreen(selection))
-        DownloadProxy.choice = selection.await()
+        val initialization = selection.await()
+        DownloadProxy.choice = initialization.proxy
         DownloadProxy.pending = null
-        DownloadProxy.onlineInitialization = true
+        DownloadProxy.onlineInitialization = initialization.mode != InitializationMode.SKIP
         mc.gui.setScreen(TaskProgressScreen("Loading Required Libraries", manager))
 
         // Initialize managers and features
@@ -248,7 +249,7 @@ object LiquidBounce : EventListener {
         initializeManagers(renderThreadDispatcher)
         initializeFeatures()
         initializeResources(workerDispatcher)
-        prepareGuiStage(renderThreadDispatcher)
+        prepareGuiStage(renderThreadDispatcher, initialization.mode)
         manager.complete(startupTask.name)
 
         // Register shutdown hook in case [ClientShutdownEvent] is not called
@@ -413,7 +414,8 @@ object LiquidBounce : EventListener {
      * This will load [ThemeManager], as well as the [BrowserBackendManager] and [ClientInteropServer].
      */
     private suspend fun prepareGuiStage(
-        dispatcher: CoroutineDispatcher
+        dispatcher: CoroutineDispatcher,
+        mode: InitializationMode,
     ) = withContext(dispatcher) {
         RenderSystem.assertOnRenderThread()
 
@@ -438,37 +440,18 @@ object LiquidBounce : EventListener {
         // Holds the chosen browser backend
         ConfigSystem.load(GlobalManager)
 
-        val manager = requireNotNull(taskManager)
-        manager.apply {
-            launch("Initialization / 初始化") {
-                InitializationNetwork.phase = "检测国家/地区（最多 4 秒）：https://ipinfo.io/json"
-                val country = InitializationNetwork.detectCountry()
-                val mode = run {
-                    InitializationChoiceScreen.country = country
-                    val selection = java.util.concurrent.CompletableFuture<InitializationChoiceScreen.Mode>()
-                    InitializationChoiceScreen.pending = selection
-                    InitializationNetwork.phase = "等待选择初始化方式"
-                    try {
-                        withContext(Dispatchers.Main) { mc.gui.setScreen(InitializationChoiceScreen()) }
-                        selection.await()
-                    } finally {
-                        InitializationChoiceScreen.pending = null
-                    }
-                }
-                InitializationNetwork.optimized = mode == InitializationChoiceScreen.Mode.OPTIMIZED
-                InitializationNetwork.phase = if (InitializationNetwork.optimized)
-                    "优化初始化：AI 优先阿里云镜像；浏览器沿用内置多源回退" else
-                    "默认初始化：使用官方源及本地缓存"
-                if (mode == InitializationChoiceScreen.Mode.SKIP) {
-                    DownloadProxy.onlineInitialization = false
-                    net.ccbluex.liquidbounce.integration.backend.isBrowserDisabled = true
-                    DeepLearningEngine.markUnavailable()
-                    InitializationNetwork.phase = "本次已跳过依赖初始化"
-                    InitializationNetwork.report(InitializationNetwork.phase)
-                } else {
-                    withContext(Dispatchers.Main) { startDependencyTasks(this@apply) }
-                }
-            }
+        InitializationNetwork.optimized = mode == InitializationMode.OPTIMIZED
+        InitializationNetwork.phase = if (InitializationNetwork.optimized)
+            "优化初始化：AI 优先阿里云镜像；浏览器沿用内置多源回退" else
+            "默认初始化：使用官方源及本地缓存"
+        if (mode == InitializationMode.SKIP) {
+            DownloadProxy.onlineInitialization = false
+            net.ccbluex.liquidbounce.integration.backend.isBrowserDisabled = true
+            DeepLearningEngine.markUnavailable()
+            InitializationNetwork.phase = "本次已跳过依赖初始化"
+            InitializationNetwork.report(InitializationNetwork.phase)
+        } else {
+            startDependencyTasks(requireNotNull(taskManager))
         }
 
         mc.gui.setScreen(TaskProgressScreen("初始化依赖 / Loading Required Libraries", requireNotNull(taskManager)))
@@ -615,14 +598,6 @@ object LiquidBounce : EventListener {
             if (event.screen !is DownloadProxyScreen) {
                 event.cancelEvent()
                 mc.gui.setScreen(DownloadProxyScreen(proxySelection))
-            }
-            return@handler
-        }
-
-        if (InitializationChoiceScreen.pending?.isDone == false) {
-            if (event.screen !is InitializationChoiceScreen) {
-                event.cancelEvent()
-                mc.gui.setScreen(InitializationChoiceScreen())
             }
             return@handler
         }

@@ -31,7 +31,9 @@ object DownloadProxy {
     sealed interface Choice {
         data object Direct : Choice
         data object System : Choice
-        data class Custom(val address: InetSocketAddress) : Choice
+        data class Custom(val address: InetSocketAddress, val type: Proxy.Type = Proxy.Type.HTTP) : Choice {
+            init { require(type == Proxy.Type.HTTP || type == Proxy.Type.SOCKS) }
+        }
     }
 
     @Volatile
@@ -44,7 +46,7 @@ object DownloadProxy {
     var systemDelegate: ProxySelector? = null
 
     @Volatile
-    var pending: CompletableDeferred<Choice>? = null
+    var pending: CompletableDeferred<InitializationSelection>? = null
 
     private val downloadClient = ThreadLocal.withInitial { false }
     val wantsDownloadClient: Boolean get() = downloadClient.get()
@@ -73,7 +75,7 @@ object DownloadProxy {
             return when (selected) {
                 Choice.Direct -> listOf(Proxy.NO_PROXY)
                 Choice.System -> (systemDelegate ?: delegate).select(uri)
-                is Choice.Custom -> listOf(Proxy(Proxy.Type.HTTP, selected.address))
+                is Choice.Custom -> listOf(Proxy(selected.type, selected.address))
             }
         }
 
