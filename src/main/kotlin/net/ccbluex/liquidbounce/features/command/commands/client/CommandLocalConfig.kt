@@ -194,7 +194,7 @@ object CommandLocalConfig : CommandRegistrar {
         if (include.contains("fun")) inclusions.add(OptionalInclusion.FUN)
 
         val includeConfiguration = IncludeConfiguration(
-            includeBinds = include.contains("binds"),
+            includeBinds = true,
             includeHidden = include.contains("hidden"),
             optionalInclusions = inclusions,
         )
