@@ -25,6 +25,7 @@ import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.config.types.list.Tagged
 import net.ccbluex.liquidbounce.features.global.GlobalVapeRotationSettings
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleRikkaKAHelper
+import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleAutoWeapon
 import net.ccbluex.liquidbounce.features.module.modules.render.ModuleFreeCam
 import net.ccbluex.liquidbounce.utils.aiming.RotationManager
 import net.ccbluex.liquidbounce.utils.aiming.RotationTarget
@@ -269,7 +270,7 @@ internal fun ModuleKillAura.updateSilentTargetAndRotation() {
         baseComparator
     }
 
-    val target = ModuleRikkaKAHelper.killAuraTarget ?: targetTracker.targets().asSequence()
+    val target = (ModuleRikkaKAHelper.killAuraTarget?.let(::listOf) ?: targetTracker.targets()).asSequence()
         .filter { isValidVapeTarget(it, Silent.ignoreNaked,
             Silent.ignoreInvisible, Silent.ignoreBehindWalls) }
         .filter { isSilentInRange(it, interactionRange) }
@@ -291,6 +292,7 @@ internal fun ModuleKillAura.updateSilentTargetAndRotation() {
     }
 
     targetTracker.target = target
+    ModuleAutoWeapon.onTarget(target)
     val aimState = silentAimState(target)
     // Vape uses the yaw to the jittered point but the feet-based pitch target from RotationUtil.h.
     val rotation = Rotation(

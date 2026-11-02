@@ -21,6 +21,7 @@ package net.ccbluex.liquidbounce.utils.inventory
 import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.events.GameTickEvent
 import net.ccbluex.liquidbounce.event.events.ScheduleInventoryActionEvent
+import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.utils.client.SilentHotbar
 import java.util.function.IntSupplier
@@ -49,6 +50,16 @@ class AnchoredHotbarSwapController(
     private var lastSwitchScheduledEvent: ScheduleInventoryActionEvent? = null
 
     override fun parent() = owner
+
+    @Suppress("unused")
+    private val worldChangeListener = object : EventListener {
+        private val worldChangeHandler = handler<WorldChangeEvent> {
+            // The owner may already be inactive when disconnect is dispatched.
+            this@AnchoredHotbarSwapController.reset()
+        }
+    }
+
+    override fun children(): List<EventListener> = listOf(worldChangeListener)
 
     /**
      * Request swapping [sourceSlot] into the anchored hotbar slot on next inventory scheduling pass.

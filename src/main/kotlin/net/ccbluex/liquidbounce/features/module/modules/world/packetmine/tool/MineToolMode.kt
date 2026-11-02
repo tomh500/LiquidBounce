@@ -58,6 +58,9 @@ sealed class MineToolMode(
     }
 
     fun getSlot(state: BlockState): HotbarItemSlot? {
+        if (ModulePacketMine.usesRikkaMiningTools) {
+            return ModulePacketMine.rikkaTool(state)
+        }
         if (switchesNever) {
             return null
         }

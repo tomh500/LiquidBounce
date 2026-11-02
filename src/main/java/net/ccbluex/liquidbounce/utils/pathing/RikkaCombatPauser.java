@@ -6,6 +6,7 @@ import baritone.api.process.PathingCommand;
 import baritone.api.process.PathingCommandType;
 import net.ccbluex.liquidbounce.features.module.modules.combat.ModuleRikkaKAHelper;
 import net.ccbluex.liquidbounce.features.module.modules.combat.killaura.ModuleKillAura;
+import net.ccbluex.liquidbounce.features.module.modules.movement.autododge.ModuleAutoDodge;
 import net.ccbluex.liquidbounce.utils.combat.CombatManager;
 import net.minecraft.client.Minecraft;
 
@@ -15,14 +16,21 @@ public final class RikkaCombatPauser implements IBaritoneProcess {
         Minecraft mc = Minecraft.getInstance();
         return mc.player != null && mc.level != null
             && PathingEngine.INSTANCE.isRikkaAutomationEnabled()
-            && (ModuleKillAura.INSTANCE.getEnabled()
+            && (hasCombatTarget()
                 || CombatManager.INSTANCE.isInCombat()
-                || ModuleRikkaKAHelper.INSTANCE.hasThreatForPathing());
+                || ModuleRikkaKAHelper.INSTANCE.hasThreatForPathing()
+                || ModuleAutoDodge.INSTANCE.hasPredictedHit());
+    }
+
+    private static boolean hasCombatTarget() {
+        return ModuleKillAura.INSTANCE.getRunning()
+            && ModuleKillAura.INSTANCE.getTargetTracker().getTarget() != null;
     }
 
     @Override
     public boolean isActive() {
-        return shouldPause();
+        // Threat response must retain control to approach enemies or retreat from creepers.
+        return shouldPause() && !ModuleRikkaKAHelper.INSTANCE.canControlPathing();
     }
 
     @Override

@@ -2,6 +2,7 @@ package net.ccbluex.liquidbounce.features.module.modules.xuanrikka
 
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.ModuleOrigin
 import net.ccbluex.liquidbounce.utils.input.InputBind
 import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 import net.ccbluex.liquidbounce.utils.client.notification
@@ -20,11 +21,14 @@ abstract class RikkaProcessModule(
     secondaryCategories = listOf(ModuleCategories.XUAN_RIKKA),
     displayPrimaryCategory = false,
     aliases = aliases,
+    origin = ModuleOrigin.XUAN_RIKKA,
+    disableOnQuit = true,
 ), RikkaAutomationModule {
 
     protected abstract fun startProcess()
 
     override fun onEnabled() {
+        PathingEngine.activateAutomation(this)
         startProcess()
     }
 
@@ -83,13 +87,11 @@ object ModuleRikkaPause : ClientModule(
     displayPrimaryCategory = false,
     bindAction = InputBind.BindAction.HOLD,
     aliases = listOf("Pause"),
+    origin = ModuleOrigin.XUAN_RIKKA,
+    disableOnQuit = true,
 ) {
     override fun onEnabled() {
-        PathingEngine.execute("pause", emptyList())
-    }
-
-    override fun onDisabled() {
-        PathingEngine.execute("resume", emptyList())
+        PathingEngine.installOutputBridge()
     }
 }
 
@@ -100,6 +102,8 @@ object ModuleRikkaStop : ClientModule(
     displayPrimaryCategory = false,
     bindAction = InputBind.BindAction.HOLD,
     aliases = listOf("Stop", "Cancel"),
+    origin = ModuleOrigin.XUAN_RIKKA,
+    disableOnQuit = true,
 ) {
     override fun onEnabled() {
         PathingEngine.cancelAndDisableRikkaAutomationModules()

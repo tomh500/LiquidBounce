@@ -375,8 +375,10 @@ object ModuleKillAura : ClientModule("KillAura", ModuleCategories.COMBAT) {
 
     private fun updateTarget() {
         ModuleRikkaKAHelper.killAuraTarget?.let { helperTarget ->
-            targetTracker.target = helperTarget
-            return
+            if (processTarget(helperTarget, range.interactionRange, range.interactionThroughWallsRange)) {
+                targetTracker.target = helperTarget
+                return
+            }
         }
 
         // Calculate maximum range based on enemy distance

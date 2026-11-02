@@ -23,9 +23,13 @@ import net.ccbluex.liquidbounce.config.types.group.ModeValueGroup
 import net.ccbluex.liquidbounce.config.types.group.ToggleableValueGroup
 import net.ccbluex.liquidbounce.event.events.BlockBreakingProgressEvent
 import net.ccbluex.liquidbounce.event.events.CancelBlockBreakingEvent
+import net.ccbluex.liquidbounce.event.events.WorldChangeEvent
+import net.ccbluex.liquidbounce.event.EventListener
 import net.ccbluex.liquidbounce.event.handler
 import net.ccbluex.liquidbounce.features.module.ClientModule
 import net.ccbluex.liquidbounce.features.module.ModuleCategories
+import net.ccbluex.liquidbounce.features.module.modules.world.packetmine.ModulePacketMine
+import net.ccbluex.liquidbounce.utils.pathing.PathingEngine
 import net.ccbluex.liquidbounce.utils.block.bed.BedBlockTracker
 import net.ccbluex.liquidbounce.utils.block.getCenterDistanceSquaredEyes
 import net.ccbluex.liquidbounce.utils.block.stateOrEmpty
@@ -214,7 +218,21 @@ object ModuleAutoTool : ClientModule("AutoTool", ModuleCategories.WORLD) {
         }
     }
 
+    @Suppress("unused")
+    private val worldChangeListener = object : EventListener {
+        private val worldChangeHandler = handler<WorldChangeEvent> {
+            breakingPos = null
+            breakingStartedTick = 0
+        }
+    }
+
     fun switchToBreakBlock(pos: BlockPos) {
+        if (ModulePacketMine.ownsRikkaMiningTarget(pos) ||
+            ModuleRikkaMine.running && PathingEngine.isRequestingBlockBreak()) {
+            SilentHotbar.resetSlot(this)
+            if (isInventoryConsidered) DynamicSelectMode.ConsiderInventory.onNoTool()
+            return
+        }
         if (switchDelay > 0) {
             // A new block starts a new breaking session and re-arms the delay
             if (breakingPos != pos) {

@@ -42,8 +42,8 @@ object ImmediateMineMode : MineMode("Immediate", canManuallyChange = false, canA
     }
 
     override fun finish(mineTarget: MineTarget) {
+        mineTarget.finished = true
         if (!waitForConfirm) {
-            mineTarget.finished = true
             ModulePacketMine._resetTarget()
         }
     }

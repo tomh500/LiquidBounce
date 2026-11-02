@@ -113,6 +113,16 @@ object ModuleAutoDodge : ClientModule("AutoDodge", ModuleCategories.COMBAT) {
                 (entity is ThrownTrident && entity.clientSideReturnTridentTickCount == 0)) && !entity.isInGround
     }
 
+    /** Use the same moving-player prediction as the dodge handler when another controller yields movement. */
+    fun hasPredictedHit(): Boolean {
+        if (!running) return false
+        val arrows = world.findFlyingArrows()
+        if (arrows.isEmpty()) return false
+        val simulatedPlayer = CachedPlayerSimulation(PlayerSimulationCache.getSimulationForLocalPlayer())
+        return getInflictedHits(simulatedPlayer, arrows,
+            hitboxExpansion = DodgePlanner.SAFE_DISTANCE_WITH_PADDING) != null
+    }
+
     private fun <T : PlayerSimulation> getInflictedHits(
         simulatedPlayer: T,
         arrows: List<Entity>,
